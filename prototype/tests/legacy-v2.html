@@ -1,0 +1,1133 @@
+<title>QueuedToGo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Oswald:wght@500;600&family=Playfair+Display:wght@700&display=swap">
+<style>
+/* Layout: workshop app shell. Sticky top bar with section tabs; each section is one working surface.
+   Event forms carry their own theme (colours, fonts, corners, artwork) set in the builder. */
+:root{
+  --bg:#F2F3F7; --surface:#FFFFFF; --surface-2:#E8EAF1; --fg:#161A2B; --muted:#5A6077; --line:#D4D8E3;
+  --accent:#3346D3; --accent-fg:#FFFFFF; --accent-soft:#E2E6FF;
+  --good:#1D8657; --good-soft:#DDF3E8; --warn:#9A6512; --warn-soft:#FBEFD6; --bad:#BF3438; --bad-soft:#FBE1E1;
+  --s-new:#7B8194; --s-artwork:#9A5BD0; --s-production:#3346D3; --s-qc:#C9821B; --s-ready:#1D8657; --s-done:#5A6077;
+  --shadow:0 1px 2px rgba(22,26,43,.06),0 2px 8px rgba(22,26,43,.05);
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11131B; --surface:#1A1D28; --surface-2:#252937; --fg:#E7E9F2; --muted:#9BA1B8; --line:#313649;
+  --accent:#8D9BFF; --accent-fg:#0F1230; --accent-soft:#262C56;
+  --good:#52C68F; --good-soft:#173527; --warn:#E3B04D; --warn-soft:#3A2E14; --bad:#F27377; --bad-soft:#3E1C1F;
+  --s-new:#9BA1B8; --s-artwork:#C493F0; --s-production:#8D9BFF; --s-qc:#E3B04D; --s-ready:#52C68F; --s-done:#7D839A;
+  --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11131B; --surface:#1A1D28; --surface-2:#252937; --fg:#E7E9F2; --muted:#9BA1B8; --line:#313649;
+  --accent:#8D9BFF; --accent-fg:#0F1230; --accent-soft:#262C56;
+  --good:#52C68F; --good-soft:#173527; --warn:#E3B04D; --warn-soft:#3A2E14; --bad:#F27377; --bad-soft:#3E1C1F;
+  --s-new:#9BA1B8; --s-artwork:#C493F0; --s-production:#8D9BFF; --s-qc:#E3B04D; --s-ready:#52C68F; --s-done:#7D839A;
+  --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--surface)}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+button,input,select,textarea{font:inherit;color:inherit}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.muted{color:var(--muted)}
+
+/* Top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-inner{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:10px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand h1{font-size:21px}
+.brand h1 span{color:var(--accent)}
+.ws{font-size:13px;color:var(--muted)}
+.tabs{display:flex;gap:4px;margin-left:auto;overflow-x:auto;max-width:100%}
+.tab{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;color:var(--muted);font-weight:500;white-space:nowrap}
+.tab:hover{background:var(--surface-2);color:var(--fg)}
+.tab[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
+.note{font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding-block:8px;border-top:1px dashed var(--line)}
+.linkbtn{border:0;background:none;color:var(--accent);cursor:pointer;padding:0;font-weight:500;text-decoration:underline;text-underline-offset:2px}
+
+main{padding-block:20px 48px}
+.view-head{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.view-head h2{font-size:26px}
+.view-head p{margin:2px 0 0;color:var(--muted);max-width:66ch}
+
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:500;text-decoration:none;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.small{padding:5px 10px;font-size:13px}
+.btn.ghost{border-color:transparent;background:none}
+.btn.ghost:hover{background:var(--surface-2)}
+
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.stat b{display:block;font:700 26px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stat.alert b{color:var(--bad)}
+@media (max-width:640px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;letter-spacing:.02em;white-space:nowrap;display:inline-block}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.plain{background:var(--surface-2);color:var(--muted)}
+.stagepill{display:inline-flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--c)}
+.evtag{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);min-width:0}
+.evtag i{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none}
+.evtag span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px}
+input[type=text],input[type=tel],input[type=email],input[type=date],input[type=number],input[type=url],input[type=search],select,textarea{
+  background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%;min-width:0}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+textarea{resize:vertical;min-height:64px}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:500}
+label.f small,.hint{font-weight:400;color:var(--muted);font-size:12.5px}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:520px){.row{grid-template-columns:minmax(0,1fr)}}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13.5px}
+.seg button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+.switch{display:flex;align-items:center;gap:10px;font-size:13.5px;cursor:pointer}
+.switch input{appearance:none;width:34px;height:20px;border-radius:99px;background:var(--line);position:relative;cursor:pointer;transition:background .15s;margin:0;flex:none}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--surface);transition:transform .15s}
+.switch input:checked{background:var(--good)}
+.switch input:checked::after{transform:translateX(14px)}
+
+/* ---------- Forms list ---------- */
+.evgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.evcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.evthumb{aspect-ratio:12/5;background:var(--c);position:relative;overflow:hidden;max-width:100%}
+.evthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.evthumb .pill{position:absolute;top:10px;left:10px}
+.evthumb .noart{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:13px;opacity:.8}
+.evbody{padding:14px 16px 16px;display:flex;flex-direction:column;gap:4px;flex:1}
+.evbody h3{font-size:18px}
+.evnums{font-size:13px;color:var(--muted);margin-top:4px}
+.evacts{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.newcard{border:1.5px dashed var(--line);border-radius:12px;background:none;display:grid;place-items:center;text-align:center;padding:24px;cursor:pointer;min-height:220px;color:var(--muted)}
+.newcard:hover{border-color:var(--accent);color:var(--accent)}
+.newcard b{display:block;font:600 18px var(--f-display);color:var(--fg);margin-bottom:4px}
+
+/* ---------- Builder ---------- */
+.b-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.b-top h2{font-size:22px;min-width:0;overflow-wrap:anywhere}
+.b-top .sp{flex:1}
+.builder{display:grid;grid-template-columns:minmax(300px,390px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:920px){.builder{grid-template-columns:minmax(0,1fr)}}
+.bpanel{padding:0;overflow:hidden}
+.btabs{display:flex;border-bottom:1px solid var(--line)}
+.btabs button{flex:1;border:0;background:none;padding:12px 8px;cursor:pointer;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.btabs button[aria-selected="true"]{color:var(--accent);border-color:var(--accent)}
+.bbody{padding:16px;display:flex;flex-direction:column;gap:16px}
+.bsec{display:flex;flex-direction:column;gap:10px}
+.bsec h4{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.blks{display:flex;flex-direction:column;gap:6px}
+.blk{border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.blk.open{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.blk-row{display:flex;align-items:center;gap:4px;padding:4px 4px 4px 0}
+.blk-main{flex:1;min-width:0;border:0;background:none;text-align:left;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column}
+.blk-type{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.blk-label{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk-label .req{color:var(--bad)}
+.blk-acts{display:flex}
+.blk-acts button{border:0;background:none;width:28px;height:28px;border-radius:6px;cursor:pointer;color:var(--muted);font-size:14px}
+.blk-acts button:hover{background:var(--surface-2);color:var(--fg)}
+.blk-acts button:disabled{opacity:.3;cursor:default;background:none}
+.blk-ed{border-top:1px dashed var(--line);padding:12px;display:flex;flex-direction:column;gap:10px}
+.addgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.addgrid button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;cursor:pointer;text-align:left;font-size:13px;display:flex;gap:8px;align-items:center}
+.addgrid button:hover{border-color:var(--accent);color:var(--accent)}
+.addgrid b{font-family:var(--f-mono);font-size:11px;color:var(--muted);width:18px;text-align:center}
+.artbox{display:flex;gap:12px;align-items:center}
+.artbox .th{width:120px;aspect-ratio:12/5;border-radius:8px;overflow:hidden;background:var(--surface-2);flex:none;display:grid;place-items:center;font-size:12px;color:var(--muted);max-width:100%}
+.artbox .th img{width:100%;height:100%;object-fit:cover;display:block}
+.swatches{display:flex;gap:6px;flex-wrap:wrap}
+.swatches span{width:28px;height:28px;border-radius:6px;background:var(--c);border:1px solid var(--line)}
+.colors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.colors label{display:flex;align-items:center;gap:8px;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+.colors input[type=color]{width:28px;height:28px;border:0;padding:0;background:none;cursor:pointer;flex:none}
+.colors code{font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-left:auto}
+.contrast{font-size:12.5px;display:flex;flex-direction:column;gap:3px}
+.contrast .ok{color:var(--good)} .contrast .low{color:var(--bad)}
+.fontpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+.fontpick button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;gap:0}
+.fontpick button b{font-size:20px;line-height:1.2}
+.fontpick button span{font-size:12px;color:var(--muted)}
+.fontpick button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.linkbox{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 6px 6px 12px;max-width:100%}
+.linkbox span{overflow-wrap:anywhere;font-size:13px;flex:1;min-width:0}
+
+.bprev{position:sticky;top:130px;min-width:0}
+@media (max-width:920px){.bprev{position:static}}
+.bprev-bar{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.bprev-bar .seg{margin-left:auto}
+.bprev-frame{border:1px solid var(--line);border-radius:14px;overflow:auto;max-height:calc(100vh - 190px);background:var(--surface-2);margin-inline:auto;transition:max-width .2s}
+@media (max-width:920px){.bprev-frame{max-height:none}}
+.bprev-frame.phone{max-width:390px}
+
+/* ---------- Event form (themed by the event, not the app) ---------- */
+.qf-wrap{container-type:inline-size;background:var(--p);color:var(--t);font-family:var(--bf);line-height:1.5}
+.qf{position:relative;min-height:100%}
+.qf-art img{display:block;width:100%;aspect-ratio:12/5;object-fit:cover;max-width:100%}
+.qf-bg{position:absolute;inset:0;overflow:hidden}
+.qf-bg img{width:100%;height:100%;object-fit:cover;display:block}
+.qf-bg::after{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--p) 35%,transparent)}
+.qf-main{position:relative;padding:0 16px 40px}
+.qf-banner .qf-main{margin-top:-48px}
+.qf-banner.noart .qf-main,.qf-side.noart .qf-main{margin-top:0;padding-top:32px}
+.qf-background .qf-main{padding-top:56px;padding-bottom:56px}
+.qf-card{background:var(--c);color:var(--t);max-width:620px;margin-inline:auto;border-radius:min(var(--r),20px);padding:28px clamp(18px,5cqi,36px);display:flex;flex-direction:column;gap:18px;box-shadow:0 10px 40px rgba(0,0,0,.18)}
+@container (min-width:760px){
+  .qf-side .qf{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .qf-side .qf-art{position:sticky;top:0;align-self:start;height:100%}
+  .qf-side .qf-art img{height:100%;min-height:520px;aspect-ratio:auto}
+  .qf-side .qf-main{margin-top:0;padding:40px 32px}
+  .qf-side .qf-card{box-shadow:none}
+}
+.qf-eyebrow{font-size:12.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--a) 45%,var(--t))}
+.qf-title{font-family:var(--hf);font-size:clamp(28px,6cqi,42px);line-height:1.08;margin:0;text-transform:var(--tt);text-wrap:balance;letter-spacing:-.01em}
+.qf-intro{margin:0;opacity:.85}
+.qf-form{display:flex;flex-direction:column;gap:20px}
+.qf-field{display:flex;flex-direction:column;gap:7px;border-radius:8px;scroll-margin-top:140px}
+.qf-label{font-weight:600;font-size:15px}
+.qf-req{color:color-mix(in srgb,var(--a) 45%,var(--t));margin-left:3px}
+.qf-help{font-size:13px;opacity:.72;margin-top:-4px}
+.qf-in{background:color-mix(in srgb,var(--t) 5%,var(--c));border:1.5px solid color-mix(in srgb,var(--t) 20%,transparent);color:var(--t);border-radius:min(var(--r),12px);padding:11px 13px;width:100%;min-width:0;font:inherit}
+.qf-in:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px color-mix(in srgb,var(--a) 30%,transparent)}
+textarea.qf-in{min-height:90px;resize:vertical}
+.qf-in::placeholder{color:color-mix(in srgb,var(--t) 45%,transparent)}
+.qf-opts{display:flex;flex-wrap:wrap;gap:8px}
+.qf-opt{position:relative;cursor:pointer}
+.qf-opt input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+.qf-opt span{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid color-mix(in srgb,var(--t) 24%,transparent);border-radius:var(--r);font-weight:500;transition:background .12s,border-color .12s}
+.qf-opt:hover span{border-color:var(--a)}
+.qf-opt input:checked+span{background:var(--a);color:var(--at);border-color:var(--a)}
+.qf-opt input:focus-visible+span{outline:2px solid var(--a);outline-offset:2px}
+.qf-sizes{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px}
+.qf-sizes label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;text-align:center;opacity:.9}
+.qf-sizes input{text-align:center}
+.qf-upload{display:flex;align-items:center;gap:12px;border:1.5px dashed color-mix(in srgb,var(--t) 30%,transparent);border-radius:min(var(--r),12px);padding:14px;cursor:pointer;font-size:14px}
+.qf-upload:hover{border-color:var(--a)}
+.qf-upload img{width:48px;height:48px;object-fit:contain;border-radius:6px;background:color-mix(in srgb,var(--t) 6%,var(--c))}
+.qf-upload b{color:var(--a)}
+.qf-link{display:inline-flex;align-self:flex-start;align-items:center;gap:8px;padding:11px 18px;border:2px solid var(--a);color:var(--t);border-radius:var(--r);font-weight:600;text-decoration:none}
+.qf-link:hover{background:color-mix(in srgb,var(--a) 14%,transparent)}
+.qf-h{font-family:var(--hf);font-size:21px;margin:6px 0 -6px;text-transform:var(--tt)}
+.qf-p{margin:0;opacity:.85}
+.qf-hr{border:0;border-top:1.5px solid color-mix(in srgb,var(--t) 15%,transparent);margin:0;width:100%}
+.qf-check{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.qf-check input{margin-top:4px;accent-color:var(--a)}
+.qf-err{color:var(--t);font-weight:600;font-size:14px;background:color-mix(in srgb,#E5484D 22%,var(--c));border-radius:8px;padding:10px 12px}
+.qf-err:empty{display:none}
+.qf-field.invalid .qf-in,.qf-field.invalid .qf-opt span,.qf-field.invalid .qf-upload{border-color:#E5484D}
+.qf-submit{background:var(--a);color:var(--at);border:0;border-radius:var(--r);padding:15px 24px;font-weight:700;font-size:16px;cursor:pointer;font-family:var(--hf);text-transform:var(--tt);letter-spacing:.01em}
+.qf-submit:hover{filter:brightness(1.06)}
+.qf-closed{padding:16px;border-radius:10px;background:color-mix(in srgb,var(--t) 7%,var(--c));font-weight:500}
+.qf-done{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.qf-done .num{font-family:var(--f-mono);font-size:28px;font-weight:500;color:var(--a)}
+.qf-done .lk{font-family:var(--f-mono);font-size:13px;background:color-mix(in srgb,var(--t) 6%,var(--c));padding:8px 12px;border-radius:8px;overflow-wrap:anywhere}
+.qf-powered{text-align:center;font-size:12px;opacity:.6;margin-top:14px;position:relative}
+.editing .qf-field{cursor:pointer;outline:2px dashed transparent;outline-offset:6px;transition:outline-color .12s}
+.editing .qf-field:hover{outline-color:color-mix(in srgb,var(--a) 50%,transparent)}
+.editing .qf-field.sel{outline-color:var(--a)}
+.editing .qf-field *,.editing .qf-submit{pointer-events:none}
+/* tracking steps inside a themed card */
+.tsteps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.tsteps li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:12px;align-items:start;position:relative;padding-bottom:16px}
+.tsteps li::before{content:"";position:absolute;left:10px;top:20px;bottom:-2px;border-left:2px dashed color-mix(in srgb,var(--t) 25%,transparent)}
+.tsteps li:last-child::before{display:none}
+.tsteps li.done::before{border-left-style:solid;border-color:var(--a)}
+.tsteps .mark{width:22px;height:22px;border-radius:50%;border:2px solid color-mix(in srgb,var(--t) 25%,transparent);background:var(--c);display:grid;place-items:center;font-size:12px;position:relative;z-index:1}
+.tsteps li.done .mark{background:var(--a);border-color:var(--a);color:var(--at)}
+.tsteps li.current .mark{border-color:var(--a);box-shadow:0 0 0 4px color-mix(in srgb,var(--a) 30%,transparent)}
+.tsteps li.todo .nm{opacity:.55}
+.tsteps .dt{font-size:12px;opacity:.7;text-align:right}
+.tnow{padding:14px;border-radius:10px;background:color-mix(in srgb,var(--a) 16%,var(--c))}
+.tnow b{display:block;font:700 22px/1.2 var(--hf);text-transform:var(--tt)}
+.fill-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:13.5px;color:var(--muted)}
+.fill-frame{border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+
+/* ---------- Submissions ---------- */
+.subtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.subtools select{width:auto;max-width:100%}
+.subtools input[type=search]{width:220px;max-width:100%}
+.subtools .sp{flex:1}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.chip{font-size:13px;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:4px 12px}
+.chip b{font-variant-numeric:tabular-nums}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+table.subs{border-collapse:collapse;width:100%;font-size:14px;min-width:720px}
+.subs th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface)}
+.subs td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top;max-width:220px;overflow-wrap:anywhere}
+.subs tr:last-child td{border-bottom:0}
+.subs tbody tr{cursor:pointer}
+.subs tbody tr:hover td{background:var(--bg)}
+.subs td.when{white-space:nowrap;color:var(--muted);font-size:13px}
+.subs .thumb{width:36px;height:36px;border-radius:6px;object-fit:cover;background:var(--surface-2)}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+
+/* ---------- Board ---------- */
+.boardtools{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.boardtools select{width:auto}
+.board-scroll{overflow-x:auto;padding-bottom:8px;margin-inline:-4px}
+.board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(250px,1fr);gap:12px;padding-inline:4px;min-width:min-content}
+.col{background:var(--surface-2);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:10px;min-height:220px;transition:background .15s}
+.col.over{background:var(--accent-soft)}
+.col-head{display:flex;align-items:center;gap:8px;padding:2px 4px;font-weight:600;font-size:14px}
+.count{margin-left:auto;font-size:12px;color:var(--muted);font-family:var(--f-mono)}
+.col-rule{font-size:12px;color:var(--muted);padding:0 4px}
+.col-rule.on{color:var(--good)}
+.empty-col{font-size:13px;color:var(--muted);text-align:center;padding:18px 8px;border:1.5px dashed var(--line);border-radius:10px}
+.ticket{background:var(--surface);border-radius:10px;box-shadow:var(--shadow);border:1px solid var(--line);cursor:grab;position:relative}
+.ticket.dragging{opacity:.45}
+.t-top{display:flex;align-items:center;gap:8px;padding:10px 12px 8px;border-bottom:1.5px dashed var(--line)}
+.t-num{font-size:13px;color:var(--muted)}
+.t-body{padding:8px 12px 10px;display:flex;flex-direction:column;gap:4px}
+.t-cust{font-weight:600;line-height:1.3}
+.t-item{font-size:13px;color:var(--muted)}
+.t-meta{display:flex;align-items:center;gap:8px;margin-top:4px;font-size:12px;color:var(--muted)}
+.avatar{width:24px;height:24px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--fg);flex:none}
+.avatar.none{border:1.5px dashed var(--line);background:none;color:var(--muted)}
+.t-open{position:absolute;inset:0;border:0;background:none;cursor:pointer;border-radius:10px}
+.t-next{position:relative;z-index:1;margin:0 12px 10px;width:calc(100% - 24px);justify-content:center;font-size:12.5px;padding:5px 8px;color:var(--muted)}
+.t-next:hover{color:var(--accent);border-color:var(--accent)}
+.chan{font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--line);padding:1px 6px;border-radius:5px;margin-left:auto}
+
+/* ---------- Notifications ---------- */
+.grid2{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:20px;align-items:start}
+@media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.rules{display:flex;flex-direction:column;gap:10px}
+.rule{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.rule-head{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.rule-head .switch{margin-left:auto;font-size:12px;color:var(--muted);font-weight:500}
+.rule.off textarea{opacity:.55}
+.vars{font-size:12px;color:var(--muted)}
+.vars code{font-family:var(--f-mono);background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.log{display:flex;flex-direction:column}
+.msg{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.msg:last-child{border-bottom:0}
+.msg .when{font-size:12px;color:var(--muted);grid-column:2}
+.msg .to{font-size:13px;font-weight:600;grid-column:2;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.msg .body{grid-column:2;background:var(--surface-2);border-radius:4px 12px 12px 12px;padding:8px 12px;font-size:14px;overflow-wrap:anywhere}
+.msg .icon{grid-row:1/span 3;width:32px;height:32px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:11px;font-weight:700}
+
+.track{max-width:620px;margin-inline:auto}
+.track-find{display:flex;gap:8px;margin-bottom:16px}
+
+/* ---------- Drawer ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,12,20,.45);z-index:40;display:flex;justify-content:flex-end}
+.drawer{background:var(--surface);width:min(540px,100%);height:100%;overflow-y:auto;padding:calc(20px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) 20px;display:flex;flex-direction:column;gap:20px}
+.d-head{display:flex;align-items:start;gap:12px}
+.d-head h3{font-size:22px}
+.d-head .x{margin-left:auto}
+.d-sec h4{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.kv{display:grid;grid-template-columns:minmax(90px,38%) minmax(0,1fr);gap:8px 12px;font-size:14px;margin:0}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;overflow-wrap:anywhere}
+.art{max-width:160px;max-height:160px;border-radius:8px;background:var(--surface-2);padding:6px;border:1px solid var(--line);display:block}
+.events{list-style:none;margin:0;padding:0;font-size:13.5px;display:flex;flex-direction:column;gap:8px}
+.events li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.events .who{font-weight:600}
+.events time{color:var(--muted);font-size:12px;white-space:nowrap}
+.events li.note-ev .nt{background:var(--warn-soft);padding:2px 6px;border-radius:5px}
+.inline-add{display:flex;gap:8px}
+.inline-add input{flex:1}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;z-index:60;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.25);display:flex;gap:14px;align-items:center}
+.toast button{border:0;background:none;color:var(--bg);font-weight:700;text-decoration:underline;cursor:pointer;padding:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="top">
+  <div class="wrap top-inner">
+    <div class="brand"><h1>Queued<span>ToGo</span></h1><span class="ws">Threadtogo workspace</span></div>
+    <nav class="tabs" aria-label="Sections">
+      <button class="tab" data-view="events">Event forms</button>
+      <button class="tab" data-view="subs">Submissions</button>
+      <button class="tab" data-view="board">Production board</button>
+      <button class="tab" data-view="messages">Notifications</button>
+      <button class="tab" data-view="track">Tracking page</button>
+    </nav>
+  </div>
+  <div class="wrap note">
+    <span>Prototype with sample events and orders. Data stays in this browser, and messages are simulated.</span>
+    <button class="linkbtn" id="reset">Reset sample data</button>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+<div id="drawer-root"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ================= Constants ================= */
+const STAGES=[
+  {id:'new',name:'New order'},{id:'artwork',name:'Artwork approval'},{id:'production',name:'In production'},
+  {id:'qc',name:'Quality check'},{id:'ready',name:'Ready for collection'},{id:'done',name:'Completed'}];
+const TEAM=['Grace','Daniel','Ruth','Sam'];
+const BUSINESS='Threadtogo';
+const CHANNELS={sms:'SMS',whatsapp:'WhatsApp',email:'Email'};
+const PLEX="'IBM Plex Sans',system-ui,sans-serif";
+const FONTS={
+  clean:{label:'Clean',head:PLEX,body:PLEX},
+  bold:{label:'Bold',head:"'Bricolage Grotesque',system-ui,sans-serif",body:PLEX},
+  elegant:{label:'Elegant',head:"'Playfair Display',Georgia,serif",body:PLEX},
+  sporty:{label:'Sporty',head:"'Oswald','Arial Narrow',sans-serif",body:PLEX,upper:true},
+  friendly:{label:'Friendly',head:"'Baloo 2',system-ui,sans-serif",body:"'Baloo 2',system-ui,sans-serif"}};
+const RADII={square:'3px',rounded:'12px',pill:'999px'};
+const LAYOUTS={banner:'Banner on top',background:'Full background',side:'Side by side'};
+const BLOCKS={
+  short:{name:'Short answer',k:'Aa'}, long:{name:'Long answer',k:'¶'},
+  email:{name:'Email',k:'@'}, phone:{name:'Phone',k:'#'},
+  choice:{name:'Choice buttons',k:'◉',opts:true}, multi:{name:'Multi-select buttons',k:'☑',opts:true},
+  dropdown:{name:'Dropdown',k:'▾',opts:true}, sizes:{name:'Quantity per size',k:'12',opts:true},
+  date:{name:'Date',k:'D'}, upload:{name:'File upload',k:'↑'},
+  button:{name:'Link button',k:'↗',deco:true}, heading:{name:'Heading',k:'H',deco:true},
+  text:{name:'Text',k:'T',deco:true}, divider:{name:'Divider',k:'—',deco:true}};
+const isInput=f=>!BLOCKS[f.type].deco;
+
+/* ================= Helpers ================= */
+const DAY=864e5, now=()=>Date.now();
+const isoDay=d=>{const x=new Date(d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
+const today=()=>isoDay(now());
+const fmtDay=iso=>iso?new Date(iso+'T12:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'}):'';
+const fmtTime=t=>new Date(t).toLocaleString(undefined,{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9);
+const stageName=id=>STAGES.find(s=>s.id===id).name;
+const stageIdx=id=>STAGES.findIndex(s=>s.id===id);
+const slugify=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'form';
+const $=id=>document.getElementById(id);
+
+/* colour maths */
+const hex2rgb=h=>{h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return[0,2,4].map(i=>parseInt(h.slice(i,i+2),16))};
+const rgb2hex=a=>'#'+a.map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('').toUpperCase();
+const mix=(a,b,t)=>{const A=hex2rgb(a),B=hex2rgb(b);return rgb2hex(A.map((v,i)=>v+(B[i]-v)*t))};
+const lum=h=>{const c=hex2rgb(h).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*c[0]+.7152*c[1]+.0722*c[2]};
+const contrast=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+const sat=h=>{const[r,g,b]=hex2rgb(h).map(v=>v/255);const mx=Math.max(r,g,b),mn=Math.min(r,g,b);if(mx===mn)return 0;const l=(mx+mn)/2;return (mx-mn)/(1-Math.abs(2*l-1))};
+const bestOn=bg=>contrast(bg,'#FFFFFF')>=contrast(bg,'#141414')?'#FFFFFF':'#141414';
+
+function paletteFromCanvas(ctx,w,h){
+  const d=ctx.getImageData(0,0,w,h).data, buckets={};
+  for(let i=0;i<d.length;i+=4){if(d[i+3]<128)continue;
+    const k=[d[i],d[i+1],d[i+2]].map(v=>v>>4).join(',');
+    (buckets[k]=buckets[k]||{n:0,r:0,g:0,b:0}).n++;buckets[k].r+=d[i];buckets[k].g+=d[i+1];buckets[k].b+=d[i+2];}
+  const list=Object.values(buckets).sort((a,b)=>b.n-a.n).map(b=>rgb2hex([b.r/b.n,b.g/b.n,b.b/b.n]));
+  const out=[];
+  for(const c of list){if(out.every(o=>{const A=hex2rgb(o),B=hex2rgb(c);return Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2])>60}))out.push(c);if(out.length>=6)break}
+  return out;
+}
+function themeFromPalette(p,base){
+  const page=p[0];
+  const darkPage=lum(page)<.05;
+  const card=darkPage?mix(page,'#FFFFFF',.08):mix(page,'#FFFFFF',.92);
+  const text=darkPage?mix(page,'#FFFFFF',.93):mix(page,'#000000',.82);
+  let accent=[...p].sort((a,b)=>(sat(b)-(Math.abs(lum(b)-.35)))-(sat(a)-(Math.abs(lum(a)-.35))))[0]||page;
+  for(let i=0;i<12&&contrast(accent,card)<1.8;i++)accent=mix(accent,darkPage?'#FFFFFF':'#000000',.12);
+  return {...base,page,card,text,accent,accentText:bestOn(accent)};
+}
+
+/* ---------- generated sample artwork ---------- */
+const artCache={};
+function genArt(kind){
+  if(artCache[kind])return artCache[kind];
+  const c=document.createElement('canvas');c.width=1200;c.height=500;const g=c.getContext('2d');
+  const W=1200,H=500;
+  if(kind==='food'){
+    const gr=g.createLinearGradient(0,0,W,H);gr.addColorStop(0,'#0F4C4A');gr.addColorStop(1,'#14615C');g.fillStyle=gr;g.fillRect(0,0,W,H);
+    [[980,120,210,'#F2994A'],[1120,380,150,'#F7C948'],[180,420,180,'#E8633A'],[640,-40,120,'#F7C948']].forEach(([x,y,r,col])=>{g.fillStyle=col;g.beginPath();g.arc(x,y,r,0,7);g.fill()});
+    g.strokeStyle='#FFF4E2';g.lineWidth=10;g.globalAlpha=.85;
+    for(let k=0;k<4;k++){g.beginPath();for(let x=0;x<=W;x+=10){const y=150+k*70+Math.sin(x/70+k)*18;x?g.lineTo(x,y):g.moveTo(x,y)}g.stroke()}
+    g.globalAlpha=1;g.fillStyle='#FFF4E2';for(let i=0;i<60;i++){g.beginPath();g.arc((i*197)%W,(i*131)%H,4,0,7);g.fill()}
+  }else if(kind==='sports'){
+    g.fillStyle='#12306B';g.fillRect(0,0,W,H);
+    g.strokeStyle='rgba(255,255,255,.28)';g.lineWidth=6;
+    for(let k=0;k<6;k++){g.beginPath();g.ellipse(W*.35,H*1.15,300+k*70,190+k*55,0,Math.PI,2*Math.PI);g.stroke()}
+    g.fillStyle='#FFC93C';g.beginPath();g.moveTo(760,0);g.lineTo(920,0);g.lineTo(700,H);g.lineTo(540,H);g.fill();
+    g.fillStyle='#E4572E';g.beginPath();g.moveTo(960,0);g.lineTo(1010,0);g.lineTo(790,H);g.lineTo(740,H);g.fill();
+    g.fillStyle='#FFFFFF';for(let i=0;i<5;i++){const x=980+i*45,y=80+i*70;g.save();g.translate(x,y);g.rotate(.3);g.fillRect(-14,-14,28,28);g.restore()}
+  }else{
+    g.fillStyle='#170B2E';g.fillRect(0,0,W,H);
+    g.strokeStyle='rgba(155,92,255,.35)';g.lineWidth=2;
+    for(let i=0;i<=20;i++){g.beginPath();g.moveTo(W/2,H*.55);g.lineTo(i*W/20,H);g.stroke()}
+    for(let i=0;i<6;i++){g.beginPath();g.moveTo(0,H*.55+i*i*7);g.lineTo(W,H*.55+i*i*7);g.stroke()}
+    g.shadowBlur=30;g.lineWidth=12;
+    [['#FF4FA3',240],['#3DE3F5',190],['#FFB13D',140]].forEach(([col,r])=>{g.shadowColor=col;g.strokeStyle=col;g.beginPath();g.arc(W/2,H*.55,r,Math.PI,2*Math.PI);g.stroke()});
+    g.shadowBlur=0;
+  }
+  return artCache[kind]=c.toDataURL('image/jpeg',.88);
+}
+const artSrc=ev=>ev.art?(ev.art.data||(ev.art.gen?genArt(ev.art.gen):null)):null;
+function ensurePalette(ev,cb){
+  if(ev.palette&&ev.palette.length)return cb&&cb();
+  const src=artSrc(ev);if(!src)return;
+  const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=80;c.height=Math.round(80*img.height/img.width)||40;
+    const g=c.getContext('2d');g.drawImage(img,0,0,c.width,c.height);ev.palette=paletteFromCanvas(g,c.width,c.height);save();cb&&cb()};img.src=src;
+}
+
+/* ================= Sample data ================= */
+function F(id,type,label,extra={}){return {id,type,label,help:'',required:false,options:[],...extra}}
+function seed(){
+  const t=now();
+  const food={id:'ev-food',title:'Harbourfront Food Fest',date:today(),venue:'Pier 3, Harbourfront',status:'live',slug:'harbourfront-food-fest',
+    intro:'Get your apron, tote or cap personalised while you eat. We will text you when it is ready to collect at our stand.',
+    art:{gen:'food'},palette:null,submitLabel:'Stitch it for me',
+    thanks:'Thanks! We are on it. We will text you when your order is ready at the Threadtogo stand, next to the coffee carts.',
+    notify:{channel:'sms',consent:true},autoJob:true,
+    theme:{page:'#0F4C4A',card:'#FFF8EE',text:'#1B2B2A',accent:'#E8633A',accentText:'#FFFFFF',font:'friendly',radius:'pill',layout:'banner'},
+    fields:[
+      F('name','short','Your name',{required:true,role:'name',placeholder:'First and last name'}),
+      F('phone','phone','Phone number',{required:true,help:'We text you when it is ready to collect.',placeholder:'+1 555 0100'}),
+      F('item','choice','What would you like?',{required:true,role:'item',options:['Apron','Tote bag','Chef hat','Cap']}),
+      F('qty','sizes','How many?',{options:['Adult','Kids']}),
+      F('stitch','short','Name or words to stitch',{required:true,help:'Up to 14 characters.',placeholder:'e.g. Chef Lena'}),
+      F('thread','choice','Thread colour',{options:['Cream','Orange','Black','Gold']}),
+      F('logo','upload','Add your own logo (optional)'),
+      F('prices','button','See prices and stitch styles',{url:'https://example.com/prices'})]};
+  const sports={id:'ev-sports',title:'Northgate Sports Day',date:isoDay(t+2*DAY),venue:'Northgate School main field',status:'live',slug:'northgate-sports-day',
+    intro:'Order your house kit before Sports Day. Collect it from the Threadtogo tent by the main field on the day.',
+    art:{gen:'sports'},palette:null,submitLabel:'Order house kit',
+    thanks:'Order received. We will message you on WhatsApp when the kit is ready to collect.',
+    notify:{channel:'whatsapp',consent:true},autoJob:true,
+    theme:{page:'#12306B',card:'#FFFFFF',text:'#10213F',accent:'#FFC93C',accentText:'#10213F',font:'sporty',radius:'square',layout:'side'},
+    fields:[
+      F('h1','heading','Student'),
+      F('student','short','Student name',{required:true}),
+      F('class','short','Class',{placeholder:'e.g. 4B'}),
+      F('house','choice','House',{required:true,options:['Red','Blue','Green','Yellow']}),
+      F('h2','heading','Kit'),
+      F('item','choice','Item',{required:true,role:'item',options:['House T-shirt','Cap','T-shirt + cap']}),
+      F('sizes','sizes','Sizes',{options:['XS','S','M','L']}),
+      F('back','short','Name on the back',{help:'Optional, up to 10 letters.'}),
+      F('h3','heading','Parent or guardian'),
+      F('parent','short','Your name',{required:true,role:'name'}),
+      F('phone','phone','WhatsApp number',{required:true}),
+      F('email','email','Email')]};
+  const neon={id:'ev-neon',title:'Neon Nights Market',date:isoDay(t+13*DAY),venue:'Old Mill Yard',status:'draft',slug:'neon-nights-market',
+    intro:'Custom embroidered patches and beanies, stitched live under the lights.',
+    art:{gen:'neon'},palette:null,submitLabel:'Send my design',
+    thanks:'Got it! We will email you when your piece is stitched.',
+    notify:{channel:'email',consent:true},autoJob:true,
+    theme:{page:'#170B2E',card:'#23123F',text:'#F4E9FF',accent:'#FF4FA3',accentText:'#170B2E',font:'bold',radius:'pill',layout:'background'},
+    fields:[
+      F('name','short','Your name',{required:true,role:'name'}),
+      F('email','email','Email',{required:true}),
+      F('item','choice','Pick your piece',{required:true,role:'item',options:['Embroidered patch','Beanie','Tote bag']}),
+      F('idea','long','Describe your design',{placeholder:'Words, colours, a vibe…'}),
+      F('ref','upload','Reference image'),
+      F('pickup','choice','When will you pick it up?',{options:['Same night','Next market']})]};
+  const S={events:[food,sports,neon],subs:[],jobs:[],messages:[],nextNum:1040,rules:defaultRules()};
+  const add=(ev,ago,ans,stage,assignee,consent=true)=>{
+    const sub=createSubmission(S,ev,ans,consent,{t:t-ago*DAY,example:true,silent:true});
+    const j=S.jobs.find(x=>x.num===sub.num); if(!j)return;
+    for(let i=1;i<=stageIdx(stage);i++){
+      const et=sub.t+i*(ago*DAY*.8)/(stageIdx(stage)+1);
+      j.events.push({t:et,who:assignee||'Grace',text:'Moved to '+STAGES[i].name,type:'stage',stage:STAGES[i].id});
+      if(S.rules[STAGES[i].id].on&&j.customer.consent)S.messages.push(makeMsg(S,j,STAGES[i].id,et,true));
+    }
+    j.stage=stage;j.assignee=assignee||'';
+  };
+  add(food,.3,{name:'Lena Ortiz',phone:'+1 555 0142',item:'Apron',qty:{Adult:1},stitch:'Chef Lena',thread:'Orange'},'done','Grace');
+  add(food,.25,{name:'Marcus Bell',phone:'+1 555 0143',item:'Tote bag',qty:{Adult:2},stitch:'MB',thread:'Cream'},'ready','Grace');
+  add(food,.15,{name:'Priya Patel',phone:'+1 555 0141',item:'Chef hat',qty:{Adult:1},stitch:'Priya',thread:'Gold'},'production','Ruth');
+  add(food,.1,{name:'Jo Kim',phone:'+1 555 0146',item:'Cap',qty:{Adult:1,Kids:2},stitch:'KIM FAM',thread:'Black'},'qc','Ruth');
+  add(food,.02,{name:'Tom Harris',phone:'+1 555 0199',item:'Apron',qty:{Kids:1},stitch:'Tommy',thread:'Orange'},'new','');
+  add(sports,3,{student:'Ava Reyes',class:'4B',house:'Blue',item:'T-shirt + cap',sizes:{S:1},back:'AVA',parent:'Nadia Reyes',phone:'+1 555 0140',email:'nadia@example.com'},'production','Daniel');
+  add(sports,2,{student:'Leo Cho',class:'2A',house:'Red',item:'House T-shirt',sizes:{XS:1},back:'LEO',parent:'Helen Cho',phone:'+1 555 0150'},'artwork','Sam');
+  add(sports,1,{student:'Mia and Jack Turner',class:'5C',house:'Green',item:'House T-shirt',sizes:{S:1,M:1},back:'',parent:'Ben Turner',phone:'+1 555 0151',email:'ben.t@example.com'},'new','');
+  add(sports,.5,{student:'Marco Diaz',class:'6A',house:'Yellow',item:'Cap',sizes:{L:1},back:'',parent:'Rosa Diaz',phone:'+1 555 0152'},'new','',false);
+  return S;
+}
+function defaultRules(){return{
+  new:{on:true,text:'Hi {name}, we have your order {order} from {event}. Follow it here: {link} - {business}'},
+  artwork:{on:true,text:'Hi {name}, we are checking the design for order {order}. We will be in touch if anything needs changing. - {business}'},
+  production:{on:true,text:'Good news {name}! Order {order} is being stitched now. - {business}'},
+  qc:{on:false,text:'Hi {name}, order {order} is going through quality checks. - {business}'},
+  ready:{on:true,text:'Hi {name}, order {order} is ready! Collect it from the {business} stand at {event}.'},
+  done:{on:false,text:'Thanks {name}! Order {order} is complete. See you at the next event. - {business}'}}}
+
+/* ================= Core actions ================= */
+const getEv=id=>S.events.find(e=>e.id===id);
+const findJob=num=>S.jobs.find(j=>j.num===+num);
+const findSub=id=>S.subs.find(s=>s.id===id);
+const trackLink=j=>'queuedtogo.app/t/'+j.token;
+const formLink=ev=>'queuedtogo.app/f/'+ev.slug;
+
+function sumQty(v){return v&&typeof v==='object'&&!Array.isArray(v)?Object.values(v).reduce((a,b)=>a+(+b||0),0):0}
+function ansText(f,v){
+  if(v==null||v===''||(Array.isArray(v)&&!v.length))return '';
+  if(f.type==='sizes')return Object.entries(v).filter(([,n])=>+n>0).map(([s,n])=>`${s} ${n}`).join(', ');
+  if(Array.isArray(v))return v.join(', ');
+  if(f.type==='upload')return v.name||'';
+  if(f.type==='date')return fmtDay(v);
+  return String(v);
+}
+function createSubmission(S,ev,answers,consent,o={}){
+  const t=o.t||now();
+  const fv=type=>{const f=ev.fields.find(f=>f.type===type);return f?answers[f.id]:''};
+  const nameF=ev.fields.find(f=>f.role==='name')||ev.fields.find(f=>f.type==='short');
+  const itemF=ev.fields.find(f=>f.role==='item');
+  const sizesF=ev.fields.find(f=>f.type==='sizes');
+  const dueF=ev.fields.find(f=>f.role==='due');
+  const name=(nameF&&answers[nameF.id])||'Customer';
+  const qty=sizesF?sumQty(answers[sizesF.id]):0;
+  const item=itemF?ansText(itemF,answers[itemF.id]):'';
+  const sub={id:uid(),eventId:ev.id,t,answers,consent:!!consent,num:null,example:!!o.example};
+  S.subs.push(sub);
+  if(ev.autoJob){
+    const j={num:S.nextNum++,token:uid(),eventId:ev.id,subId:sub.id,example:!!o.example,
+      customer:{name,phone:fv('phone')||'',email:fv('email')||'',channel:ev.notify.channel,consent:!!consent},
+      summary:(qty?qty+' × ':'')+(item||'Order'),due:(dueF&&answers[dueF.id])||ev.date,stage:'new',assignee:'',created:t,
+      events:[{t,who:name,text:'Submitted the '+ev.title+' form',type:'stage',stage:'new'}]};
+    S.jobs.push(j);sub.num=j.num;
+    if(o.silent){if(S.rules.new.on&&consent)S.messages.push(makeMsg(S,j,'new',t,o.example))}
+    else sub.notice=notify(j,'new');
+  }
+  return sub;
+}
+function makeMsg(S,j,stage,t,example){
+  const c=j.customer, ev=getEvIn(S,j.eventId);
+  const body=S.rules[stage].text.replaceAll('{name}',c.name.split(' ')[0]).replaceAll('{order}','QTG-'+j.num)
+    .replaceAll('{business}',BUSINESS).replaceAll('{link}',trackLink(j)).replaceAll('{event}',ev?ev.title:'');
+  return {id:uid(),num:j.num,to:c.channel==='email'?c.email:c.phone,contact:c.name,channel:c.channel,body,t,stage,example:!!example};
+}
+const getEvIn=(S,id)=>S.events.find(e=>e.id===id);
+function notify(j,stage){
+  const r=S.rules[stage],c=j.customer;
+  if(!r.on)return 'No customer message for this stage.';
+  if(!c.consent)return `${c.name} did not agree to updates, so no message was sent.`;
+  if(c.channel==='email'?!c.email:!c.phone)return `No ${c.channel==='email'?'email address':'phone number'} on this order, so no message was sent.`;
+  S.messages.push(makeMsg(S,j,stage,now()));
+  return `${CHANNELS[c.channel]} update sent to ${c.name}.`;
+}
+function moveJob(num,stage){
+  const j=findJob(num);if(!j||j.stage===stage)return;
+  const from=j.stage;j.stage=stage;
+  j.events.push({t:now(),who:'You',text:`Moved from ${stageName(from)} to ${stageName(stage)}`,type:'stage',stage});
+  const sent=notify(j,stage);save();render();
+  toast(`QTG-${j.num} moved to ${stageName(stage)}. ${sent}`);
+}
+
+/* ================= Persistence ================= */
+const KEY='qtg-proto-v2';
+let S=null;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.events)S=seed();
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){
+    try{localStorage.setItem(KEY,JSON.stringify({...S,subs:S.subs.map(s=>({...s,answers:Object.fromEntries(Object.entries(s.answers).map(([k,v])=>[k,v&&v.data?{name:v.name}:v]))}))}))}catch(e2){}}
+}
+
+/* ================= UI state ================= */
+const U={view:'events',builderId:null,btab:'content',sel:null,device:'desktop',fillId:null,fillDone:null,subsEv:'all',subsQ:'',boardEv:'all',trackNum:null,openJob:null,openSub:null};
+try{Object.assign(U,JSON.parse(localStorage.getItem(KEY+'-ui'))||{});U.openJob=null;U.openSub=null;U.fillDone=null}catch(e){}
+if(U.builderId&&!getEv(U.builderId))U.builderId=null;
+if(U.fillId&&!getEv(U.fillId))U.fillId=null;
+if(U.view==='builder'&&!U.builderId)U.view='events';
+if(U.view==='fill'&&!U.fillId)U.view='events';
+function saveUI(){try{localStorage.setItem(KEY+'-ui',JSON.stringify({view:U.view,builderId:U.builderId,btab:U.btab,device:U.device,fillId:U.fillId,subsEv:U.subsEv,boardEv:U.boardEv}))}catch(e){}}
+
+function toast(msg,action){
+  const el=$('toast');el.innerHTML='';const s=document.createElement('span');s.textContent=msg;el.append(s);
+  if(action){const b=document.createElement('button');b.textContent=action.label;b.onclick=()=>{action.fn();el.hidden=true};el.append(b)}
+  el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,action?6000:3800);
+}
+function go(view,extra={}){Object.assign(U,extra);U.view=view;saveUI();render();window.scrollTo(0,0)}
+function copyText(text,okMsg){
+  const done=()=>toast(okMsg),fail=()=>toast('Copy was blocked here. Select the text and copy it yourself.');
+  try{navigator.clipboard.writeText(text).then(done,fail)}catch(e){fail()}
+}
+
+/* ================= Render ================= */
+const VIEWS={events:[eventsView,bindEvents],builder:[builderView,bindBuilder],fill:[fillView,bindFill],subs:[subsView,bindSubs],
+  board:[boardView,bindBoard],messages:[messagesView,bindMessages],track:[trackView,bindTrack]};
+function render(){
+  const tabFor={builder:'events',fill:'events'}[U.view]||U.view;
+  document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.view===tabFor));
+  const [v,b]=VIEWS[U.view];$('main').innerHTML=v();b();renderDrawer();
+}
+
+/* ---------- Event forms list ---------- */
+const statusPill=ev=>ev.status==='live'?'<span class="pill good">Live</span>':ev.status==='closed'?'<span class="pill bad">Closed</span>':'<span class="pill plain">Draft</span>';
+function eventsView(){
+  return `<div class="view-head"><div><h2>Event forms</h2>
+    <p>Each live event gets its own order form, styled to match the event artwork. Every submission lands in Submissions and becomes a job on the production board.</p></div></div>
+  <div class="evgrid">
+    <button class="newcard" id="new-ev"><span><b>+ New event form</b>Upload the event artwork, match the colours, add your questions.</span></button>
+    ${S.events.map(ev=>{const subs=S.subs.filter(s=>s.eventId===ev.id),open=S.jobs.filter(j=>j.eventId===ev.id&&j.stage!=='done').length,art=artSrc(ev);
+      return `<article class="evcard">
+        <div class="evthumb" style="--c:${ev.theme.page}">${art?`<img src="${art}" alt="">`:'<span class="noart">No artwork yet</span>'}${statusPill(ev)}</div>
+        <div class="evbody"><h3>${esc(ev.title)}</h3><div class="muted" style="font-size:13.5px">${fmtDay(ev.date)}${ev.venue?' · '+esc(ev.venue):''}</div>
+          <div class="evnums">${subs.length} submission${subs.length===1?'':'s'} · ${open} open job${open===1?'':'s'}</div>
+          <div class="evacts"><button class="btn small primary" data-edit="${ev.id}">Edit form</button><button class="btn small" data-fill="${ev.id}">Open form</button><button class="btn small" data-subs="${ev.id}">Submissions</button></div></div>
+      </article>`}).join('')}
+  </div>`;
+}
+function bindEvents(){
+  $('new-ev').onclick=()=>{
+    const ev={id:'ev-'+uid(),title:'New event',date:isoDay(now()+7*DAY),venue:'',status:'draft',slug:'new-event-'+uid().slice(0,4),
+      intro:'Order a personalised piece, stitched for you at the event.',art:null,palette:null,submitLabel:'Place my order',
+      thanks:'Thanks! We will let you know when your order is ready to collect.',notify:{channel:'sms',consent:true},autoJob:true,
+      theme:{page:'#2B2F4A',card:'#FFFFFF',text:'#1A1D2E',accent:'#3346D3',accentText:'#FFFFFF',font:'clean',radius:'rounded',layout:'banner'},
+      fields:[F(uid(),'short','Your name',{required:true,role:'name'}),F(uid(),'phone','Phone number',{required:true}),
+        F(uid(),'choice','What would you like?',{required:true,role:'item',options:['T-shirt','Cap','Tote bag']}),
+        F(uid(),'sizes','How many, in which sizes?',{options:['S','M','L','XL']}),F(uid(),'short','Name or words to stitch'),F(uid(),'upload','Upload your logo (optional)')]};
+    S.events.unshift(ev);save();go('builder',{builderId:ev.id,btab:'design',sel:null});
+    toast('New form created. Start by uploading the event artwork.');
+  };
+  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>go('builder',{builderId:b.dataset.edit,sel:null}));
+  document.querySelectorAll('[data-fill]').forEach(b=>b.onclick=()=>go('fill',{fillId:b.dataset.fill,fillDone:null}));
+  document.querySelectorAll('[data-subs]').forEach(b=>b.onclick=()=>go('subs',{subsEv:b.dataset.subs}));
+}
+
+/* ---------- Themed form renderer ---------- */
+function themeStyle(t){const f=FONTS[t.font]||FONTS.clean;return `--p:${t.page};--c:${t.card};--t:${t.text};--a:${t.accent};--at:${t.accentText};--r:${RADII[t.radius]};--hf:${f.head};--bf:${f.body};--tt:${f.upper?'uppercase':'none'}`}
+function fieldHtml(f,mode){
+  const sel=mode==='edit'&&U.sel===f.id?' sel':'';
+  const req=f.required?'<span class="qf-req" aria-hidden="true">*</span>':'';
+  const help=f.help?`<div class="qf-help">${esc(f.help)}</div>`:'';
+  const ph=f.placeholder?` placeholder="${esc(f.placeholder)}"`:'';
+  const lab=`<label class="qf-label" for="q-${f.id}">${esc(f.label)}${req}</label>`;
+  const glab=`<span class="qf-label" id="ql-${f.id}">${esc(f.label)}${req}</span>`;
+  let inner='';
+  switch(f.type){
+    case 'heading':inner=`<h3 class="qf-h">${esc(f.label)}</h3>`;break;
+    case 'text':inner=`<p class="qf-p">${esc(f.label)}</p>`;break;
+    case 'divider':inner='<hr class="qf-hr">';break;
+    case 'button':inner=`<a class="qf-link" href="${esc(f.url||'#')}" target="_blank" rel="noopener">${esc(f.label)} <span aria-hidden="true">↗</span></a>`;break;
+    case 'short':case 'email':case 'phone':case 'date':
+      inner=lab+help+`<input class="qf-in" id="q-${f.id}" name="${f.id}" type="${{short:'text',email:'email',phone:'tel',date:'date'}[f.type]}"${ph}${f.type==='phone'?' inputmode="tel" autocomplete="tel"':''}${f.type==='email'?' autocomplete="email"':''}>`;break;
+    case 'long':inner=lab+help+`<textarea class="qf-in" id="q-${f.id}" name="${f.id}"${ph}></textarea>`;break;
+    case 'dropdown':inner=lab+help+`<select class="qf-in" id="q-${f.id}" name="${f.id}"><option value="">Choose…</option>${f.options.map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;break;
+    case 'choice':case 'multi':
+      inner=glab+help+`<div class="qf-opts" role="${f.type==='choice'?'radiogroup':'group'}" aria-labelledby="ql-${f.id}">${f.options.map(o=>`<label class="qf-opt"><input type="${f.type==='choice'?'radio':'checkbox'}" name="${f.id}" value="${esc(o)}"><span>${esc(o)}</span></label>`).join('')}</div>`;break;
+    case 'sizes':inner=glab+help+`<div class="qf-sizes">${f.options.map(o=>`<label>${esc(o)}<input class="qf-in" type="number" min="0" inputmode="numeric" name="${f.id}" data-size="${esc(o)}" placeholder="0"></label>`).join('')}</div>`;break;
+    case 'upload':inner=glab+help+`<label class="qf-upload" for="q-${f.id}" id="qp-${f.id}"><span><b>Choose a file</b> or drop it here</span></label><input type="file" id="q-${f.id}" data-up="${f.id}" accept="image/*,.pdf" hidden>`;break;
+  }
+  return `<div class="qf-field${sel}" data-fid="${f.id}">${inner}</div>`;
+}
+function formHtml(ev,mode,doneSub){
+  const t=ev.theme,art=artSrc(ev),L=t.layout;
+  let content;
+  if(doneSub){
+    const j=doneSub.num?findJob(doneSub.num):null;
+    content=`<div class="qf-done"><h2 class="qf-title" style="font-size:clamp(26px,5cqi,34px)">You're in the queue!</h2><p class="qf-intro">${esc(ev.thanks)}</p>
+      ${j?`<div>Your order number</div><div class="num">QTG-${j.num}</div><div class="lk">${trackLink(j)}</div>`:''}
+      <button class="qf-submit" type="button" id="qf-again">Submit another order</button></div>`;
+  }else if(mode==='live'&&ev.status!=='live'){
+    content=`<div class="qf-closed">${ev.status==='closed'?'This form is closed and no longer taking orders.':'This form is a draft. Customers cannot open it until you set it to Live in the form settings.'}</div>`;
+  }
+  const head=`<div class="qf-eyebrow">${fmtDay(ev.date)}${ev.venue?' · '+esc(ev.venue):''}</div><h2 class="qf-title">${esc(ev.title)}</h2>${ev.intro?`<p class="qf-intro">${esc(ev.intro)}</p>`:''}`;
+  const form=`<form class="qf-form" id="qf-form" novalidate>${ev.fields.map(f=>fieldHtml(f,mode)).join('')}
+    ${ev.notify.consent?`<label class="qf-check"><input type="checkbox" id="qf-consent" checked> Send me ${CHANNELS[ev.notify.channel]} updates about my order. Reply STOP to opt out.</label>`:''}
+    <div class="qf-err" id="qf-err" role="alert"></div>
+    <button class="qf-submit" type="submit">${esc(ev.submitLabel||'Submit')}</button></form>`;
+  return `<div class="qf-wrap qf-${L}${art?'':' noart'}${mode==='edit'?' editing':''}" style="${themeStyle(t)}"><div class="qf">
+    ${art&&L!=='background'?`<div class="qf-art"><img src="${art}" alt="${esc(ev.title)} artwork"></div>`:''}
+    ${art&&L==='background'?`<div class="qf-bg"><img src="${art}" alt=""></div>`:''}
+    <div class="qf-main"><div class="qf-card">${doneSub?content:head+(content||form)}</div><div class="qf-powered">Order form by ${BUSINESS} · Powered by QueuedToGo</div></div>
+  </div></div>`;
+}
+
+/* ---------- Builder ---------- */
+function builderView(){
+  const ev=getEv(U.builderId);
+  const n=S.subs.filter(s=>s.eventId===ev.id).length;
+  return `<div class="b-top">
+      <button class="btn ghost small" id="b-back">← All forms</button>
+      <h2 id="b-title">${esc(ev.title)}</h2>${statusPill(ev)}<span class="sp"></span>
+      <button class="btn small" id="b-subs">Submissions (${n})</button>
+      <button class="btn small primary" id="b-open">Open form</button></div>
+    <div class="builder">
+      <section class="panel bpanel">
+        <div class="btabs" role="tablist">${['content','design','settings'].map(k=>`<button role="tab" data-btab="${k}" aria-selected="${U.btab===k}">${{content:'Questions',design:'Design',settings:'Settings'}[k]}</button>`).join('')}</div>
+        <div class="bbody">${{content:contentPanel,design:designPanel,settings:settingsPanel}[U.btab](ev)}</div>
+      </section>
+      <section class="bprev" aria-label="Form preview">
+        <div class="bprev-bar"><span>Live preview · click a question to edit it</span>
+          <div class="seg">${['desktop','phone'].map(d=>`<button data-dev="${d}" aria-pressed="${U.device===d}">${d==='desktop'?'Desktop':'Phone'}</button>`).join('')}</div></div>
+        <div class="bprev-frame ${U.device}" id="prev">${formHtml(ev,'edit')}</div>
+      </section>
+    </div>`;
+}
+function contentPanel(ev){
+  return `<div class="bsec"><h4>Questions and blocks</h4><div class="blks">${ev.fields.map((f,i)=>{
+    const open=U.sel===f.id;
+    return `<div class="blk${open?' open':''}" data-bid="${f.id}">
+      <div class="blk-row"><button class="blk-main" data-sel="${f.id}" aria-expanded="${open}"><span class="blk-type">${BLOCKS[f.type].name}${f.role?' · '+{name:'customer name',item:'job item',due:'due date'}[f.role]:''}</span>
+        <span class="blk-label" id="bl-${f.id}">${f.type==='divider'?'—':esc(f.label)||'<span class="muted">Untitled</span>'}${f.required?' <span class="req">*</span>':''}</span></button>
+        <div class="blk-acts"><button data-mv="-1" data-id="${f.id}" title="Move up" aria-label="Move up" ${i===0?'disabled':''}>↑</button><button data-mv="1" data-id="${f.id}" title="Move down" aria-label="Move down" ${i===ev.fields.length-1?'disabled':''}>↓</button>
+        <button data-dup="${f.id}" title="Duplicate" aria-label="Duplicate">⧉</button><button data-del="${f.id}" title="Delete" aria-label="Delete">✕</button></div></div>
+      ${open?editorHtml(f):''}</div>`}).join('')}</div></div>
+    <div class="bsec"><h4>Add a block</h4><div class="addgrid">${Object.entries(BLOCKS).map(([k,b])=>`<button data-add="${k}"><b>${b.k}</b>${b.name}</button>`).join('')}</div></div>`;
+}
+function editorHtml(f){
+  const B=BLOCKS[f.type];let h='';
+  if(f.type!=='divider')h+=f.type==='text'?`<label class="f">Text<textarea id="ed-label" data-k="label">${esc(f.label)}</textarea></label>`
+    :`<label class="f">${f.type==='button'?'Button text':f.type==='heading'?'Heading':'Question'}<input type="text" id="ed-label" data-k="label" value="${esc(f.label)}"></label>`;
+  if(f.type==='button')h+=`<label class="f">Opens this link<input type="url" id="ed-url" data-k="url" value="${esc(f.url||'')}" placeholder="https://"></label>`;
+  if(isInput(f))h+=`<label class="f">Help text <small>shown under the question</small><input type="text" id="ed-help" data-k="help" value="${esc(f.help)}"></label>`;
+  if(['short','long','email','phone'].includes(f.type))h+=`<label class="f">Placeholder<input type="text" id="ed-ph" data-k="placeholder" value="${esc(f.placeholder||'')}"></label>`;
+  if(B.opts)h+=`<label class="f">${f.type==='sizes'?'Sizes':'Options'} <small>one per line</small><textarea id="ed-opts" data-k="options">${esc(f.options.join('\n'))}</textarea></label>`;
+  if(isInput(f))h+=`<label class="switch"><input type="checkbox" id="ed-req" data-k="required" ${f.required?'checked':''}>Required</label>`;
+  const role={short:['name','Use as the customer name on jobs'],choice:['item','Show this answer as the item on job cards'],dropdown:['item','Show this answer as the item on job cards'],date:['due','Use this date as the job due date']}[f.type];
+  if(role)h+=`<label class="switch"><input type="checkbox" id="ed-role" data-role="${role[0]}" ${f.role===role[0]?'checked':''}>${role[1]}</label>`;
+  return `<div class="blk-ed">${h}</div>`;
+}
+function designPanel(ev){
+  const t=ev.theme,art=artSrc(ev);
+  const c1=contrast(t.text,t.card),c2=contrast(t.accentText,t.accent);
+  const chk=(r,label,min)=>`<span class="${r>=min?'ok':'low'}">${r>=min?'✓':'!'} ${label} ${r.toFixed(1)}:1${r>=min?'':' — hard to read, pick a stronger colour'}</span>`;
+  const col=(k,l)=>`<label><input type="color" id="c-${k}" data-col="${k}" value="${t[k]}" aria-label="${l}">${l}<code>${t[k]}</code></label>`;
+  return `<div class="bsec"><h4>Event artwork</h4>
+      <div class="artbox"><div class="th">${art?`<img src="${art}" alt="">`:'None yet'}</div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start"><label class="btn small primary" for="art-in">${art?'Replace artwork':'Upload artwork'}</label>
+        ${art?'<button class="linkbtn" id="art-rm" style="font-size:13px">Remove</button>':''}<span class="hint">PNG or JPG, wide images work best.</span></div></div>
+      <input type="file" id="art-in" accept="image/*" hidden>
+      ${art?`<div class="hint">Colours found in your artwork</div><div class="swatches" id="sw">${(ev.palette||[]).map(c=>`<span style="--c:${c}" title="${c}"></span>`).join('')||'<span class="hint">Reading colours…</span>'}</div>
+        <button class="btn small" id="match">Match form colours to artwork</button>`:''}</div>
+    <div class="bsec"><h4>Layout</h4><div class="seg">${Object.entries(LAYOUTS).map(([k,l])=>`<button data-lay="${k}" aria-pressed="${t.layout===k}">${l}</button>`).join('')}</div></div>
+    <div class="bsec"><h4>Colours</h4><div class="colors">${col('page','Page')}${col('card','Form')}${col('text','Text')}${col('accent','Buttons')}${col('accentText','Button text')}</div>
+      <div class="contrast" id="contrast">${chk(c1,'Text on form',4.5)}${chk(c2,'Button text',4.5)}</div></div>
+    <div class="bsec"><h4>Font style</h4><div class="fontpick">${Object.entries(FONTS).map(([k,f])=>`<button data-font="${k}" aria-pressed="${t.font===k}"><b style="font-family:${f.head};${f.upper?'text-transform:uppercase':''}">Aa</b><span>${f.label}</span></button>`).join('')}</div></div>
+    <div class="bsec"><h4>Corners</h4><div class="seg">${Object.keys(RADII).map(k=>`<button data-rad="${k}" aria-pressed="${t.radius===k}">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</div></div>
+    <div class="bsec"><h4>Submit button</h4><label class="f">Button text<input type="text" id="s-submit" value="${esc(ev.submitLabel)}"></label></div>`;
+}
+function settingsPanel(ev){
+  return `<div class="bsec"><h4>Event</h4>
+      <label class="f">Form title<input type="text" id="st-title" value="${esc(ev.title)}"></label>
+      <div class="row"><label class="f">Event date<input type="date" id="st-date" value="${ev.date}"></label>
+      <label class="f">Venue<input type="text" id="st-venue" value="${esc(ev.venue)}"></label></div>
+      <label class="f">Intro text<textarea id="st-intro">${esc(ev.intro)}</textarea></label></div>
+    <div class="bsec"><h4>Status</h4><div class="seg">${[['draft','Draft'],['live','Live'],['closed','Closed']].map(([k,l])=>`<button data-status="${k}" aria-pressed="${ev.status===k}">${l}</button>`).join('')}</div>
+      <span class="hint">${ev.status==='live'?'Customers can open the link and submit orders.':ev.status==='closed'?'The link shows a closed message.':'Only you can see this form.'}</span></div>
+    <div class="bsec"><h4>Form link</h4><div class="linkbox"><span class="mono">${formLink(ev)}</span><button class="btn small" id="st-copy">Copy</button></div>
+      <span class="hint">Share it on the event page, print it as a QR code at your stand, or send it to organisers.</span></div>
+    <div class="bsec"><h4>After someone submits</h4>
+      <label class="f">Thank-you message<textarea id="st-thanks">${esc(ev.thanks)}</textarea></label>
+      <label class="switch"><input type="checkbox" id="st-job" ${ev.autoJob?'checked':''}>Create a production job for every submission</label></div>
+    <div class="bsec"><h4>Customer updates</h4>
+      <label class="f">Send updates by<select id="st-chan">${Object.entries(CHANNELS).map(([k,v])=>`<option value="${k}" ${ev.notify.channel===k?'selected':''}>${v}</option>`).join('')}</select></label>
+      <label class="switch"><input type="checkbox" id="st-consent" ${ev.notify.consent?'checked':''}>Ask customers to agree to updates on the form</label>
+      <span class="hint">Which stages send a message is set in Notifications.</span></div>`;
+}
+function refreshPreview(){const ev=getEv(U.builderId),p=$('prev');if(!p)return;const st=p.scrollTop;p.innerHTML=formHtml(ev,'edit');p.scrollTop=st;bindPreview()}
+function bindPreview(){
+  $('prev').querySelectorAll('.qf-field').forEach(el=>el.onclick=()=>{U.sel=el.dataset.fid;U.btab='content';render();
+    const b=document.querySelector(`.blk[data-bid="${U.sel}"]`);b&&b.scrollIntoView({block:'nearest',behavior:'smooth'});const l=$('ed-label');l&&l.focus({preventScroll:true})});
+  const f=$('qf-form');if(f)f.onsubmit=e=>e.preventDefault();
+}
+function bindBuilder(){
+  const ev=getEv(U.builderId),idx=id=>ev.fields.findIndex(f=>f.id===id);
+  const commit=(full)=>{save();full?render():refreshPreview()};
+  $('b-back').onclick=()=>go('events');
+  $('b-open').onclick=()=>go('fill',{fillId:ev.id,fillDone:null});
+  $('b-subs').onclick=()=>go('subs',{subsEv:ev.id});
+  document.querySelectorAll('[data-btab]').forEach(b=>b.onclick=()=>{U.btab=b.dataset.btab;saveUI();render()});
+  document.querySelectorAll('[data-dev]').forEach(b=>b.onclick=()=>{U.device=b.dataset.dev;saveUI();render()});
+  bindPreview();
+  if(U.btab==='content'){
+    document.querySelectorAll('[data-sel]').forEach(b=>b.onclick=()=>{U.sel=U.sel===b.dataset.sel?null:b.dataset.sel;render();
+      const p=$('prev').querySelector(`[data-fid="${U.sel}"]`);p&&p.scrollIntoView({block:'center',behavior:'smooth'})});
+    document.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{const i=idx(b.dataset.id),k=i+ +b.dataset.mv;if(k<0||k>=ev.fields.length)return;
+      [ev.fields[i],ev.fields[k]]=[ev.fields[k],ev.fields[i]];commit(true)});
+    document.querySelectorAll('[data-dup]').forEach(b=>b.onclick=()=>{const i=idx(b.dataset.dup),c={...JSON.parse(JSON.stringify(ev.fields[i])),id:uid()};delete c.role;
+      ev.fields.splice(i+1,0,c);U.sel=c.id;commit(true)});
+    document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const i=idx(b.dataset.del),[gone]=ev.fields.splice(i,1);if(U.sel===gone.id)U.sel=null;commit(true);
+      toast(`Removed "${gone.label||BLOCKS[gone.type].name}".`,{label:'Undo',fn:()=>{ev.fields.splice(i,0,gone);save();render()}})});
+    document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const type=b.dataset.add;
+      const defaults={short:'New question',long:'Tell us more',email:'Email',phone:'Phone number',choice:'Pick one',multi:'Pick any',dropdown:'Choose one',sizes:'How many, in which sizes?',date:'Date',upload:'Upload a file',button:'Learn more',heading:'Section heading',text:'Add some helpful text here.',divider:''};
+      const f=F(uid(),type,defaults[type],{options:BLOCKS[type].opts?(type==='sizes'?['S','M','L','XL']:['Option 1','Option 2','Option 3']):[],url:type==='button'?'https://':undefined});
+      const at=U.sel?idx(U.sel)+1:ev.fields.length;ev.fields.splice(at,0,f);U.sel=f.id;commit(true);
+      const el=document.querySelector(`.blk[data-bid="${f.id}"]`);el&&el.scrollIntoView({block:'nearest',behavior:'smooth'});const l=$('ed-label');l&&l.select()});
+    const f=U.sel&&ev.fields[idx(U.sel)];
+    if(f){
+      document.querySelectorAll('.blk-ed [data-k]').forEach(inp=>{
+        const k=inp.dataset.k;
+        inp.oninput=inp.onchange=()=>{
+          if(k==='required')f.required=inp.checked;
+          else if(k==='options')f.options=inp.value.split('\n').map(s=>s.trim()).filter(Boolean);
+          else f[k]=inp.value;
+          const bl=$('bl-'+f.id);if(bl)bl.innerHTML=(esc(f.label)||'<span class="muted">Untitled</span>')+(f.required?' <span class="req">*</span>':'');
+          commit(false);
+        };
+      });
+      const r=$('ed-role');if(r)r.onchange=()=>{const role=r.dataset.role;if(r.checked){ev.fields.forEach(x=>{if(x.role===role)delete x.role});f.role=role}else delete f.role;commit(true)};
+    }
+  }
+  if(U.btab==='design'){
+    const t=ev.theme;
+    ensurePalette(ev,()=>{const sw=$('sw');if(sw&&U.btab==='design')sw.innerHTML=ev.palette.map(c=>`<span style="--c:${c}" title="${c}"></span>`).join('')});
+    $('art-in').onchange=e=>{const file=e.target.files[0];if(!file)return;
+      const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{
+        const w=Math.min(1600,img.width),h=Math.round(w*img.height/img.width),c=document.createElement('canvas');c.width=w;c.height=h;
+        const g=c.getContext('2d');g.drawImage(img,0,0,w,h);
+        ev.art={data:c.toDataURL('image/jpeg',.86),name:file.name};
+        const s=document.createElement('canvas');s.width=80;s.height=Math.max(1,Math.round(80*h/w));const sg=s.getContext('2d');sg.drawImage(img,0,0,s.width,s.height);
+        ev.palette=paletteFromCanvas(sg,s.width,s.height);
+        ev.theme=themeFromPalette(ev.palette,ev.theme);save();render();
+        toast('Artwork added and the form colours now match it. Fine-tune them below.',{label:'Keep my old colours',fn:()=>{ev.theme={...ev.theme,...old};save();render()}});
+      };img.onerror=()=>toast('That file could not be read as an image. Try a PNG or JPG.');img.src=r.result};
+      const old={page:t.page,card:t.card,text:t.text,accent:t.accent,accentText:t.accentText};r.readAsDataURL(file)};
+    const rm=$('art-rm');if(rm)rm.onclick=()=>{const old=ev.art;ev.art=null;ev.palette=null;save();render();toast('Artwork removed.',{label:'Undo',fn:()=>{ev.art=old;save();render()}})};
+    const m=$('match');if(m)m.onclick=()=>ensurePalette(ev,()=>{const old={...ev.theme};ev.theme=themeFromPalette(ev.palette,ev.theme);save();render();
+      toast('Colours matched to your artwork.',{label:'Undo',fn:()=>{ev.theme=old;save();render()}})});
+    document.querySelectorAll('[data-col]').forEach(inp=>inp.oninput=()=>{t[inp.dataset.col]=inp.value.toUpperCase();inp.parentElement.querySelector('code').textContent=t[inp.dataset.col];
+      const c1=contrast(t.text,t.card),c2=contrast(t.accentText,t.accent);
+      $('contrast').innerHTML=[[c1,'Text on form'],[c2,'Button text']].map(([r,l])=>`<span class="${r>=4.5?'ok':'low'}">${r>=4.5?'✓':'!'} ${l} ${r.toFixed(1)}:1${r>=4.5?'':' — hard to read, pick a stronger colour'}</span>`).join('');
+      commit(false)});
+    document.querySelectorAll('[data-lay]').forEach(b=>b.onclick=()=>{t.layout=b.dataset.lay;commit(true)});
+    document.querySelectorAll('[data-font]').forEach(b=>b.onclick=()=>{t.font=b.dataset.font;commit(true)});
+    document.querySelectorAll('[data-rad]').forEach(b=>b.onclick=()=>{t.radius=b.dataset.rad;commit(true)});
+    $('s-submit').oninput=e=>{ev.submitLabel=e.target.value;commit(false)};
+  }
+  if(U.btab==='settings'){
+    const txt=(id,k,after)=>{$(id).oninput=e=>{ev[k]=e.target.value;after&&after();commit(false)}};
+    txt('st-title','title',()=>{$('b-title').textContent=ev.title||'Untitled form';if(ev.slug.startsWith('new-event'))ev.slug=slugify(ev.title)});
+    txt('st-venue','venue');txt('st-intro','intro');txt('st-thanks','thanks');
+    $('st-date').onchange=e=>{if(e.target.value){ev.date=e.target.value;commit(false)}};
+    document.querySelectorAll('[data-status]').forEach(b=>b.onclick=()=>{ev.status=b.dataset.status;commit(true);toast(ev.status==='live'?'Form is live. Customers can now submit orders.':ev.status==='closed'?'Form closed. New orders are turned off.':'Form set to draft.')});
+    $('st-copy').onclick=()=>copyText(formLink(ev),'Form link copied.');
+    $('st-job').onchange=e=>{ev.autoJob=e.target.checked;commit(false)};
+    $('st-chan').onchange=e=>{ev.notify.channel=e.target.value;commit(false)};
+    $('st-consent').onchange=e=>{ev.notify.consent=e.target.checked;commit(false)};
+  }
+}
+
+/* ---------- Live form (customer view) ---------- */
+function fillView(){
+  const ev=getEv(U.fillId),sub=U.fillDone?findSub(U.fillDone):null;
+  return `<div class="fill-bar"><button class="btn small ghost" id="fb-back">← Back</button>
+    <span>Customer view of <b>${esc(ev.title)}</b> at <span class="mono">${formLink(ev)}</span>. Orders you submit here are added to the prototype.</span>
+    <span style="flex:1"></span><button class="btn small" id="fb-edit">Edit form</button>${sub?'<button class="btn small primary" id="fb-see">See this submission</button>':''}</div>
+    <div class="fill-frame">${formHtml(ev,'live',sub)}</div>`;
+}
+function bindFill(){
+  const ev=getEv(U.fillId);
+  $('fb-back').onclick=()=>go('events');
+  $('fb-edit').onclick=()=>go('builder',{builderId:ev.id});
+  if($('fb-see'))$('fb-see').onclick=()=>{const s=findSub(U.fillDone);go('subs',{subsEv:ev.id});U.openSub=s.id;renderDrawer()};
+  if($('qf-again'))$('qf-again').onclick=()=>{U.fillDone=null;render()};
+  const form=$('qf-form');if(!form)return;
+  const uploads={};
+  form.querySelectorAll('[data-up]').forEach(inp=>inp.onchange=()=>{const file=inp.files[0];if(!file)return;const id=inp.dataset.up,box=$('qp-'+id);
+    if(!file.type.startsWith('image/')||file.size>4e6){uploads[id]={name:file.name};box.innerHTML=`<span><b>${esc(file.name)}</b><br><small>Tap to replace</small></span>`;return}
+    const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const w=Math.min(800,img.width),c=document.createElement('canvas');c.width=w;c.height=Math.round(w*img.height/img.width);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);uploads[id]={name:file.name,data:c.toDataURL('image/png')};
+      box.innerHTML=`<img src="${uploads[id].data}" alt=""><span><b>${esc(file.name)}</b><br><small>Tap to replace</small></span>`};img.src=r.result};r.readAsDataURL(file)});
+  form.onsubmit=e=>{
+    e.preventDefault();
+    const answers={};let bad=null;
+    form.querySelectorAll('.qf-field').forEach(el=>el.classList.remove('invalid'));
+    for(const f of ev.fields){
+      if(!isInput(f))continue;let v;
+      if(f.type==='choice'){const c=form.querySelector(`input[name="${f.id}"]:checked`);v=c?c.value:''}
+      else if(f.type==='multi')v=[...form.querySelectorAll(`input[name="${f.id}"]:checked`)].map(c=>c.value);
+      else if(f.type==='sizes'){v={};form.querySelectorAll(`input[name="${f.id}"]`).forEach(i=>{if(+i.value>0)v[i.dataset.size]=+i.value})}
+      else if(f.type==='upload')v=uploads[f.id]||null;
+      else v=(form.querySelector(`[name="${f.id}"]`)||{}).value?.trim()||'';
+      answers[f.id]=v;
+      const empty=v==null||v===''||(Array.isArray(v)&&!v.length)||(f.type==='sizes'&&!sumQty(v));
+      if(!bad&&f.required&&empty)bad=[f,`Please answer "${f.label}".`];
+      if(!bad&&f.type==='email'&&v&&!/^\S+@\S+\.\S+$/.test(v))bad=[f,'Check the email address. It should look like name@example.com.'];
+    }
+    if(bad){const el=form.querySelector(`[data-fid="${bad[0].id}"]`);el.classList.add('invalid');$('qf-err').textContent=bad[1];el.scrollIntoView({block:'center',behavior:'smooth'});return}
+    const consent=ev.notify.consent?$('qf-consent').checked:true;
+    const sub=createSubmission(S,ev,answers,consent);
+    save();U.fillDone=sub.id;render();window.scrollTo(0,0);
+    toast(sub.num?`Submission saved as job QTG-${sub.num}. ${sub.notice||''}`:'Submission saved.');
+  };
+}
+
+/* ---------- Submissions ---------- */
+function subsView(){
+  const evF=U.subsEv==='all'?null:getEv(U.subsEv);
+  const q=U.subsQ.toLowerCase();
+  let list=S.subs.filter(s=>!evF||s.eventId===evF.id).sort((a,b)=>b.t-a.t);
+  const total=list.length,todayN=list.filter(s=>isoDay(s.t)===today()).length;
+  const waiting=list.filter(s=>{const j=s.num&&findJob(s.num);return j&&j.stage==='new'}).length;
+  if(q)list=list.filter(s=>{const ev=getEv(s.eventId);return ('qtg-'+s.num+' '+ev.title+' '+ev.fields.map(f=>ansText(f,s.answers[f.id])).join(' ')).toLowerCase().includes(q)});
+  const cols=evF?evF.fields.filter(f=>isInput(f)):[];
+  const nameOf=s=>{const ev=getEv(s.eventId),nf=ev.fields.find(f=>f.role==='name')||ev.fields.find(f=>f.type==='short');return nf?ansText(nf,s.answers[nf.id]):''};
+  const stageCell=s=>{const j=s.num&&findJob(s.num);return j?`<span class="stagepill"><span class="dot" style="--c:var(--s-${j.stage})"></span>${stageName(j.stage)}</span>`:'<span class="pill plain">No job</span>'};
+  const cell=(f,v)=>f.type==='upload'&&v?(v.data?`<img class="thumb" src="${v.data}" alt="${esc(v.name)}">`:esc(v.name)):esc(ansText(f,v))||'<span class="muted">—</span>';
+  return `<div class="view-head"><div><h2>Submissions</h2><p>Every answer from your event forms. Open one to see the full order, move its job along, or message history.</p></div></div>
+  <div class="subtools">
+    <select id="sf-ev" aria-label="Form"><option value="all">All event forms</option>${S.events.map(e=>`<option value="${e.id}" ${U.subsEv===e.id?'selected':''}>${esc(e.title)}</option>`).join('')}</select>
+    <input type="search" id="sf-q" placeholder="Search answers" value="${esc(U.subsQ)}" aria-label="Search submissions">
+    <span class="sp"></span>${evF?`<button class="btn small" id="sf-form">Edit this form</button>`:''}<button class="btn small" id="sf-csv">Copy as CSV</button></div>
+  <div class="chips"><span class="chip"><b>${total}</b> submissions</span><span class="chip"><b>${todayN}</b> today</span><span class="chip"><b>${waiting}</b> waiting to start</span></div>
+  <div class="tablewrap">${list.length?`<table class="subs"><thead><tr><th>Order</th><th>Submitted</th>${evF?cols.map(f=>`<th>${esc(f.label)}</th>`).join(''):'<th>Name</th><th>Event</th><th>Order</th>'}<th>Stage</th></tr></thead>
+    <tbody>${list.map(s=>{const ev=getEv(s.eventId),j=s.num&&findJob(s.num);
+      return `<tr data-sub="${s.id}" tabindex="0"><td class="mono">${s.num?'QTG-'+s.num:'—'}</td><td class="when">${fmtTime(s.t)}</td>
+      ${evF?cols.map(f=>`<td>${cell(f,s.answers[f.id])}</td>`).join(''):`<td>${esc(nameOf(s))}</td><td><span class="evtag" style="--c:${ev.theme.accent}"><i></i><span>${esc(ev.title)}</span></span></td><td>${j?esc(j.summary):''}</td>`}
+      <td>${stageCell(s)}</td></tr>`}).join('')}</tbody></table>`
+    :`<div class="empty">${q?'No submissions match that search.':evF?`No submissions for ${esc(evF.title)} yet. <button class="linkbtn" id="sf-open">Open the form</button> to try it.`:'No submissions yet.'}</div>`}</div>`;
+}
+function bindSubs(){
+  $('sf-ev').onchange=e=>{U.subsEv=e.target.value;saveUI();render()};
+  const q=$('sf-q');q.oninput=e=>{U.subsQ=e.target.value;render();const n=$('sf-q');n.focus();n.setSelectionRange(n.value.length,n.value.length)};
+  if($('sf-form'))$('sf-form').onclick=()=>go('builder',{builderId:U.subsEv});
+  if($('sf-open'))$('sf-open').onclick=()=>go('fill',{fillId:U.subsEv,fillDone:null});
+  document.querySelectorAll('[data-sub]').forEach(r=>{r.onclick=()=>{U.openSub=r.dataset.sub;U.openJob=null;renderDrawer()};r.onkeydown=e=>{if(e.key==='Enter')r.click()}});
+  $('sf-csv').onclick=()=>{
+    const evF=U.subsEv==='all'?null:getEv(U.subsEv);
+    const list=S.subs.filter(s=>!evF||s.eventId===evF.id).sort((a,b)=>a.t-b.t);
+    const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+    let rows;
+    if(evF){const cols=evF.fields.filter(isInput);rows=[['Order','Submitted','Stage',...cols.map(f=>f.label)],...list.map(s=>{const j=s.num&&findJob(s.num);return['QTG-'+s.num,new Date(s.t).toISOString(),j?stageName(j.stage):'',...cols.map(f=>ansText(f,s.answers[f.id]))]})]}
+    else rows=[['Order','Submitted','Event','Customer','Order details','Stage'],...list.map(s=>{const j=s.num&&findJob(s.num),ev=getEv(s.eventId);return['QTG-'+s.num,new Date(s.t).toISOString(),ev.title,j?j.customer.name:'',j?j.summary:'',j?stageName(j.stage):'']})];
+    copyText(rows.map(r=>r.map(q).join(',')).join('\n'),`Copied ${list.length} rows. Paste them into a spreadsheet.`);
+  };
+}
+
+/* ---------- Production board ---------- */
+const isLate=j=>j.due<today()&&stageIdx(j.stage)<stageIdx('ready');
+const dueToday=j=>j.due===today()&&stageIdx(j.stage)<stageIdx('ready');
+function boardView(){
+  const jobs=S.jobs.filter(j=>U.boardEv==='all'||j.eventId===U.boardEv);
+  const open=jobs.filter(j=>j.stage!=='done'),late=jobs.filter(isLate).length;
+  const dt=jobs.filter(dueToday).length,sentToday=S.messages.filter(m=>isoDay(m.t)===today()).length;
+  return `<div class="view-head"><div><h2>Production board</h2>
+    <p>Every submission becomes a job in New order. Drag it to the next stage, or use its move button, and the customer gets the update you set up for that stage.</p></div></div>
+  <div class="stats"><div class="stat"><b>${open.length}</b><span>Open jobs</span></div><div class="stat"><b>${dt}</b><span>Due today</span></div>
+    <div class="stat ${late?'alert':''}"><b>${late}</b><span>Overdue</span></div><div class="stat"><b>${sentToday}</b><span>Updates sent today</span></div></div>
+  <div class="boardtools"><label for="bf-ev">Showing</label><select id="bf-ev"><option value="all">All events</option>${S.events.map(e=>`<option value="${e.id}" ${U.boardEv===e.id?'selected':''}>${esc(e.title)}</option>`).join('')}</select></div>
+  <div class="board-scroll"><div class="board">${STAGES.map((s,i)=>{
+    const list=jobs.filter(j=>j.stage===s.id).sort((a,b)=>a.due.localeCompare(b.due)||a.created-b.created);const r=S.rules[s.id];
+    return `<section class="col" data-stage="${s.id}" aria-label="${s.name}">
+      <div class="col-head"><span class="dot" style="--c:var(--s-${s.id})"></span>${s.name}<span class="count">${list.length}</span></div>
+      <div class="col-rule ${r.on?'on':''}">${r.on?'● Customer is notified':'○ No customer message'}</div>
+      ${list.length?list.map(j=>ticket(j,i)).join(''):'<div class="empty-col">Drop a job here</div>'}</section>`}).join('')}</div></div>`;
+}
+function ticket(j,i){
+  const next=STAGES[i+1],ev=getEv(j.eventId);
+  const st=isLate(j)?'<span class="pill bad">Overdue</span>':dueToday(j)?'<span class="pill warn">Due today</span>':j.stage==='done'?'<span class="pill good">Done</span>':'';
+  return `<article class="ticket" draggable="true" data-num="${j.num}">
+    <button class="t-open" data-open="${j.num}" aria-label="Open order QTG-${j.num}"></button>
+    <div class="t-top"><span class="t-num mono">QTG-${j.num}</span>${st}<span class="chan">${CHANNELS[j.customer.channel]}</span></div>
+    <div class="t-body"><div class="t-cust">${esc(j.customer.name)}</div><div class="t-item">${esc(j.summary)}</div>
+      ${ev?`<span class="evtag" style="--c:${ev.theme.accent}"><i></i><span>${esc(ev.title)}</span></span>`:''}
+      <div class="t-meta">${j.assignee?`<span class="avatar" title="${esc(j.assignee)}">${j.assignee.slice(0,2).toUpperCase()}</span>`:'<span class="avatar none" title="Unassigned">?</span>'}<span>Due ${fmtDay(j.due)}</span></div></div>
+    ${next?`<button class="btn t-next" data-move="${j.num}" data-to="${next.id}">Move to ${next.name} →</button>`:''}</article>`;
+}
+function bindBoard(){
+  const m=$('main');
+  $('bf-ev').onchange=e=>{U.boardEv=e.target.value;saveUI();render()};
+  m.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{U.openJob=+b.dataset.open;U.openSub=null;renderDrawer()});
+  m.querySelectorAll('[data-move]').forEach(b=>b.onclick=e=>{e.stopPropagation();moveJob(b.dataset.move,b.dataset.to)});
+  m.querySelectorAll('.ticket').forEach(t=>{t.ondragstart=e=>{e.dataTransfer.setData('text/plain',t.dataset.num);t.classList.add('dragging')};t.ondragend=()=>t.classList.remove('dragging')});
+  m.querySelectorAll('.col').forEach(c=>{c.ondragover=e=>{e.preventDefault();c.classList.add('over')};c.ondragleave=e=>{if(!c.contains(e.relatedTarget))c.classList.remove('over')};
+    c.ondrop=e=>{e.preventDefault();c.classList.remove('over');moveJob(e.dataTransfer.getData('text/plain'),c.dataset.stage)}});
+}
+
+/* ---------- Notifications ---------- */
+function messagesView(){
+  const msgs=[...S.messages].sort((a,b)=>b.t-a.t);
+  return `<div class="view-head"><div><h2>Notifications</h2><p>Choose which stages send the customer an update, and what it says. Each event form sets whether updates go by SMS, WhatsApp or email.</p></div></div>
+  <div class="grid2"><section class="panel"><h3 style="font-size:18px;margin-bottom:4px">When a job reaches…</h3>
+    <p class="vars" style="margin:0 0 14px">Insert details with <code>{name}</code> <code>{order}</code> <code>{event}</code> <code>{link}</code> <code>{business}</code></p>
+    <div class="rules">${STAGES.map(s=>{const r=S.rules[s.id];return `<div class="rule ${r.on?'':'off'}">
+      <div class="rule-head"><span class="dot" style="--c:var(--s-${s.id})"></span>${s.name}<label class="switch">${r.on?'On':'Off'}<input type="checkbox" data-rule="${s.id}" ${r.on?'checked':''} aria-label="Send update at ${s.name}"></label></div>
+      <textarea data-text="${s.id}" id="rt-${s.id}" aria-label="Message for ${s.name}">${esc(r.text)}</textarea></div>`}).join('')}</div></section>
+  <section class="panel"><h3 style="font-size:18px;margin-bottom:4px">Message log</h3><p class="vars" style="margin:0 0 6px">${msgs.length} messages · newest first</p>
+    <div class="log">${msgs.length?msgs.map(m=>`<div class="msg"><span class="icon">${m.channel==='email'?'@':m.channel==='whatsapp'?'WA':'SMS'}</span>
+      <div class="to">${esc(m.contact)} <span class="muted mono" style="font-weight:400">${esc(m.to)}</span><button class="linkbtn mono" data-open="${m.num}" style="font-size:12px">QTG-${m.num}</button></div>
+      <div class="body">${esc(m.body)}</div><div class="when">${fmtTime(m.t)} · ${stageName(m.stage)} · ${m.example?'Sample':'Simulated send'}</div></div>`).join(''):'<p class="muted">No messages yet.</p>'}</div></section></div>`;
+}
+function bindMessages(){
+  document.querySelectorAll('[data-rule]').forEach(c=>c.onchange=()=>{S.rules[c.dataset.rule].on=c.checked;save();render();toast(`${stageName(c.dataset.rule)} updates turned ${c.checked?'on':'off'}.`)});
+  document.querySelectorAll('[data-text]').forEach(t=>t.oninput=()=>{S.rules[t.dataset.text].text=t.value;save()});
+  document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{U.openJob=+b.dataset.open;U.openSub=null;renderDrawer()});
+}
+
+/* ---------- Tracking ---------- */
+function trackView(){
+  const j=U.trackNum?findJob(U.trackNum):null;
+  let body;
+  if(!j)body=`<div class="panel"><p class="muted" style="margin:0 0 10px">Pick an order to see its tracking page:</p><div style="display:flex;gap:8px;flex-wrap:wrap">${S.jobs.slice().sort((a,b)=>b.num-a.num).map(x=>`<button class="btn small mono" data-t="${x.num}">QTG-${x.num}</button>`).join('')}</div></div>`;
+  else{
+    const ev=getEv(j.eventId),reached={},ci=stageIdx(j.stage),art=artSrc(ev);
+    j.events.filter(e=>e.type==='stage').forEach(e=>reached[e.stage]=e.t);
+    const now_=j.stage==='done'?'Your order is complete. Thank you!':j.stage==='ready'?`Ready to collect from the ${BUSINESS} stand. Bring your order number.`:'Expected by '+fmtDay(j.due);
+    body=`<div class="fill-frame"><div class="qf-wrap qf-banner${art?'':' noart'}" style="${themeStyle(ev.theme)}"><div class="qf">
+      ${art?`<div class="qf-art"><img src="${art}" alt=""></div>`:''}
+      <div class="qf-main"><div class="qf-card"><div class="qf-eyebrow">${esc(ev.title)} · ${BUSINESS}</div>
+        <h2 class="qf-title" style="font-size:clamp(24px,5cqi,32px)">Order <span style="font-family:var(--f-mono);font-weight:500">QTG-${j.num}</span></h2>
+        <p class="qf-intro">${esc(j.summary)}</p>
+        <div class="tnow"><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;opacity:.75">Current status</div><b>${stageName(j.stage)}</b><span style="font-size:14px">${now_}</span></div>
+        <ol class="tsteps">${STAGES.map((s,i)=>{const cls=i<ci||(i===ci&&j.stage==='done')?'done':i===ci?'current':'todo';
+          return `<li class="${cls}"><span class="mark">${cls==='done'?'✓':''}</span><span class="nm">${s.name}</span><span class="dt">${reached[s.id]&&i<=ci?fmtTime(reached[s.id]):''}</span></li>`}).join('')}</ol>
+        <p class="qf-help" style="margin:0">Questions? Contact ${BUSINESS} and quote QTG-${j.num}.</p></div>
+        <div class="qf-powered">Powered by QueuedToGo</div></div></div></div></div>
+      <p style="text-align:center;margin-top:12px"><button class="linkbtn" id="t-staff">Open this job as staff</button> · <button class="linkbtn" id="t-other">Track a different order</button></p>`;
+  }
+  return `<div class="view-head"><div><h2>Tracking page</h2><p>What customers see when they open their tracking link. It uses the event's design, and internal notes and staff names stay hidden.</p></div></div>
+  <div class="track"><form class="track-find" id="tfind"><input type="text" id="t-num" placeholder="Order number, e.g. QTG-1042" value="${j?'QTG-'+j.num:''}" aria-label="Order number"><button class="btn primary">Track</button></form>${body}</div>`;
+}
+function bindTrack(){
+  $('tfind').onsubmit=e=>{e.preventDefault();const n=$('t-num').value.replace(/\D/g,'');if(findJob(n)){U.trackNum=+n;render()}else toast('No order with that number. Check the number on the confirmation message.')};
+  document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{U.trackNum=+b.dataset.t;render()});
+  if($('t-staff'))$('t-staff').onclick=()=>{U.openJob=U.trackNum;U.openSub=null;renderDrawer()};
+  if($('t-other'))$('t-other').onclick=()=>{U.trackNum=null;render()};
+}
+
+/* ---------- Drawer: one order (submission + job) ---------- */
+function renderDrawer(){
+  const root=$('drawer-root');
+  let j=U.openJob?findJob(U.openJob):null, s=U.openSub?findSub(U.openSub):null;
+  if(j&&!s)s=findSub(j.subId); if(s&&!j&&s.num)j=findJob(s.num);
+  if(!j&&!s){root.innerHTML='';document.body.style.overflow='';return}
+  document.body.style.overflow='hidden';
+  const ev=getEv((s||j).eventId),art=artSrc(ev);
+  const msgs=j?S.messages.filter(m=>m.num===j.num).sort((a,b)=>b.t-a.t):[];
+  const ansRows=s?ev.fields.filter(isInput).map(f=>{const v=s.answers[f.id];
+    const val=f.type==='upload'&&v?(v.data?`<img class="art" src="${v.data}" alt="${esc(v.name)}">`:esc(v.name)):esc(ansText(f,v));
+    return `<dt>${esc(f.label)}</dt><dd>${val||'<span class="muted">—</span>'}</dd>`}).join(''):'';
+  root.innerHTML=`<div class="scrim" id="scrim"><aside class="drawer" role="dialog" aria-modal="true" aria-label="Order details">
+    <div class="d-head"><div><div class="mono muted" style="font-size:13px">${j?'QTG-'+j.num:'Submission'}${(j||s).example?' · sample':''}</div>
+      <h3>${esc(j?j.customer.name:'Submission')}</h3><div class="muted" style="font-size:14px">${j?esc(j.summary):''}</div>
+      <span class="evtag" style="--c:${ev.theme.accent};margin-top:6px"><i></i><span>${esc(ev.title)}</span></span></div>
+      <button class="btn small x" id="d-close">Close</button></div>
+    ${j?`<div class="d-sec"><div class="row">
+      <label class="f">Stage<select id="d-stage">${STAGES.map(x=>`<option value="${x.id}" ${x.id===j.stage?'selected':''}>${x.name}</option>`).join('')}</select></label>
+      <label class="f">Assigned to<select id="d-assignee"><option value="">Unassigned</option>${TEAM.map(t=>`<option ${t===j.assignee?'selected':''}>${t}</option>`).join('')}</select></label></div>
+      <label class="f" style="margin-top:12px">Due date<input type="date" id="d-due" value="${j.due}"></label>
+      ${isLate(j)?`<p style="margin:10px 0 0"><span class="pill bad">Overdue since ${fmtDay(j.due)}</span></p>`:''}</div>`:'<div class="d-sec"><p class="muted" style="margin:0">This form does not create production jobs, so this submission has no job.</p></div>'}
+    ${s?`<div class="d-sec"><h4>Form answers · ${fmtTime(s.t)}</h4><dl class="kv">${ansRows}</dl></div>`:''}
+    ${j?`<div class="d-sec"><h4>Customer updates</h4><dl class="kv">
+      <dt>Sent by</dt><dd>${CHANNELS[j.customer.channel]} ${j.customer.consent?'<span class="pill good">Agreed</span>':'<span class="pill warn">Not agreed</span>'}</dd>
+      <dt>Tracking link</dt><dd><span class="mono" style="font-size:13px">${trackLink(j)}</span> <button class="linkbtn" id="d-track" style="font-size:13px">Preview</button></dd></dl></div>
+    <div class="d-sec"><h4>Activity</h4>
+      <div class="inline-add" style="margin-bottom:12px"><input type="text" id="d-note" placeholder="Add an internal note (customer won't see it)" aria-label="Internal note"><button class="btn small" id="d-addnote">Add</button></div>
+      <ul class="events">${j.events.slice().reverse().map(e=>`<li class="${e.type==='note'?'note-ev':''}"><span><span class="who">${esc(e.who)}</span> ${e.type==='note'?'noted: <span class="nt">'+esc(e.text)+'</span>':esc(e.text)}</span><time>${fmtTime(e.t)}</time></li>`).join('')}</ul></div>
+    <div class="d-sec"><h4>Messages to customer (${msgs.length})</h4>${msgs.length?`<div class="log">${msgs.map(m=>`<div class="msg"><span class="icon">${m.channel==='email'?'@':m.channel==='whatsapp'?'WA':'SMS'}</span><div class="body">${esc(m.body)}</div><div class="when">${fmtTime(m.t)} · ${stageName(m.stage)}</div></div>`).join('')}</div>`:'<p class="muted" style="margin:0;font-size:14px">None yet.</p>'}</div>`:''}
+  </aside></div>`;
+  const close=()=>{U.openJob=null;U.openSub=null;renderDrawer()};
+  $('d-close').onclick=close;$('scrim').onclick=e=>{if(e.target.id==='scrim')close()};$('d-close').focus();
+  if(!j)return;
+  $('d-stage').onchange=e=>moveJob(j.num,e.target.value);
+  $('d-assignee').onchange=e=>{j.assignee=e.target.value;j.events.push({t:now(),who:'You',text:e.target.value?'Assigned to '+e.target.value:'Removed assignee',type:'assign'});save();render();toast(e.target.value?`Assigned to ${e.target.value}.`:'Job is unassigned.')};
+  $('d-due').onchange=e=>{if(!e.target.value)return;j.due=e.target.value;j.events.push({t:now(),who:'You',text:'Changed due date to '+fmtDay(j.due),type:'due'});save();render();toast('Due date updated.')};
+  const addNote=()=>{const v=$('d-note').value.trim();if(!v)return;j.events.push({t:now(),who:'You',text:v,type:'note'});save();render();toast('Note added. Only your team can see it.')};
+  $('d-addnote').onclick=addNote;$('d-note').onkeydown=e=>{if(e.key==='Enter')addNote()};
+  $('d-track').onclick=()=>{U.openJob=null;U.openSub=null;go('track',{trackNum:j.num})};
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(U.openJob||U.openSub)){U.openJob=null;U.openSub=null;renderDrawer()}});
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>go(t.dataset.view,{fillDone:null}));
+$('reset').onclick=()=>{const old=S;S=seed();Object.assign(U,{openJob:null,openSub:null,trackNum:null,fillDone:null,sel:null});save();render();
+  toast('Sample data restored.',{label:'Undo',fn:()=>{S=old;save();render()}})};
+render();
+</script>
