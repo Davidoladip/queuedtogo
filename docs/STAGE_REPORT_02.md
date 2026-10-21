@@ -1,6 +1,6 @@
 # Stage report 2: form builder, public form and deployment (Stage 5)
 
-Live site: **https://queuedtogo.vercel.app** (Vercel project `queuedtogo`, region iad1, deploys on every push to `main`).
+Live site: **https://queuedtogo.com** (www and queuedtogo.vercel.app also work) (Vercel project `queuedtogo`, region iad1, deploys on every push to `main`).
 Database: Supabase `queuedtogo-us` (`ejeexndyexivsgjqlhuh`, us-east-1).
 
 ## 1. What was built
@@ -65,7 +65,7 @@ The builder tests run against the dev harness, which saves to memory, because th
 ## 4. Open items
 1. **Apply `save_form_draft` to the live project.** The connector's approval was cancelled three times. Run the migration file in the Supabase SQL Editor, or use `npm run db:push`.
 2. **Optional hardening:** remove `image/svg+xml` from the `form-assets` bucket's allowed types (Storage → form-assets → Edit).
-3. **Supabase Auth URLs:** set Site URL to `https://queuedtogo.vercel.app` and add `https://queuedtogo.vercel.app/**` to Redirect URLs. Keep `http://localhost:3000/**`.
+3. **Supabase Auth URLs:** set Site URL to `https://queuedtogo.com` and add `https://queuedtogo.com/**` and `https://queuedtogo.vercel.app/**` to Redirect URLs. Keep `http://localhost:3000/**`.
 4. **Hand check on the live site:** create a form, upload artwork, publish, open the public link, close the form.
 5. **Not in this stage:**
    - **Submissions (Stage 6):** submitting says "opens soon" and nothing is sent.

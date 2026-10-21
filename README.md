@@ -5,7 +5,7 @@ Order forms for live events that turn every submission into a tracked production
 Built with Next.js 16 (App Router, TypeScript, React 19) and Supabase (Postgres, Auth, Storage, Row Level Security). The original single-file prototype is kept in [`prototype/`](prototype/) as the design and behaviour reference.
 
 - Migration plan and screen map: [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md)
-- Live site: https://queuedtogo.vercel.app
+- Live site: https://queuedtogo.com (also https://queuedtogo.vercel.app)
 - What's built so far: [`docs/STAGE_REPORT_01.md`](docs/STAGE_REPORT_01.md) (auth, workspaces) and [`docs/STAGE_REPORT_02.md`](docs/STAGE_REPORT_02.md) (form builder, deployment)
 - Production security checklist: [`docs/SECURITY.md`](docs/SECURITY.md)
 
