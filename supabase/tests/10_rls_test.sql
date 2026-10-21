@@ -128,6 +128,10 @@ insert into tests.vals values ('invite_dan', public.create_invitation(tests.id('
 select tests.fails($$select public.create_invitation(tests.id('orgA'), 'x@example.com', 'owner')$$, 'nobody can be invited straight in as owner');
 select tests.ok((select count(*) from public.organization_invitations where org_id = tests.id('orgA')) = 2, 'owner sees open invitations');
 select tests.fails($$select token_hash from public.organization_invitations$$, 'invitation token hashes are not readable');
+insert into tests.vals values ('invite_old', public.create_invitation(tests.id('orgA'), 'erin@example.com', 'member'));
+insert into tests.vals values ('invite_new', public.create_invitation(tests.id('orgA'), 'erin@example.com', 'admin'));
+select tests.ok((select count(*) from public.organization_invitations where email = 'erin@example.com') = 1 and (select role from public.organization_invitations where email = 'erin@example.com') = 'admin', 'inviting the same email again replaces the open invitation');
+select tests.ok((select count(*) from public.get_invitation(tests.val('invite_old'))) = 0 and (select count(*) from public.get_invitation(tests.val('invite_new'))) = 1, 'the replaced invitation link stops working');
 reset role;
 
 select tests.login('bob');

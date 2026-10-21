@@ -7,7 +7,7 @@
 | Prototype (preserved) | `prototype/index.html`, `prototype/tests/test_design.py`, `prototype/tests/legacy-v2.html`, copied unchanged |
 | Plan and docs | `docs/MIGRATION_PLAN.md`, `docs/SECURITY.md`, `docs/STAGE_REPORT_01.md`, `README.md` |
 | Config | `next.config.ts` (security headers), `.env.example`, `.gitignore`, `package.json` scripts, `supabase/config.toml` |
-| Database | `supabase/migrations/20261021000100_core_tenancy.sql`, `…0200_forms_and_production.sql`, `…0300_functions_and_storage.sql` |
+| Database | `supabase/migrations/20261021101818_core_tenancy.sql`, `…101915_forms_and_production.sql`, `…102357_app_functions.sql`, `…102407_storage.sql` |
 | Database tests | `supabase/tests/00_supabase_stub.sql`, `supabase/tests/10_rls_test.sql`, `scripts/test-db.sh` |
 | Types | `src/types/database.ts`, generated from the migrated schema with the Supabase CLI |
 | Supabase wiring | `src/lib/env.ts`, `src/lib/supabase/{client,server,proxy}.ts`, `src/proxy.ts` |
@@ -36,7 +36,7 @@
 
 ## 3. Database migrations added
 
-Three migrations covering the 11 tables in the brief, plus `organization_invitations`:
+Four migrations covering the 11 tables in the brief, plus `organization_invitations`:
 
 - **Tables**: `organizations`, `profiles` (created automatically on sign-up), `organization_members`, `organization_invitations`, `workflow_stages`, `forms`, `form_fields`, `form_submissions`, `customers`, `jobs`, `job_events`, `files`.
 - **Keys and constraints**:
@@ -58,7 +58,7 @@ Three migrations covering the 11 tables in the brief, plus `organization_invitat
 
 | Check | Result |
 |---|---|
-| `npm run test:db`: all migrations and 89 RLS, role, audit, storage and public-function tests on PostgreSQL 16 | **89/89 pass** |
+| `npm run test:db`: all migrations and 91 RLS, role, audit, storage and public-function tests on PostgreSQL 16 | **91/91 pass** |
 | `npm run typecheck` | Pass |
 | `npm run lint` | Pass, no warnings |
 | `npm run build` (Next.js 16.4.2) | Pass |
@@ -76,7 +76,7 @@ The smoke tests cover:
 
 ## 5. Errors and unresolved issues
 
-- **Not yet tested against your Supabase project.** This workspace's network blocks `supabase.co`, so the migrations haven't been applied to your project. Sign-up, sign-in, email links, invitations and the signed-in workspace pages haven't run end to end. The database rules they rely on are tested (section 4), and the pages build and type-check against the generated schema. Do the checklist below once.
+- **Migrations are applied to the US project `queuedtogo-us` (`ejeexndyexivsgjqlhuh`, us-east-1).** The local files are named after the versions Supabase recorded, so `npm run db:push` sees nothing left to apply. Sign-up, sign-in, email links and invitations still need the hand checks below.
 - **Fonts** load from Google Fonts in the browser rather than through `next/font`, because the build environment here can't reach Google. This works in production; switching to `next/font` later is a small change.
 - **`npm audit`** reports a high-severity issue in `braces`, through `eslint-config-next`. It's a development tool only, not shipped to users. Recheck when `eslint-config-next` updates.
 - **Not started yet (by design)**:
@@ -89,7 +89,7 @@ The smoke tests cover:
 
 ### Checklist to run once on your Supabase project
 
-1. `npx supabase login`, then `npx supabase link --project-ref lobaiwoefxzznkxyfxgd`, then `npm run db:push`.
+1. `npx supabase login`, then `npx supabase link --project-ref ejeexndyexivsgjqlhuh`, then `npm run db:push` (it should report the database is up to date).
 2. Set the Auth URLs (README, section 3b).
 3. `npm run dev`, then sign up with a real email address, open the confirmation link, and create a business.
 4. In Settings, create an invitation. In a private window, sign up with the invited email, open the link and join.

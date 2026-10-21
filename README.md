@@ -27,7 +27,7 @@ Useful scripts:
 | `npm run dev` | Start the dev server |
 | `npm run build` / `npm start` | Production build, then serve it |
 | `npm run lint` / `npm run typecheck` | ESLint and TypeScript checks |
-| `npm run test:db` | Run all migrations and 89 security tests on a throwaway local Postgres |
+| `npm run test:db` | Run all migrations and 91 security tests on a throwaway local Postgres |
 | `npm run test:smoke` | Browser smoke tests against a running app (`APP_URL`, default `http://localhost:3000`) |
 | `npm run test:prototype` | The prototype's own browser tests |
 | `npm run db:push` | Apply migrations to the linked Supabase project |
@@ -57,7 +57,7 @@ The migrations in `supabase/migrations/` create every table, constraint, index, 
 
 ```bash
 npx supabase login                                   # opens the browser once
-npx supabase link --project-ref lobaiwoefxzznkxyfxgd # your project ref
+npx supabase link --project-ref ejeexndyexivsgjqlhuh # queuedtogo-us (us-east-1)
 npm run db:push                                      # applies any migrations not yet applied
 npm run db:types                                     # optional: regenerate TypeScript types
 ```
