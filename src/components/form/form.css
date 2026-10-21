@@ -1,0 +1,77 @@
+/* Themed event form, ported from the prototype. Colours and fonts come from CSS variables set per form. */
+.qf-wrap{container-type:inline-size;background-color:var(--p);color:var(--t);font-family:var(--bf);line-height:1.5}
+.qf{position:relative;min-height:100%}
+.qf-art img{display:block;width:100%;aspect-ratio:12/5;object-fit:cover;max-width:100%}
+.qf-bg{position:absolute;inset:0;overflow:hidden}
+.qf-bg img{width:100%;height:100%;object-fit:cover;display:block}
+.qf-bg::after{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--p) 35%,transparent)}
+.qf-main{position:relative;padding:0 16px 40px}
+.qf-banner .qf-main{margin-top:-48px}
+.qf-banner.noart .qf-main,.qf-side.noart .qf-main{margin-top:0;padding-top:32px}
+.qf-background .qf-main{padding-top:56px;padding-bottom:56px}
+.qf-card{background-color:var(--c);color:var(--t);max-width:620px;margin-inline:auto;border-radius:min(var(--r),20px);padding:28px clamp(18px,5cqi,36px);display:flex;flex-direction:column;gap:18px;box-shadow:0 10px 40px rgba(0,0,0,.18)}
+@container (min-width:760px){
+  .qf-side .qf{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .qf-side .qf-art{position:sticky;top:0;align-self:start;height:100%}
+  .qf-side .qf-art img{height:100%;min-height:520px;aspect-ratio:auto}
+  .qf-side .qf-main{margin-top:0;padding:40px 32px}
+  .qf-side .qf-card{box-shadow:none}
+}
+.qf-eyebrow{font-size:12.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--a) 45%,var(--t))}
+.qf-title{font-family:var(--hf);font-size:clamp(28px,6cqi,42px);line-height:1.08;margin:0;text-wrap:balance}
+.qf-intro{margin:0}
+.qf-form{display:flex;flex-direction:column;gap:20px}
+.qf-page{display:flex;flex-direction:column;gap:20px}
+.qf-blk{display:flex;flex-direction:column;position:relative;min-width:0}
+.qf-field{display:flex;flex-direction:column;gap:7px;border-radius:8px;scroll-margin-top:140px}
+.qf-label{font-weight:600;font-size:15px}
+.qf-req{color:color-mix(in srgb,var(--a) 45%,var(--t));margin-left:3px}
+.qf-help{font-size:13px;opacity:.72;margin-top:-4px}
+.qf-in{background:color-mix(in srgb,var(--t) 5%,var(--c));border:1.5px solid color-mix(in srgb,var(--t) 20%,transparent);color:var(--t);border-radius:10px;padding:11px 13px;width:100%;min-width:0;font:inherit;transition:border-color .15s,box-shadow .15s,background-color .15s}
+.qf-in:focus{outline:none}
+textarea.qf-in{resize:vertical}
+.qf-in:disabled{cursor:not-allowed}
+.qf-opts{display:flex;flex-wrap:wrap;gap:8px}
+.qf-opts.list{flex-direction:column;align-items:stretch}
+.qf-opt{position:relative;cursor:pointer;display:flex}
+.qf-opt input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+.qf-opt span{display:inline-flex;align-items:center;gap:8px;border:1.5px solid color-mix(in srgb,var(--t) 24%,transparent);transition:background-color .12s,border-color .12s,color .12s,box-shadow .12s}
+.qf-li{display:flex;align-items:center;gap:10px;cursor:pointer;border:1.5px solid transparent;transition:background-color .12s,border-color .12s,box-shadow .12s}
+.qf-li input{margin:0;width:18px;height:18px;flex:none}
+.qf-sizes{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px}
+.qf-sizes label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;text-align:center;opacity:.9}
+.qf-sizes input{text-align:center}
+.qf-upload{display:flex;align-items:center;gap:12px;cursor:pointer;font-size:14px}
+.qf-upload img{width:48px;height:48px;object-fit:contain;border-radius:6px;background:color-mix(in srgb,var(--t) 6%,var(--c))}
+.qf-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;text-decoration:none;font:inherit;border:0;max-width:100%;transition:background-color .15s,color .15s,border-color .15s,box-shadow .15s,opacity .15s,transform .06s}
+.qf-btn:disabled{cursor:not-allowed}
+.qf-nav{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.qf-h{margin:0}
+.qf-p{margin:0}
+.qf-hr{border:0;margin:0;width:100%}
+.qf-img{margin:0;display:flex;min-width:0}
+.qf-img-in{display:block;max-width:100%}
+.qf-img-in img{display:block;width:100%;max-width:100%}
+.qf-img-empty{border:1.5px dashed color-mix(in srgb,var(--t) 30%,transparent);border-radius:10px;padding:18px;text-align:center;font-size:14px;opacity:.75}
+.qf-check{display:flex;gap:10px;align-items:flex-start;font-size:14px;margin-bottom:14px}
+.qf-check input{margin-top:4px;accent-color:var(--a)}
+.qf-ferr{font-size:13px;font-weight:600}
+.qf-ferr:empty{display:none}
+.qf-prog{display:flex;flex-direction:column;gap:6px}
+.qf-prog-track{height:6px;border-radius:99px;background:color-mix(in srgb,var(--t) 12%,transparent);overflow:hidden}
+.qf-prog-track span{display:block;height:100%;background:var(--a);border-radius:99px;transition:width .25s}
+.qf-step{font-size:12.5px;opacity:.75;font-weight:600}
+.qf-closed{padding:16px;border-radius:10px;background:color-mix(in srgb,var(--t) 7%,var(--c));font-weight:500}
+.qf-done{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.qf-done .num{font-family:var(--f-mono);font-size:28px;font-weight:500;color:color-mix(in srgb,var(--a) 60%,var(--t))}
+.qf-done .lk{font-family:var(--f-mono);font-size:13px;background:color-mix(in srgb,var(--t) 6%,var(--c));padding:8px 12px;border-radius:8px;overflow-wrap:anywhere}
+.qf-powered{text-align:center;font-size:12px;opacity:.7;margin-top:14px;position:relative;color:var(--pt)}
+/* editor-only overlays */
+.editing [data-sid]{cursor:pointer}
+.editing [data-sid]:hover{outline:2px dashed color-mix(in srgb,#3346D3 60%,transparent);outline-offset:4px}
+.editing [data-sid].picked{outline:2px solid var(--accent);outline-offset:4px}
+.qf-pbmark{display:flex;align-items:center;gap:10px;font:600 12px var(--bf);text-transform:uppercase;letter-spacing:.08em;opacity:.65;cursor:pointer}
+.qf-pbmark::before,.qf-pbmark::after{content:"";flex:1;border-top:1.5px dashed currentColor}
+/* Public form page: the themed form fills the window */
+.pf-page{min-height:100vh;display:flex;flex-direction:column}
+.pf-page>.qf-wrap{flex:1}

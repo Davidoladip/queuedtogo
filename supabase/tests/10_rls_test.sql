@@ -241,6 +241,31 @@ select tests.login('bob');
 select tests.ok((select count(*) from storage.objects) = 0, 'bob cannot list another business''s files');
 reset role;
 
+-- ---------------------------------------------------------------- saving drafts (form builder)
+insert into tests.ids values ('fld1', gen_random_uuid()), ('fld2', gen_random_uuid()), ('fldSub', gen_random_uuid());
+select tests.login('dan');
+select public.save_form_draft(tests.id('formA'),
+  jsonb_build_object('title', 'Food Fest 2026', 'slug', 'food-fest', 'submit_label', 'Place order',
+                     'design', '{"v":1,"theme":{"accent":"#E8633A"}}'::jsonb),
+  jsonb_build_array(
+    jsonb_build_object('id', tests.id('fld1'), 'type', 'short', 'label', 'Name', 'required', true),
+    jsonb_build_object('id', tests.id('fld2'), 'type', 'choice', 'label', 'Size', 'options', '["S","M"]'::jsonb),
+    jsonb_build_object('id', tests.id('fldSub'), 'type', 'submit')));
+select tests.ok((select title from public.forms where id = tests.id('formA')) = 'Food Fest 2026', 'a member can save a draft');
+select tests.ok((select string_agg(type, ',' order by position) from public.form_fields where form_id = tests.id('formA')) = 'short,choice,submit', 'saving replaces the fields in order');
+select tests.ok((public.get_public_form('threadtogo', 'food-fest') -> 'config' ->> 'title') <> 'Food Fest 2026', 'saving a draft does not change the published form');
+select tests.fails($$select public.save_form_draft(tests.id('formA'), '{"title":"x","slug":"food-fest","submit_label":"Go"}', jsonb_build_array(jsonb_build_object('id', tests.id('fld1'), 'type', 'script')))$$, 'unknown block types are rejected');
+select tests.ok((select count(*) from public.form_fields where form_id = tests.id('formA')) = 3, 'a rejected save changes nothing');
+reset role;
+select tests.login('bob');
+select tests.fails($$select public.save_form_draft(tests.id('formA'), '{"title":"hacked","slug":"food-fest","submit_label":"Go"}', '[]')$$, 'bob cannot save another business''s form');
+select tests.fails(format($$select public.save_form_draft(%L, '{"title":"Bob","slug":"bob-form","submit_label":"Go"}', jsonb_build_array(jsonb_build_object('id', %L, 'type', 'short')))$$, tests.id('formB'), tests.id('fld1')), 'bob cannot take over another form''s field by its id');
+reset role;
+select tests.ok((select form_id from public.form_fields where id = tests.id('fld1')) = tests.id('formA') and (select label from public.form_fields where id = tests.id('fld1')) = 'Name', 'the other business''s field is untouched');
+select tests.login('alice');
+select tests.affects(format($$insert into storage.objects (bucket_id, name) values ('form-assets', '%s/forms/x/y.webp')$$, tests.id('orgA')), 1, 'members can upload builder artwork');
+reset role;
+
 -- ---------------------------------------------------------------- deleting a business
 select tests.login('bob');
 select tests.affects($$delete from public.organizations where id = tests.id('orgB')$$, 1, 'an owner can delete their business');

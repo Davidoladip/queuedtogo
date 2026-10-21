@@ -1,47 +1,47 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { Logo } from "@/components/ui/Logo";
+import { env } from "@/lib/env";
+import { assetBaseFor } from "@/lib/design/engine";
+import { formFromPublished } from "@/lib/design/fromDb";
+import { FormRenderer } from "@/components/form/FormRenderer";
 
-type PublicForm = { form_id: string; org_name: string; status: "live" | "closed"; config: { title?: string; intro?: string } | null };
+type PublicForm = { form_id: string; org_name: string; org_slug: string; status: "live" | "closed"; config: Record<string, unknown> | null; title?: string };
 
-async function load(orgSlug: string, formSlug: string): Promise<PublicForm | null> {
+const SLUG = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/;
+
+const load = cache(async (orgSlug: string, formSlug: string): Promise<PublicForm | null> => {
+  if (!SLUG.test(orgSlug) || !SLUG.test(formSlug)) return null;
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_public_form", { p_org_slug: orgSlug, p_form_slug: formSlug });
   if (error) throw new Error(error.message);
   return (data as PublicForm | null) ?? null;
-}
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ orgSlug: string; formSlug: string }> }): Promise<Metadata> {
   const { orgSlug, formSlug } = await params;
   const form = await load(orgSlug, formSlug);
-  return { title: form?.config?.title ?? "Order form" };
+  const title = typeof form?.config?.title === "string" ? form.config.title : "Order form";
+  return { title: form ? `${title} · ${form.org_name}` : "Order form", robots: { index: false } };
 }
 
-/** Public form. Renders only the published snapshot. The full themed renderer moves here in Stage 5. */
+/** Public order form. Renders only the published snapshot, never the draft. */
 export default async function PublicFormPage({ params }: { params: Promise<{ orgSlug: string; formSlug: string }> }) {
   const { orgSlug, formSlug } = await params;
   const form = await load(orgSlug, formSlug);
   if (!form) notFound();
+  // A closed form has no config in the response; show its heading from a minimal model.
+  const model = formFromPublished(form.form_id, formSlug, form.config ?? { title: "Order form" });
   return (
-    <div className="auth-shell wrap">
-      <main className="auth-card" style={{ maxWidth: 560 }}>
-        <span className="section-label">{form.org_name}</span>
-        {form.status === "closed" ? (
-          <>
-            <h1>This form is closed</h1>
-            <p className="muted">{form.org_name} is no longer taking orders through this form.</p>
-          </>
-        ) : (
-          <>
-            <h1>{form.config?.title}</h1>
-            {form.config?.intro && <p>{form.config.intro}</p>}
-            <p className="muted">The ordering form for this event is being set up. Check back soon.</p>
-          </>
-        )}
-        <div className="ticket-edge" />
-        <Logo />
-      </main>
+    <div className="pf-page">
+      <FormRenderer
+        form={model}
+        assetBase={assetBaseFor(env.supabaseUrl)}
+        mode="live"
+        businessName={form.org_name}
+        closedMessage={form.status === "closed" ? `${form.org_name} is no longer taking orders through this form.` : null}
+      />
     </div>
   );
 }

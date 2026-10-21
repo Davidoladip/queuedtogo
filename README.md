@@ -27,7 +27,9 @@ Useful scripts:
 | `npm run dev` | Start the dev server |
 | `npm run build` / `npm start` | Production build, then serve it |
 | `npm run lint` / `npm run typecheck` | ESLint and TypeScript checks |
-| `npm run test:db` | Run all migrations and 91 security tests on a throwaway local Postgres |
+| `npm run test:db` | Run all migrations and 100 security tests on a throwaway local Postgres |
+| `npm run test:unit` | Design engine and validation unit tests (Vitest) |
+| `npm run test:builder` | Browser tests for the form builder and public form, against the dev harness (`QTG_DEV_HARNESS=1`) |
 | `npm run test:smoke` | Browser smoke tests against a running app (`APP_URL`, default `http://localhost:3000`) |
 | `npm run test:prototype` | The prototype's own browser tests |
 | `npm run db:push` | Apply migrations to the linked Supabase project |
