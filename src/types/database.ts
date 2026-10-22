@@ -764,6 +764,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      reorder_stages: { Args: { p_org: string; p_order: string[] }; Returns: undefined };
       save_form_draft: { Args: { p_data: Json; p_fields: Json; p_form: string }; Returns: string };
       seed_default_stages: { Args: { p_org: string }; Returns: undefined };
       storage_org_id: { Args: { p_name: string }; Returns: string };

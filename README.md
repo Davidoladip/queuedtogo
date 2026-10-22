@@ -6,7 +6,7 @@ Built with Next.js 16 (App Router, TypeScript, React 19) and Supabase (Postgres,
 
 - Migration plan and screen map: [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md)
 - Live site: https://queuedtogo.com (also https://queuedtogo.vercel.app)
-- What's built so far: [`docs/STAGE_REPORT_01.md`](docs/STAGE_REPORT_01.md) (auth, workspaces) and [`docs/STAGE_REPORT_02.md`](docs/STAGE_REPORT_02.md) (form builder, deployment) and [`docs/STAGE_REPORT_03.md`](docs/STAGE_REPORT_03.md) (design upgrade) and [`docs/STAGE_REPORT_04.md`](docs/STAGE_REPORT_04.md) (orders)
+- What's built so far: [`docs/STAGE_REPORT_01.md`](docs/STAGE_REPORT_01.md) (auth, workspaces) and [`docs/STAGE_REPORT_02.md`](docs/STAGE_REPORT_02.md) (form builder, deployment) and [`docs/STAGE_REPORT_03.md`](docs/STAGE_REPORT_03.md) (design upgrade) and [`docs/STAGE_REPORT_04.md`](docs/STAGE_REPORT_04.md) (orders) and [`docs/STAGE_REPORT_05.md`](docs/STAGE_REPORT_05.md) (production board)
 - Production security checklist: [`docs/SECURITY.md`](docs/SECURITY.md)
 
 ---

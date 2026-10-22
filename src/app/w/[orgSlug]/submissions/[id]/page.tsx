@@ -16,7 +16,7 @@ export default async function SubmissionPage({ params }: { params: Promise<{ org
   const supabase = await createClient();
   const { data: s } = await supabase
     .from("form_submissions")
-    .select("id, created_at, consent, answers, form_version, forms(title, slug), customers(name, email, phone, preferred_channel, consent_updates), jobs(number, title, tracking_token, workflow_stages(name))")
+    .select("id, created_at, consent, answers, form_version, forms(title, slug), customers(name, email, phone, preferred_channel, consent_updates), jobs(id, number, title, tracking_token, workflow_stages(name))")
     .eq("org_id", org.id)
     .eq("id", id)
     .maybeSingle();
@@ -41,7 +41,12 @@ export default async function SubmissionPage({ params }: { params: Promise<{ org
           <h1 style={{ marginTop: 8 }}>{job ? <>Order <span className="mono">QTG-{job.number}</span></> : "Submission"}</h1>
           <p>{s.forms?.title} · {new Date(s.created_at).toLocaleString("en-US", { dateStyle: "full", timeStyle: "short", timeZone: org.timezone })}</p>
         </div>
-        {job && <span className="pill accent">{job.workflow_stages?.name ?? "On the board"}</span>}
+        {job && (
+          <div className="row-btns" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span className="pill accent">{job.workflow_stages?.name ?? "On the board"}</span>
+            <Link href={`/w/${org.slug}/board/${job.id}`} className="btn small">Open the job</Link>
+          </div>
+        )}
       </div>
       <div className="grid2">
         <section className="panel">

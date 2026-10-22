@@ -322,7 +322,65 @@ select tests.login('bob');
 select tests.ok((select count(*) from public.form_submissions) = 0 and (select count(*) from public.files) = 0, 'another business cannot read the submissions or files');
 reset role;
 
--- ---------------------------------------------------------------- deleting a business
+-- ---------------------------------------------------------------- production board (Stage 7)
+insert into auth.users (id, email, raw_user_meta_data) values (gen_random_uuid(), 'finn@example.com', '{"full_name":"Finn Member"}');
+insert into tests.ids select 'finn', id from auth.users where email = 'finn@example.com';
+select tests.login('alice');
+insert into tests.vals values ('invite_finn', public.create_invitation(tests.id('orgA'), 'finn@example.com', 'member'));
+reset role;
+select tests.login('finn');
+select public.accept_invitation(tests.val('invite_finn'));
+insert into tests.ids select 'final', id from public.workflow_stages where org_id = tests.id('orgA') and is_final;
+select tests.affects($$update public.jobs set stage_id = tests.id('final') where id = tests.id('jobA') and stage_id = tests.id('stage2')$$, 1, 'a member can move a job');
+select tests.ok((select completed_at is not null from public.jobs where id = tests.id('jobA')), 'moving a job to a final stage marks it complete');
+select tests.affects($$update public.jobs set stage_id = tests.id('stage0') where id = tests.id('jobA') and stage_id = tests.id('stage2')$$, 0, 'a move from an out-of-date stage changes nothing (two people moving one job)');
+select tests.affects($$update public.jobs set stage_id = tests.id('stage2') where id = tests.id('jobA') and stage_id = tests.id('final')$$, 1, 'a finished job can be reopened');
+select tests.ok((select completed_at is null from public.jobs where id = tests.id('jobA')), 'reopening a job clears its completion time');
+update public.jobs set completed_at = now() where id = tests.id('jobA');
+select tests.ok((select completed_at is null from public.jobs where id = tests.id('jobA')), 'the completion time cannot be set by hand');
+select tests.ok((select count(*) from public.job_events where job_id = tests.id('jobA') and type = 'stage_changed' and actor_id = tests.id('finn')) = 2, 'each move is recorded in the history with who made it');
+select tests.affects($$update public.jobs set assignee_id = tests.id('finn'), priority = 2, due_date = current_date + 1 where id = tests.id('jobA')$$, 1, 'a member can assign a job, set its priority and due date');
+select tests.fails($$update public.jobs set priority = 7 where id = tests.id('jobA')$$, 'priority must be 0 to 3');
+select tests.fails($$update public.jobs set tracking_token = repeat('a', 64) where id = tests.id('jobA')$$, 'tracking links cannot be changed');
+select tests.fails($$update public.jobs set number = 1 where id = tests.id('jobA')$$, 'order numbers cannot be changed');
+insert into public.job_events (org_id, job_id, actor_id, type, body) values (tests.id('orgA'), tests.id('jobA'), tests.id('finn'), 'note', 'Thread ordered');
+select tests.ok((select count(*) from public.job_events where job_id = tests.id('jobA') and type = 'note') = 2, 'a member can add a note');
+select tests.affects($$update public.workflow_stages set name = 'Renamed' where org_id = tests.id('orgA')$$, 0, 'a member cannot rename stages');
+select tests.fails(format($$select public.reorder_stages(%L, %L::uuid[])$$, tests.id('orgA'), (select array_agg(id order by position desc) from public.workflow_stages where org_id = tests.id('orgA'))), 'a member cannot reorder stages');
+reset role;
+
+select tests.login('alice');
+insert into tests.vals values ('order', (select string_agg(id::text, ',' order by case when position = 1 then 99 else position end) from public.workflow_stages where org_id = tests.id('orgA')));
+select public.reorder_stages(tests.id('orgA'), string_to_array(tests.val('order'), ',')::uuid[]);
+select tests.ok((select string_agg(id::text, ',' order by position) from public.workflow_stages where org_id = tests.id('orgA')) = tests.val('order'), 'an owner can reorder stages');
+select tests.ok((select string_agg(position::text, ',' order by position) from public.workflow_stages where org_id = tests.id('orgA')) = '0,1,2,3,4,5', 'stage positions stay in a clean sequence');
+select tests.fails(format($$select public.reorder_stages(%L, %L::uuid[])$$, tests.id('orgA'), (select (array_agg(id order by position))[1:5] from public.workflow_stages where org_id = tests.id('orgA'))), 'a stage order with a stage missing is refused');
+select tests.fails(format($$select public.reorder_stages(%L, %L::uuid[])$$, tests.id('orgA'), (select array_agg(case when position = 3 then tests.id('stageB2') else id end order by position) from public.workflow_stages where org_id = tests.id('orgA'))), 'another business''s stage cannot be slipped into the order');
+select tests.fails(format($$select public.reorder_stages(%L, %L::uuid[])$$, tests.id('orgA'), (select array_agg(id order by is_final desc, position) from public.workflow_stages where org_id = tests.id('orgA'))), 'a final stage cannot be put first');
+select tests.fails($$update public.workflow_stages set is_final = true where id = tests.id('stage0')$$, 'the first stage cannot be made a final stage');
+select tests.fails($$delete from public.workflow_stages where id = tests.id('stage2')$$, 'a stage that still has jobs cannot be deleted');
+do $$ begin
+  for i in 7..12 loop
+    insert into public.workflow_stages (org_id, name, position) values (tests.id('orgA'), 'Extra ' || i, i);
+  end loop;
+end $$;
+select tests.fails($$insert into public.workflow_stages (org_id, name, position) values (tests.id('orgA'), 'Extra 13', 13)$$, 'a business can have up to 12 stages');
+select tests.affects($$delete from public.workflow_stages where org_id = tests.id('orgA') and name like 'Extra %'$$, 6, 'empty stages can be deleted');
+update public.workflow_stages set is_final = true where id = tests.id('stage2');
+select tests.ok((select completed_at is not null from public.jobs where id = tests.id('jobA')), 'jobs complete when their stage is made final');
+update public.workflow_stages set is_final = false where id = tests.id('stage2');
+select tests.ok((select completed_at is null from public.jobs where id = tests.id('jobA')), 'jobs reopen when their stage stops being final');
+reset role;
+
+select tests.login('bob');
+select tests.fails(format($$select public.reorder_stages(%L, %L::uuid[])$$, tests.id('orgA'), string_to_array(tests.val('order'), ',')::uuid[]), 'another business cannot reorder these stages');
+select tests.affects($$update public.jobs set stage_id = tests.id('stage0') where id = tests.id('jobA')$$, 0, 'another business cannot move these jobs');
+select tests.affects($$delete from public.workflow_stages where org_id = tests.id('orgB') and position > 0$$, 5, 'an owner can delete empty stages');
+select tests.fails($$delete from public.workflow_stages where org_id = tests.id('orgB')$$, 'a business keeps at least one stage');
+insert into public.jobs (org_id, stage_id, title) values (tests.id('orgB'), tests.id('stageB2'), 'Bob''s job');
+reset role;
+
+-- ---------------------------------------------------------------- deleting a business (with a job in it)
 select tests.login('bob');
 select tests.affects($$delete from public.organizations where id = tests.id('orgB')$$, 1, 'an owner can delete their business');
 reset role;

@@ -1,50 +1,40 @@
 import type { Metadata } from "next";
-import { requireWorkspace } from "@/lib/auth";
+import { canManage, requireWorkspace } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { loadBoard } from "@/lib/board-data";
+import { todayIn } from "@/lib/board";
+import { moveJob } from "@/server/actions/jobs";
+import { Board } from "@/components/board/Board";
 
 export const metadata: Metadata = { title: "Production board" };
 
 export default async function BoardPage({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = await params;
-  const { org } = await requireWorkspace(orgSlug);
+  const { user, org } = await requireWorkspace(orgSlug);
   const supabase = await createClient();
-  const [{ data: stages, error }, { data: jobs, error: jobsError }] = await Promise.all([
-    supabase.from("workflow_stages").select("id, name, color, position, notify_customer").eq("org_id", org.id).order("position"),
-    supabase.from("jobs").select("id, number, title, stage_id, due_date").eq("org_id", org.id).order("due_date", { nullsFirst: false }),
-  ]);
-  if (error || jobsError) throw new Error((error ?? jobsError)!.message);
+  const data = await loadBoard(supabase, org.id);
 
   return (
     <>
       <div className="view-head">
         <div>
           <h1>Production board</h1>
-          <p>Your stages, from your business&apos;s saved workflow. Moving jobs between stages arrives with the board rebuild in the next stage.</p>
+          <p>Every order lands in {data.stages[0]?.name ?? "the first stage"}. Drag a job to another stage, or use its move button. Open a job to assign it, set a due date or add notes.</p>
         </div>
       </div>
-      <div className="board-scroll">
-        <div className="board">
-          {stages.map((s) => {
-            const list = jobs.filter((j) => j.stage_id === s.id);
-            return (
-              <section key={s.id} className="col" aria-label={s.name}>
-                <div className="col-head"><span className="dot" style={{ "--c": s.color } as React.CSSProperties} />{s.name}<span className="count">{list.length}</span></div>
-                <div className={`col-rule${s.notify_customer ? " on" : ""}`}>{s.notify_customer ? "● Customer update planned" : "○ No customer update"}</div>
-                {list.length ? (
-                  list.map((j) => (
-                    <div key={j.id} className="panel" style={{ padding: 12 }}>
-                      <div className="mono muted" style={{ fontSize: 12 }}>QTG-{j.number}</div>
-                      <b>{j.title}</b>
-                    </div>
-                  ))
-                ) : (
-                  <div className="empty-col">No jobs</div>
-                )}
-              </section>
-            );
-          })}
-        </div>
-      </div>
+      <Board
+        stages={data.stages}
+        jobs={data.jobs}
+        members={data.members}
+        forms={data.forms}
+        me={user.id}
+        today={todayIn(org.timezone)}
+        jobHref={`/w/${org.slug}/board/`}
+        stagesHref={`/w/${org.slug}/board/stages`}
+        move={moveJob.bind(null, org.slug)}
+      />
+      {data.truncated && <p className="muted" style={{ marginTop: 10, fontSize: 13 }}>Showing the newest 500 jobs. Use Submissions to find older orders.</p>}
+      {!canManage(org.role) && <p className="muted" style={{ marginTop: 10, fontSize: 13 }}>Owners and admins can rename, reorder and add stages.</p>}
     </>
   );
 }

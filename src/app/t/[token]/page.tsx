@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { AutoRefresh } from "@/components/ui/AutoRefresh";
 
 export const metadata: Metadata = { title: "Order tracking", robots: { index: false, follow: false } };
 
@@ -40,6 +41,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
         <div className="notice info">
           <div className="section-label">Current status</div>
           <b style={{ fontFamily: "var(--f-display)", fontSize: 22 }}>{current?.name}</b>
+          {done && <div>Your order is complete. Thank you!</div>}
           {!done && t.due_date && <div>Expected by {new Date(t.due_date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>}
         </div>
         <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -56,7 +58,8 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
             );
           })}
         </ol>
-        <p className="muted" style={{ fontSize: 13 }}>Questions? Contact {t.org_name} and quote QTG-{t.number}.</p>
+        <AutoRefresh seconds={60} />
+        <p className="muted" style={{ fontSize: 13 }}>This page updates by itself as your order moves along. Questions? Contact {t.org_name} and quote QTG-{t.number}.</p>
       </main>
     </div>
   );
