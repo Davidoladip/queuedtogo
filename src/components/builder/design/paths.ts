@@ -7,8 +7,13 @@
 //   adv.progress               advanced options
 //   img.<fieldId>.w            an artwork block's image settings
 //   ev.submitLabel             form-level text
+//   ha.w                       heading artwork
+//   fa.<fieldId>.w / fs.<fieldId>.size          a question's artwork / colour swatches
+//   o.<fieldId>.<n>.bg.color                    one option's own style
+//   oa.<fieldId>.<n>.w / os.<fieldId>.<n>.gap   one option's artwork / swatches
 import { bestOn, contrast } from "@/lib/design/color";
-import { IMG_DEFAULT, SAFE_ID, SHARED_KINDS, type FormModel } from "@/lib/design/engine";
+import { IMG_DEFAULT, SAFE_ID, SHARED_KINDS, type FormField, type FormModel } from "@/lib/design/engine";
+import { emptyMeta } from "@/lib/design/media";
 
 const BLOCKED = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -43,6 +48,27 @@ function deleteIn(o: Record<string, any>, keys: string[]) {
 
 /** Apply a value at a design path to the draft form. Unknown paths are ignored. */
 export function applyPath(d: FormModel, path: string, v: unknown) {
+  applyOne(d, path, v);
+  // Options and outline buttons start with a see-through background. Picking a background colour
+  // should show it, so also make the fill opaque unless an opacity was already chosen here.
+  if (/^(e|g|o)\..*\.bg\.color$/.test(path) && v) {
+    const op = path.replace(/color$/, "opacity");
+    if (readOverride(d, op) == null) applyOne(d, op, 100);
+  }
+}
+
+function readOverride(d: FormModel, path: string): unknown {
+  const [root, a, ...rest] = path.split(".");
+  let cur: unknown =
+    root === "e" ? d.design.el[a]
+      : root === "g" ? d.design.shared[a as (typeof SHARED_KINDS)[number]]
+        : root === "o" ? d.fields.find((x) => x.id === a)?.config.optMeta?.[Number(rest.shift())]?.style
+          : undefined;
+  for (const k of rest) cur = cur && typeof cur === "object" ? (cur as Record<string, unknown>)[k] : undefined;
+  return cur;
+}
+
+function applyOne(d: FormModel, path: string, v: unknown) {
   const [root, ...rest] = path.split(".");
   switch (root) {
     case "th": {
@@ -80,7 +106,38 @@ export function applyPath(d: FormModel, path: string, v: unknown) {
     case "ev":
       if (rest[0] === "submitLabel") d.submitLabel = String(v ?? "");
       return;
+    case "ha":
+      if (d.design.headArt && rest.length) setIn(d.design.headArt as unknown as Record<string, any>, rest, v);
+      return;
+    case "fa": case "fs": {
+      const [fid, ...keys] = rest;
+      const f = d.fields.find((x) => x.id === fid);
+      const target = f && (root === "fa" ? f.config.art : f.config.swatches);
+      if (target && keys.length) setIn(target as unknown as Record<string, any>, keys, v);
+      return;
+    }
+    case "o": case "oa": case "os": {
+      const [fid, n, ...keys] = rest;
+      const meta = optMeta(d, fid, Number(n));
+      if (!meta || !keys.length) return;
+      if (root === "o") setIn(meta.style, keys, v);
+      else {
+        const target = root === "oa" ? meta.art : meta.swatches;
+        if (target) setIn(target as unknown as Record<string, any>, keys, v);
+      }
+      return;
+    }
   }
+}
+
+/** The option's extras (artwork, swatches, own style), creating empty entries up to it if needed. */
+export function optMeta(d: FormModel, fid: string, n: number) {
+  const f: FormField | undefined = d.fields.find((x) => x.id === fid);
+  if (!f || !Number.isInteger(n) || n < 0 || n >= f.options.length) return null;
+  const list = (f.config.optMeta ??= []);
+  while (list.length <= n) list.push(emptyMeta());
+  list[n].style ??= {};
+  return list[n];
 }
 
 /** Remove an override (element or shared style) so the inherited value applies again. */
@@ -91,6 +148,12 @@ export function resetPath(d: FormModel, path: string) {
     if (!Object.keys(d.design.el[scope]).length) delete d.design.el[scope];
   }
   if (root === "g" && (SHARED_KINDS as readonly string[]).includes(scope)) deleteIn(d.design.shared[scope as (typeof SHARED_KINDS)[number]], keys);
+  if (root === "o") {
+    const [n, ...rest] = keys;
+    const f = d.fields.find((x) => x.id === scope);
+    const meta = f?.config.optMeta?.[Number(n)];
+    if (meta?.style && rest.length) deleteIn(meta.style, rest);
+  }
 }
 
-export const canReset = (path: string) => /^(e|g)\./.test(path);
+export const canReset = (path: string) => /^(e|g|o)\./.test(path);

@@ -50,7 +50,7 @@ with sync_playwright() as p:
     pg.get_by_role("button", name="Place my order").click()
     check("emails are checked", "Enter a valid email address" in pg.inner_text(".qf-page:not([hidden])"))
     pg.get_by_label("Email").fill("lena@example.com")
-    pg.locator(".qf-opt", has_text="Hoodie").click()
+    pg.locator(".qf-opt", has_text="Cap").click()
     pg.get_by_role("button", name="Place my order").click()
     check("submitting says ordering opens soon (no fake success)", "opens soon" in pg.inner_text(".qf-card") and "You're in the queue" not in pg.inner_text(".qf-card"))
     check("consent checkbox mentions SMS and STOP", "SMS updates" in pg.inner_text(".qf-check") and "STOP" in pg.inner_text(".qf-check"))
@@ -99,6 +99,7 @@ with sync_playwright() as p:
 
     # Options editor
     pg.locator(".b-frame .qf-opt", has_text="Hoodie").first.click()
+    pg.locator(".b-row.open").get_by_role("button", name="Paste a list").click()
     opts = pg.locator(".b-row.open").get_by_label("Options (one per line)")
     opts.fill("T-shirt\nHoodie\nTote bag")
     check("options update the preview", pg.locator(".b-frame .qf-opt", has_text="Tote bag").count() == 1)
@@ -117,7 +118,7 @@ with sync_playwright() as p:
     SUB = '.b-frame [data-sid="__submit"]'
     pg.get_by_role("tab", name="Design").click()
     names = pg.eval_on_selector_all(".dsec > summary", "els => els.map(e => e.childNodes[0].textContent.trim())")
-    check("design tab has all ten prototype sections", names == ["Global theme", "Individual element styles", "Typography", "Buttons", "Text boxes and input fields",
+    check("design tab has the ten prototype sections plus heading artwork", names == ["Global theme", "Heading artwork", "Individual element styles", "Typography", "Buttons", "Text boxes and input fields",
         "Colours and brand palette", "Borders and corners", "Backgrounds and textures", "Artwork and images", "Advanced settings"], names)
 
     acc = pg.get_by_label("Buttons colour code", exact=True)

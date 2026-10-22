@@ -1,4 +1,5 @@
-import { blankField, normalizeDesign, starterFields, type FormModel } from "@/lib/design/engine";
+import { blankField, normalizeDesign, normalizeSettings, starterFields, type FormModel } from "@/lib/design/engine";
+import { SWATCH_DEFAULT, emptyMeta } from "@/lib/design/media";
 
 /** Fixed sample form for the development harness and browser tests. */
 export function sampleForm(): FormModel {
@@ -9,6 +10,9 @@ export function sampleForm(): FormModel {
   const sizes = blankField("sizes");
   fields.splice(2, 0, page);
   fields.splice(fields.length - 1, 0, email, sizes);
+  // "What would you like?": the Hoodie option has its own colour swatches (required when Hoodie is picked).
+  const item = fields.find((f) => f.type === "choice");
+  if (item) item.config.optMeta = [emptyMeta(), { ...emptyMeta(), swatches: { ...structuredClone(SWATCH_DEFAULT), required: true, labels: true } }];
   return {
     id: "0f8fad5b-d9cb-469f-a165-70867728950e",
     title: "Harbourfront Food Fest",
@@ -18,7 +22,7 @@ export function sampleForm(): FormModel {
     intro: "Order your custom tee and pick it up before you leave.",
     thanks: "Thanks!",
     submitLabel: "Place my order",
-    settings: { notify: { channel: "sms", consent: true } },
+    settings: normalizeSettings({}),
     design: normalizeDesign({ theme: { page: "#0F4C4A", card: "#FFF4E2", text: "#1B2B2A", accent: "#E8633A", font: "bold" } }),
     fields,
   };

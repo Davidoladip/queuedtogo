@@ -39,7 +39,7 @@ function writeJSON(key: string, v: unknown) {
 
 export function DesignPanel(p: Props) {
   const { form, update, selected } = p;
-  const [scope, setScope] = useState<"el" | "g">("el");
+  const [scope, setScope] = useState<"el" | "q" | "g">("el");
   const [open, setOpen] = useState<Record<string, boolean>>(() => ({ theme: true, ...readJSON<Record<string, boolean>>(OPEN_KEY, {}) }));
   const [recent, setRecent] = useState<string[]>(() => readJSON<string[]>(RECENT_KEY, []).map(cc).filter((x): x is string => !!x).slice(0, 10));
 

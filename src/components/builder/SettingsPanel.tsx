@@ -2,16 +2,43 @@
 
 import { CopyField } from "@/components/ui/CopyField";
 import { CHANNELS, type FormModel } from "@/lib/design/engine";
+import { CONSENT_VARS, DEFAULT_CONSENT, DEFAULT_THANKS, THANKS_VARS, fillMessage, unknownPlaceholders } from "@/lib/design/media";
 import { deleteForm } from "@/server/actions/forms";
 import { Select, TextInput, Toggle } from "./controls";
 import type { Status, Update } from "./Builder";
 
 type Props = {
   form: FormModel; update: Update; orgSlug: string; siteUrl: string; status: Status; version: number;
-  onStatus: (s: Status) => void; pending: boolean; canDelete: boolean;
+  onStatus: (s: Status) => void; pending: boolean; canDelete: boolean; orgName: string;
+  /** Show the thank-you screen in the preview. */
+  onPreviewThanks: () => void;
 };
 
-export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version, onStatus, pending, canDelete }: Props) {
+/** A customer-facing message: editor, placeholder check, preview and reset. */
+function MessageEditor({ label, value, fallback, vars, sample, onChange, hint, maxLength }: {
+  label: string; value: string; fallback: string; vars: readonly string[]; sample: Record<string, string>;
+  onChange: (v: string) => void; hint: string; maxLength: number;
+}) {
+  const unknown = unknownPlaceholders(value, vars);
+  return (
+    <div className="b-field">
+      <TextInput label={label} multiline value={value} maxLength={maxLength} onChange={onChange}
+        hint={<>{hint} You can use {vars.map((v, i) => <span key={v}>{i ? ", " : ""}<code>{`{${v}}`}</code></span>)}.</>} />
+      {unknown.length > 0 && (
+        <span className="b-warn" role="alert">
+          {unknown.map((u) => `{${u}}`).join(", ")} {unknown.length === 1 ? "isn't a placeholder this message supports" : "aren't placeholders this message supports"}, so customers will see {unknown.length === 1 ? "it" : "them"} exactly as typed.
+        </span>
+      )}
+      <span className="b-label">Preview</span>
+      <div className="b-msg-prev" aria-live="polite">{fillMessage(value.trim() ? value : fallback, sample)}</div>
+      {value !== fallback && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => onChange(fallback)}>Reset to the default message</button>}
+    </div>
+  );
+}
+
+export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version, onStatus, pending, canDelete, orgName, onPreviewThanks }: Props) {
+  const channel = CHANNELS[form.settings.notify.channel];
+  const consent = form.settings.notify.consentText;
   const slugOk = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/.test(form.slug);
   return (
     <div className="stack">
@@ -30,8 +57,26 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
           onChange={(v) => update((d) => { d.slug = v.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-{2,}/g, "-").slice(0, 60); }, { coalesce: "slug" })}
           hint={slugOk ? "Changing the address breaks links you have already shared." : "Use 2 to 60 lowercase letters, numbers and dashes, not starting or ending with a dash."}
         />
-        <TextInput label="Thank-you message" multiline value={form.thanks} maxLength={2000} onChange={(v) => update((d) => { d.thanks = v; }, { coalesce: "thanks" })}
-          hint="Shown after a customer submits, with their order number." />
+      </section>
+
+      <section className="b-card form">
+        <h3>Messages customers see</h3>
+        <MessageEditor label="Thank-you message" value={form.thanks} fallback={DEFAULT_THANKS} vars={THANKS_VARS} maxLength={2000}
+          sample={{ order_number: "QTG-1001", business: orgName, form_title: form.title }}
+          hint="Shown after a customer submits, with their order number."
+          onChange={(v) => update((d) => { d.thanks = v; }, { coalesce: "thanks" })} />
+        <button type="button" className="btn small" style={{ alignSelf: "flex-start" }} onClick={onPreviewThanks}>Show the thank-you screen in the preview</button>
+        {form.settings.notify.consent && (
+          <>
+            <MessageEditor label="Permission checkbox text" value={consent} fallback={DEFAULT_CONSENT} vars={CONSENT_VARS} maxLength={300}
+              sample={{ channel, business: orgName }}
+              hint="Shown next to the checkbox above the submit button."
+              onChange={(v) => update((d) => { d.settings.notify.consentText = v; }, { coalesce: "consent" })} />
+            {form.settings.notify.channel !== "email" && !/\bstop\b/i.test(consent) && (
+              <span className="b-warn">For text messages, US rules expect you to say how to opt out, for example “Reply STOP to opt out.”</span>
+            )}
+          </>
+        )}
       </section>
 
       <section className="b-card form">

@@ -80,7 +80,7 @@ export function CColor({ label, path, value, clear }: { label: string; path: str
   const v = cc(value) || "";
   const [text, setText] = useState<string | null>(null);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const resettable = canReset(path), clearable = !!clear && resettable;
+  const resettable = canReset(path), clearable = !!clear;
   const shown = text ?? v;
   const bad = text !== null && text.trim() !== "" && !cc(text);
   const id = pid(path);

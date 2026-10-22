@@ -10,7 +10,7 @@ export default async function DevFormPage({ searchParams }: { searchParams: Prom
   if (sp.gate === "1") form.design.adv.disableUntilValid = true;
   return (
     <div className="pf-page">
-      <FormRenderer form={form} assetBase="https://example.invalid/storage" mode="live" businessName="Demo Business" />
+      <FormRenderer form={form} assetBase="/dev/assets" mode="live" businessName="Demo Business" />
     </div>
   );
 }

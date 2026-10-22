@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { cc, contrast, paletteFromPixels, themeFromPalette } from "./color";
 import {
-  assetBaseFor, designCss, elementsOf, merge, normalizeDesign, normalizeFields, pagesOf, safeUrl, srcOf, starterFields, themeVars,
+  assetBaseFor, designCss, elementsOf, merge, normalizeDesign, normalizeFields, normalizeSettings, pagesOf, safeUrl, srcOf, starterFields, themeVars,
   type FormModel,
 } from "./engine";
 import { parseDraft, toDraftInput } from "@/lib/validation/form";
@@ -20,7 +20,7 @@ function sample(over: Partial<FormModel> = {}): FormModel {
     intro: "Order ahead",
     thanks: "Thanks!",
     submitLabel: "Order",
-    settings: { notify: { channel: "sms", consent: true } },
+    settings: normalizeSettings({}),
     design: normalizeDesign({ theme: { accent: "#E8633A" } }),
     fields: starterFields(),
     ...over,
@@ -175,5 +175,55 @@ describe("prototype pollution", () => {
     const d = normalizeDesign(JSON.parse('{"el":{"__proto__":{"polluted":1},"__submit":{"color":"#000000"}}}'));
     expect(Object.keys(d.el)).toEqual(["__submit"]);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+});
+
+describe("new design settings survive save and reload", () => {
+  it("round-trips heading artwork, question/option artwork, swatches, option styles and messages", async () => {
+    const { formFromRows } = await import("./fromDb");
+    const { SWATCH_DEFAULT, artDefaultFor } = await import("./media");
+    const f = sample();
+    const path = `${ORG}/forms/f/11111111-1111-4111-8111-111111111111.webp`;
+    f.design.headArt = { ...artDefaultFor("head"), src: { path }, pos: "left", maxW: 200, shadow: { on: true, x: 0, y: 6, blur: 20, color: "#00000044" } };
+    const q = f.fields.find((x) => x.type === "choice")!;
+    q.config.art = { ...artDefaultFor("field"), src: { path }, pos: "below" };
+    q.config.swatches = { ...structuredClone(SWATCH_DEFAULT), required: true };
+    q.config.optMeta = [{ art: { ...artDefaultFor("option"), src: { path } }, swatches: null, style: { bg: { color: "#FFD54F", opacity: 100 } } }];
+    f.settings.notify.consentText = "Text me, {business}.";
+    f.thanks = "Order {order_number} received.";
+    const r = parseDraft(toDraftInput(f));
+    if (!r.ok) throw new Error(r.error);
+    const back = formFromRows({ id: f.id, title: r.data.title, slug: r.data.slug, event_date: null, venue: "", intro: "", thanks: r.data.thanks, submit_label: r.data.submit_label, settings: r.data.settings, design: r.data.design },
+      r.fields.map((x) => ({ ...x, options: x.options, config: x.config })));
+    expect(back.design.headArt?.pos).toBe("left");
+    expect(back.design.headArt?.maxW).toBe(200);
+    expect(back.design.headArt?.shadow.on).toBe(true);
+    const bq = back.fields.find((x) => x.type === "choice")!;
+    expect(bq.config.art?.pos).toBe("below");
+    expect(bq.config.swatches?.items.length).toBe(3);
+    expect(bq.config.swatches?.required).toBe(true);
+    expect(bq.config.optMeta?.[0].art?.src?.path).toBe(path);
+    expect(bq.config.optMeta?.[0].style.bg.color).toBe("#FFD54F");
+    expect(back.settings.notify.consentText).toBe("Text me, {business}.");
+    expect(back.thanks).toBe("Order {order_number} received.");
+  });
+  it("cleans hostile artwork and swatch settings on the server", () => {
+    const f = sample();
+    const q = f.fields.find((x) => x.type === "choice")!;
+    (q.config as Record<string, unknown>).art = { src: { path: "https://evil.example/x.png" } };
+    (q.config as Record<string, unknown>).swatches = { items: [{ color: "red;}body{display:none", label: "x" }, { color: "#00FF00", label: "<b>g</b>" }], size: 9999 };
+    (f.design as unknown as Record<string, unknown>).headArt = { src: { path: `${ORG}/x.webp` }, w: 1e9, pos: "evil", bc: "url(javascript:1)" };
+    const r = parseDraft(toDraftInput(f));
+    if (!r.ok) throw new Error(r.error);
+    const rq = r.fields.find((x) => x.type === "choice")!;
+    expect(rq.config.art).toBeUndefined();
+    expect(rq.config.swatches?.items).toEqual([{ color: "#00FF00", label: "<b>g</b>" }]);
+    expect(rq.config.swatches?.size).toBe(96);
+    expect(r.data.design.headArt?.w).toBe(2000);
+    expect(r.data.design.headArt?.pos).toBe("above");
+    expect(r.data.design.headArt?.bc).toBe("#000000");
+    const css = designCss({ ...f, design: r.data.design, fields: r.fields as FormModel["fields"] }, BASE);
+    expect(css).not.toContain("display:none");
+    expect(css).not.toContain("javascript");
   });
 });

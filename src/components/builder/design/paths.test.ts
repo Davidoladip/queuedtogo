@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { normalizeDesign, starterFields, type FormModel } from "@/lib/design/engine";
+import { normalizeDesign, normalizeSettings, starterFields, type FormModel } from "@/lib/design/engine";
 import { applyPath, resetPath } from "./paths";
 
 const form = (): FormModel => ({
   id: "0f8fad5b-d9cb-469f-a165-70867728950e", title: "T", slug: "t", eventDate: null, venue: "", intro: "", thanks: "", submitLabel: "Go",
-  settings: { notify: { channel: "sms", consent: true } }, design: normalizeDesign({}), fields: starterFields(),
+  settings: normalizeSettings({}), design: normalizeDesign({}), fields: starterFields(),
 });
 
 describe("design paths", () => {
@@ -54,5 +54,25 @@ describe("design paths", () => {
     f.fields.splice(0, 0, { id: "11111111-1111-4111-8111-111111111111", type: "image", label: "", help: "", placeholder: "", required: false, options: [], config: {} });
     applyPath(f, "img.11111111-1111-4111-8111-111111111111.w", 60);
     expect(f.fields[0].config.img?.w).toBe(60);
+  });
+});
+
+describe("background colours", () => {
+  it("picking a background colour makes a see-through fill visible", () => {
+    const f = form();
+    applyPath(f, "g.choice.bg.color", "#FFD54F");
+    expect(f.design.shared.choice.bg.opacity).toBe(100);
+    applyPath(f, "g.choice.bg.opacity", 40);
+    applyPath(f, "g.choice.bg.color", "#000000");
+    expect(f.design.shared.choice.bg.opacity).toBe(40);
+  });
+  it("styles one option without touching the others", () => {
+    const f = form();
+    const q = f.fields.find((x) => x.type === "choice")!;
+    applyPath(f, `o.${q.id}.1.color`, "#C2185B");
+    expect(q.config.optMeta?.[1].style.color).toBe("#C2185B");
+    expect(q.config.optMeta?.[0].style).toEqual({});
+    resetPath(f, `o.${q.id}.1.color`);
+    expect(q.config.optMeta?.[1].style).toEqual({});
   });
 });

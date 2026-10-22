@@ -5,6 +5,10 @@
 // produce safe CSS. Images are referenced by storage path only, never by arbitrary URL.
 
 import { alphaMul, bestOn, cc, lum, mix, over, rgbOf, shade } from "./color";
+import {
+  DEFAULT_CONSENT, artCss, artDefaultFor, normalizeArt, normalizeOptionMeta, normalizeSwatches, shadowCss, swatchCss,
+  type ArtSettings, type OptionMeta, type SwatchSettings,
+} from "./media";
 
 // ---------------------------------------------------------------- constants
 export const FONT_STACKS: Record<string, string> = {
@@ -80,6 +84,8 @@ export type Design = {
   page: TexLayer;
   card: TexLayer;
   adv: { progress: boolean; disableUntilValid: boolean };
+  /** Logo, illustration or banner shown with the form heading. */
+  headArt: ArtSettings | null;
 };
 export type FieldConfig = {
   display?: "list" | "buttons";
@@ -90,6 +96,12 @@ export type FieldConfig = {
   /** Prefill and lock (short, email, phone, number, date): customers see the value but can't change it. */
   locked?: boolean;
   value?: string;
+  /** Artwork shown with this question. */
+  art?: ArtSettings | null;
+  /** Round colour swatches shown beneath this question. */
+  swatches?: SwatchSettings | null;
+  /** Choice questions: per-option artwork, swatches and styles, in the same order as `options`. */
+  optMeta?: OptionMeta[];
 };
 export type FormField = {
   id: string;
@@ -101,7 +113,7 @@ export type FormField = {
   options: string[];
   config: FieldConfig;
 };
-export type FormSettings = { notify: { channel: "sms" | "whatsapp" | "email"; consent: boolean } };
+export type FormSettings = { notify: { channel: "sms" | "whatsapp" | "email"; consent: boolean; consentText: string } };
 export type FormModel = {
   id: string;
   title: string;
@@ -168,7 +180,10 @@ const fontStack = (k: string, f: FormModel) => {
 };
 
 // ---------------------------------------------------------------- elements and their defaults
-export type El = { sid: string; kind: string; name: string; btn?: string; title?: boolean; intro?: boolean; f?: FormField; part?: string };
+export type El = { sid: string; kind: string; name: string; btn?: string; title?: boolean; intro?: boolean; f?: FormField; part?: string; opt?: number };
+export const hasChoiceOptions = (t: FieldType) => t === "choice" || t === "multi";
+/** Questions that can carry artwork and swatches (not layout blocks). */
+export const supportsMedia = (t: FieldType) => isInput(t);
 
 export function elementsOf(form: FormModel): El[] {
   const L: El[] = [
@@ -176,8 +191,11 @@ export function elementsOf(form: FormModel): El[] {
     { sid: "__intro", kind: "text", name: "Intro text", intro: true },
   ];
   let pages = 0;
+  if (form.design.headArt) L.push({ sid: "__hart", kind: "art", name: "Heading artwork" });
   for (const f of form.fields) {
     const nm = (f.label || BLOCKS[f.type].name).slice(0, 34);
+    if (f.config.art) L.push({ sid: f.id + "__art", kind: "art", name: nm + " · artwork", f });
+    if (f.config.swatches) L.push({ sid: f.id + "__sw", kind: "swatch", name: nm + " · colour swatches", f });
     switch (f.type) {
       case "submit": L.push({ sid: "__submit", kind: "button", btn: "submit", name: "Submit button" }); break;
       case "page": pages++; break;
@@ -190,6 +208,14 @@ export function elementsOf(form: FormModel): El[] {
         const ch = f.type === "choice" || f.type === "multi";
         L.push({ sid: f.id, kind: ch ? "choice" : "input", name: nm + (ch ? " · options" : " · input box"), f, part: "main" });
         L.push({ sid: f.id + "__label", kind: "label", name: nm + " · label", f, part: "label" });
+        if (ch) f.options.forEach((o, i) => {
+          if (!o.trim()) return;
+          const on = `${nm} · option “${o.slice(0, 20)}”`;
+          L.push({ sid: `${f.id}__o${i}`, kind: "choice", name: on, f, part: "opt", opt: i });
+          const m = f.config.optMeta?.[i];
+          if (m?.art) L.push({ sid: `${f.id}__o${i}__art`, kind: "art", name: on + " · artwork", f, opt: i });
+          if (m?.swatches) L.push({ sid: `${f.id}__o${i}__sw`, kind: "swatch", name: on + " · colours", f, opt: i });
+        });;
       }
     }
   }
@@ -218,6 +244,7 @@ export function elDefault(form: FormModel, el: El): Style {
           focus: { ring: alphaMul(acc, 0.45), ringW: 3, border: "" },
           disabled: { opacity: 45, color: "", bg: "", border: "" },
         },
+        shadow: { on: false, x: 0, y: 4, blur: 14, color: "#00000033" }, opacity: 100,
       };
     }
     case "input": {
@@ -240,6 +267,7 @@ export function elDefault(form: FormModel, el: El): Style {
         ...base, weight: 500, lh: 1.3, width: "auto", w: 160, wUnit: "px", minH: 0, pad: pad4(10, 16, 10, 16), bg,
         border: { style: "solid", width: 1.5, color: mix(txt, card, 0.72) }, radius: radiusObj(R),
         st: { hover: { border: acc, bg: "", color: "" }, selected: { bg: acc, color: T.accentText, border: acc }, focus: { ring: alphaMul(acc, 0.4), ringW: 3 } },
+        shadow: { on: false, x: 0, y: 4, blur: 14, color: "#00000033" }, opacity: 100, gap: 8, layout: "row", place: "left",
       };
     }
     case "label": return { ...base, weight: 600, lh: 1.4 };
@@ -254,8 +282,33 @@ export function elDefault(form: FormModel, el: El): Style {
 }
 export function computed(form: FormModel, el: El): Style {
   const shared = (SHARED_KINDS as readonly string[]).includes(el.kind) ? form.design.shared[el.kind as SharedKind] : null;
+  // Choice options: all option buttons → this question's options → this one option.
+  if (el.part === "opt" && el.f) return merge(elDefault(form, el), shared, form.design.el[el.f.id], el.f.config.optMeta?.[el.opt ?? -1]?.style);
   return merge(elDefault(form, el), shared, form.design.el[el.sid]);
 }
+/** The style an option inherits before its own overrides (used to show defaults in the editor). */
+export function computedQuestionChoice(form: FormModel, el: El): Style {
+  if (!el.f) return computed(form, el);
+  return merge(elDefault(form, el), form.design.shared.choice, form.design.el[el.f.id]);
+}
+/** Artwork settings for an artwork element id. */
+export function artFor(form: FormModel, sid: string): ArtSettings | null {
+  if (sid === "__hart") return form.design.headArt;
+  const m = sid.match(/^(.+?)(?:__o(\d+))?__art$/);
+  if (!m) return null;
+  const f = form.fields.find((x) => x.id === m[1]);
+  if (!f) return null;
+  return m[2] != null ? f.config.optMeta?.[Number(m[2])]?.art ?? null : f.config.art ?? null;
+}
+export function swatchesFor(form: FormModel, sid: string): SwatchSettings | null {
+  const m = sid.match(/^(.+?)(?:__o(\d+))?__sw$/);
+  if (!m) return null;
+  const f = form.fields.find((x) => x.id === m[1]);
+  if (!f) return null;
+  return m[2] != null ? f.config.optMeta?.[Number(m[2])]?.swatches ?? null : f.config.swatches ?? null;
+}
+/** The question a preview element belongs to ("abc__label", "abc__o2__art" → "abc"). */
+export function baseFieldId(sid: string): string { return sid.replace(/__(label|art|sw|o\d+(__art|__sw)?)$/, ""); }
 
 // ---------------------------------------------------------------- CSS generation
 export function texUrl(id: string, color: unknown, op: unknown, s: unknown): string | null {
@@ -361,6 +414,7 @@ function elCss(W: string, el: El, s: Style, form: FormModel, assetBase: string):
         if (el.btn !== "prev") w += ";" + (nav ? { left: "margin-right:auto", center: "margin-inline:auto", right: "margin-left:auto" }[pl] : "align-self:" + ALIGN[pl]);
       }
       o += `${X}{${textCss(s, form)};justify-content:${ALIGN[en(s.align, ["left", "center", "right"], "center")]};${w};min-height:${num(s.minH, 0, 200, 44)}px;padding:${padCss(s.pad)};${mar};${bgCss(s.bg, assetBase)};${borderCss(s.border)};border-radius:${radiusCss(s.radius)}}`;
+      o += `${X}{box-shadow:${shadowCss(s.shadow)};opacity:${num(s.opacity, 0, 100, 100) / 100}}`;
       o += `${X}:hover:not(:disabled),${X}.fs-hover{${stateD(st.hover)}}`;
       o += `${X}:active:not(:disabled),${X}.fs-active{${stateD(st.active)};transform:translateY(1px)}`;
       const f = obj(st.focus);
@@ -386,17 +440,21 @@ function elCss(W: string, el: El, s: Style, form: FormModel, assetBase: string):
       break;
     }
     case "choice": {
-      const O = `${X} .qf-opt span,${X} .qf-li`, wm = en(s.width, ["auto", "full", "custom"], "auto");
+      if (el.part === "opt") return optCss(W, el, s, form, assetBase);
+      const O = `${X} .qf-opt>span,${X} .qf-li`, wm = en(s.width, ["auto", "full", "custom"], "auto");
+      const col = en(s.layout, ["row", "column"], "row") === "column" || el.f?.config.display === "list";
+      o += `${X} .qf-opts{gap:${num(s.gap, 0, 64, 8)}px;flex-direction:${col ? "column" : "row"};${col ? `align-items:${ALIGN[en(s.place, ["left", "center", "right"], "left")]}` : `justify-content:${ALIGN[en(s.place, ["left", "center", "right"], "left")]}`}}`;
+      o += `${O}{box-shadow:${shadowCss(s.shadow)};opacity:${num(s.opacity, 0, 100, 100) / 100}}`;
       o += `${O}{${textCss(s, form)};min-height:${num(s.minH, 0, 200, 0)}px;padding:${padCss(s.pad)};${bgCss(s.bg, assetBase)};${borderCss(s.border)};border-radius:${radiusCss(s.radius)}}`;
       o += `${X}{${mar}}`;
-      if (wm === "full") o += `${X} .qf-opt{flex:1 1 100%}${X} .qf-opt span{width:100%}`;
-      else if (wm === "custom") o += `${X} .qf-opt span,${X} .qf-li{width:${dim(s.w, s.wUnit)};max-width:100%}`;
-      o += `${X} .qf-opt span{justify-content:${ALIGN[en(s.align, ["left", "center", "right"], "left")]}}`;
-      o += `${X} .qf-opt:hover span,${X} .qf-li:hover,${X}.fs-hover .qf-opt span,${X}.fs-hover .qf-li{${stateD(st.hover)}}`;
+      if (wm === "full") o += `${X} .qf-opt{flex:1 1 100%}${X} .qf-opt>span{width:100%}`;
+      else if (wm === "custom") o += `${X} .qf-opt>span,${X} .qf-li{width:${dim(s.w, s.wUnit)};max-width:100%}`;
+      o += `${X} .qf-opt>span{justify-content:${ALIGN[en(s.align, ["left", "center", "right"], "left")]}}`;
+      o += `${X} .qf-opt:hover>span,${X} .qf-li:hover,${X}.fs-hover .qf-opt>span,${X}.fs-hover .qf-li{${stateD(st.hover)}}`;
       const sel = obj(st.selected);
-      o += `${X} .qf-opt input:checked+span,${X} .qf-li:has(input:checked),${X}.fs-selected .qf-opt:first-child span,${X}.fs-selected .qf-li:first-child{${stateD(sel)}}`;
+      o += `${X} .qf-opt input:checked+span,${X} .qf-li:has(input:checked),${X}.fs-selected .qf-opt:first-child>span,${X}.fs-selected .qf-li:first-child{${stateD(sel)}}`;
       if (cc(sel.bg)) o += `${X} .qf-li input{accent-color:${cc(sel.bg)}}`;
-      o += `${X} .qf-opt input:focus-visible+span,${X} .qf-li:has(input:focus-visible),${X}.fs-focus .qf-opt:first-child span,${X}.fs-focus .qf-li:first-child{${ringCss(obj(st.focus))}}`;
+      o += `${X} .qf-opt input:focus-visible+span,${X} .qf-li:has(input:focus-visible),${X}.fs-focus .qf-opt:first-child>span,${X}.fs-focus .qf-li:first-child{${ringCss(obj(st.focus))}}`;
       break;
     }
     case "label": case "heading": case "text":
@@ -407,6 +465,8 @@ function elCss(W: string, el: El, s: Style, form: FormModel, assetBase: string):
       o += `${X}{border:0;border-top:${bs === "none" ? "0" : num(b.width, 0, 12, 1.5) + "px " + bs + " " + (cc(b.color) || "transparent")};${mar}}`;
       break;
     }
+    case "art": { const a = artFor(form, el.sid); if (a) o += artCss(W, el.sid, a); break; }
+    case "swatch": { const sw = swatchesFor(form, el.sid); if (sw) o += swatchCss(W, el.sid, sw); break; }
     case "image": {
       const g = merge(IMG_DEFAULT, el.f?.config.img), keep = g.keep !== false;
       o += `${X}{justify-content:${ALIGN[en(g.align, ["left", "center", "right"], "center")]};padding:0 ${num(g.marX, 0, 200, 0)}px;margin:${num(g.marY, 0, 200, 0)}px 0}`;
@@ -418,6 +478,22 @@ function elCss(W: string, el: El, s: Style, form: FormModel, assetBase: string):
   return o;
 }
 
+/** CSS for one option of a choice question (only its own overrides differ from the question's options). */
+function optCss(W: string, el: El, s: Style, form: FormModel, assetBase: string): string {
+  if (!SAFE_ID.test(el.sid)) return "";
+  const B = `${W} .qf-opt[data-sid="${el.sid}"]`, Li = `${W} .qf-li[data-sid="${el.sid}"]`;
+  const O = `${B}>span,${Li}`, st = obj(s.st);
+  const stateD = (x: unknown) => D({ color: cc(obj(x).color), background: cc(obj(x).bg), "border-color": cc(obj(x).border) });
+  const wm = en(s.width, ["auto", "full", "custom"], "auto");
+  let o = `${O}{${textCss(s, form)};min-height:${num(s.minH, 0, 200, 0)}px;padding:${padCss(s.pad)};${bgCss(s.bg, assetBase)};${borderCss(s.border)};border-radius:${radiusCss(s.radius)};box-shadow:${shadowCss(s.shadow)};opacity:${num(s.opacity, 0, 100, 100) / 100};justify-content:${ALIGN[en(s.align, ["left", "center", "right"], "left")]}}`;
+  if (wm === "full") o += `${B}{flex:1 1 100%}${B}>span{width:100%}`;
+  else if (wm === "custom") o += `${O}{width:${dim(s.w, s.wUnit)};max-width:100%}`;
+  o += `${B}:hover>span,${Li}:hover,${B}.fs-hover>span,${Li}.fs-hover{${stateD(st.hover)}}`;
+  o += `${B} input:checked+span,${Li}:has(input:checked),${B}.fs-selected>span,${Li}.fs-selected{${stateD(st.selected)}}`;
+  o += `${B} input:focus-visible+span,${Li}:has(input:focus-visible),${B}.fs-focus>span,${Li}.fs-focus{${ringCss(obj(st.focus))}}`;
+  return o;
+}
+
 /** Scoped CSS for one form. The scope is the form's id, so two forms on one page never clash. */
 export function designCss(form: FormModel, assetBase: string): string {
   if (!SAFE_ID.test(form.id)) return "";
@@ -426,7 +502,11 @@ export function designCss(form: FormModel, assetBase: string): string {
   const pt = texLayer(form.design.page), ct = texLayer(form.design.card);
   if (pt) out += `${W}{${pt}}`;
   if (ct) out += `${W} .qf-card{${ct}}`;
-  for (const el of elementsOf(form)) out += elCss(W, el, el.kind === "image" ? {} : computed(form, el), form, assetBase);
+  for (const el of elementsOf(form)) {
+    // Options without their own overrides inherit the question's option CSS, so skip them.
+    if (el.part === "opt" && !Object.keys(el.f?.config.optMeta?.[el.opt ?? -1]?.style ?? {}).length) continue;
+    out += elCss(W, el, ["image", "art", "swatch"].includes(el.kind) ? {} : computed(form, el), form, assetBase);
+  }
   // Defence in depth: CSS can never close the <style> element it is placed in.
   return out.replace(/<\//g, "<\\/");
 }
@@ -472,6 +552,7 @@ export function normalizeDesign(raw: unknown): Design {
     page: { tex: "none", texColor: "#FFFFFF", texOp: 12, texScale: 18, ...obj(d.page) },
     card: { tex: "none", texColor: theme.text, texOp: 6, texScale: 14, ...obj(d.card) },
     adv: { progress: obj(d.adv).progress !== false, disableUntilValid: obj(d.adv).disableUntilValid === true },
+    headArt: normalizeArt(d.headArt, artDefaultFor("head")),
   };
 }
 
@@ -482,6 +563,14 @@ export function normalizeField(raw: unknown): FormField | null {
   const config = { ...obj(f.config) } as FieldConfig;
   if (type === "image") config.img = { ...IMG_DEFAULT, ...obj(config.img) } as FieldConfig["img"];
   if (type === "page") { config.next = String(config.next || "Next"); config.prev = String(config.prev || "Back"); }
+  const options = Array.isArray(f.options) ? f.options.map(String) : [];
+  if (isInput(type)) {
+    const art = normalizeArt(config.art, artDefaultFor("field")), sw = normalizeSwatches(config.swatches);
+    if (art) config.art = art; else delete config.art;
+    if (sw) config.swatches = sw; else delete config.swatches;
+  } else { delete config.art; delete config.swatches; }
+  if (hasChoiceOptions(type) && Array.isArray(config.optMeta)) config.optMeta = normalizeOptionMeta(config.optMeta, options.length);
+  else delete config.optMeta;
   return {
     id: typeof f.id === "string" && SAFE_ID.test(f.id) ? f.id : newId(),
     type,
@@ -489,7 +578,7 @@ export function normalizeField(raw: unknown): FormField | null {
     help: String(f.help ?? ""),
     placeholder: String(f.placeholder ?? ""),
     required: f.required === true,
-    options: Array.isArray(f.options) ? f.options.map(String) : [],
+    options,
     config,
   };
 }
@@ -512,7 +601,8 @@ export function normalizeFields(raw: unknown): FormField[] {
 
 export function normalizeSettings(raw: unknown): FormSettings {
   const n = obj(obj(raw).notify);
-  return { notify: { channel: en(n.channel, ["sms", "whatsapp", "email"] as const, "sms"), consent: n.consent !== false } };
+  const text = typeof n.consentText === "string" && n.consentText.trim() ? n.consentText.slice(0, 300) : DEFAULT_CONSENT;
+  return { notify: { channel: en(n.channel, ["sms", "whatsapp", "email"] as const, "sms"), consent: n.consent !== false, consentText: text } };
 }
 
 export function blankField(type: FieldType): FormField {

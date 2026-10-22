@@ -8,6 +8,8 @@ import {
   type El, type FormField, type FormModel, type Style,
 } from "@/lib/design/engine";
 import { processImage } from "@/lib/design/image";
+import type { ArtSettings, SwatchSettings } from "@/lib/design/media";
+import { ArtUploader, SwatchEditor } from "../media-controls";
 import { CBox, CColor, CNum, CRadius, CSel, CSeg, CTex, CTog, CText, Sub } from "./controls";
 import { useDesign } from "./context";
 
@@ -57,8 +59,17 @@ function Spacing({ pf, s }: { pf: string; s: Style }) {
 
 export function GrpBox({ pf, s, el }: { pf: string; s: Style; el: El }) {
   const btn = el.kind === "button";
+  // Group layout applies to a question's options (or all option buttons), not to one option.
+  const group = el.kind === "choice" && !pf.startsWith("o.");
   return (
     <>
+      {group && (
+        <>
+          <CSeg label="Arrange options" path={`${pf}.layout`} value={String(s.layout || "row")} options={[["row", "Side by side"], ["column", "Stacked"]]} />
+          <CSeg label="Align the group" path={`${pf}.place`} value={String(s.place || "left")} options={[["left", "Left"], ["center", "Centre"], ["right", "Right"]]} />
+          <CNum label="Space between options" path={`${pf}.gap`} value={s.gap ?? 8} min={0} max={64} unit="px" />
+        </>
+      )}
       <CSeg label="Width" path={`${pf}.width`} value={String(s.width)} options={[["auto", "Auto"], ["full", "Full width"], ["custom", "Custom"]]} />
       {s.width === "custom" && (
         <div className="cg">
@@ -178,6 +189,7 @@ export function StyleBody({ el, pf, s, ctx }: { el: El; pf: string; s: Style; ct
           <Sub k="box" title="Size and spacing"><GrpBox pf={pf} s={s} el={el} /></Sub>
           <Sub k="bg" title="Background and texture"><GrpBg pf={pf} bg={s.bg} /></Sub>
           <Sub k="border" title="Border and corners"><GrpBorder pf={pf} s={s} /></Sub>
+          {el.kind !== "input" && <Sub k="shadow" title="Shadow and opacity"><GrpShadow path={`${pf}.shadow`} value={s.shadow} /><CNum label="Opacity" path={`${pf}.opacity`} value={s.opacity ?? 100} min={10} max={100} unit="%" /></Sub>}
           <Sub k="states" title="Interactive states"><GrpStates pf={pf} s={s} el={el} ctx={ctx} /></Sub>
         </>
       );
@@ -315,4 +327,103 @@ export function Contrast({ form, el, scope }: { form: FormModel; el: El | "theme
     } else content = <Line label="Text on form" fg={s.color} bgs={[card]} min={4.5} />;
   }
   return content ? <div className="contrast" aria-live="polite">{content}</div> : null;
+}
+
+// ---------------------------------------------------------------- shadows, artwork and swatches
+export function GrpShadow({ path, value }: { path: string; value: unknown }) {
+  const v = obj(value);
+  return (
+    <>
+      <CTog label="Show a shadow" path={`${path}.on`} value={v.on === true} />
+      {v.on === true && (
+        <>
+          <div className="cg">
+            <CNum label="Across" path={`${path}.x`} value={v.x ?? 0} min={-40} max={40} unit="px" />
+            <CNum label="Down" path={`${path}.y`} value={v.y ?? 4} min={-40} max={40} unit="px" />
+            <CNum label="Blur" path={`${path}.blur`} value={v.blur ?? 14} min={0} max={80} unit="px" />
+          </div>
+          <CColor label="Shadow colour" path={`${path}.color`} value={v.color ?? "#00000033"} />
+        </>
+      )}
+    </>
+  );
+}
+
+/** Full styling for an artwork block. `base` is its path prefix: ha, fa.<id> or oa.<id>.<n>. */
+export function ArtStyle({ base, a, onReplace, onRemove }: { base: string; a: ArtSettings; onReplace: (path: string, name: string) => void; onRemove: () => void }) {
+  const { upload, assetBase } = useDesign();
+  const beside = a.pos === "left" || a.pos === "right";
+  return (
+    <>
+      <Sub k="aimg" title="Image">
+        <ArtUploader art={a} assetBase={assetBase} upload={upload} compact onUploaded={onReplace} onRemove={onRemove} />
+        <CText label="Description for screen readers (alt text)" path={`${base}.alt`} value={a.alt} placeholder="e.g. Harbourfront Food Fest logo" />
+      </Sub>
+      <Sub k="asize" title="Size">
+        <div className="cg">
+          <CNum label="Width" path={`${base}.w`} value={a.w} min={1} max={a.wUnit === "%" ? 100 : 2000} />
+          <CSel label="Unit" path={`${base}.wUnit`} value={a.wUnit} options={[["px", "px"], ["%", "% of space"]]} />
+        </div>
+        <CTog label="Keep the original proportions" path={`${base}.keep`} value={a.keep} />
+        {!a.keep && (
+          <div className="cg">
+            <CNum label="Height" path={`${base}.h`} value={a.h} min={10} max={2000} unit="px" />
+            <CSel label="Fit" path={`${base}.fit`} value={a.fit} options={[["contain", "Fit inside"], ["cover", "Fill and crop"], ["fill", "Stretch"]]} />
+          </div>
+        )}
+        <div className="cg">
+          <CNum label="Minimum width" path={`${base}.minW`} value={a.minW} min={0} max={2000} unit="px" />
+          <CNum label="Maximum width" path={`${base}.maxW`} value={a.maxW} min={0} max={4000} unit="px" />
+          <CNum label="Maximum height" path={`${base}.maxH`} value={a.maxH} min={0} max={4000} unit="px" />
+        </div>
+        <p className="hint">0 means no limit. You can also drag the blue handle on the selected artwork in the preview.</p>
+      </Sub>
+      <Sub k="aplace" title="Position and spacing">
+        <CSeg label="Position" path={`${base}.pos`} value={a.pos} options={[["above", "Above text"], ["below", "Below text"], ["left", "Left of text"], ["right", "Right of text"]]} />
+        <CSeg label="Horizontal alignment" path={`${base}.align`} value={a.align} options={[["left", "Left"], ["center", "Centre"], ["right", "Right"]]} />
+        {beside && <CSeg label="Vertical alignment" path={`${base}.valign`} value={a.valign} options={[["top", "Top"], ["center", "Middle"], ["bottom", "Bottom"]]} />}
+        <CBox label="Padding" path={`${base}.pad`} value={a.pad} />
+        <CBox label="Margin" path={`${base}.mar`} value={a.mar} />
+        {beside && <p className="hint">On narrow screens, artwork beside the text moves above it automatically.</p>}
+      </Sub>
+      <Sub k="alook" title="Border and look">
+        <CColor label="Background" path={`${base}.bg`} value={a.bg} clear />
+        <div className="cg">
+          <CNum label="Border width" path={`${base}.bw`} value={a.bw} min={0} max={20} unit="px" />
+          <CNum label="Corner radius" path={`${base}.br`} value={a.br} min={0} max={999} unit="px" />
+        </div>
+        {a.bw > 0 && <CColor label="Border colour" path={`${base}.bc`} value={a.bc} />}
+        <CNum label="Opacity" path={`${base}.op`} value={a.op} min={0} max={100} unit="%" />
+      </Sub>
+      <Sub k="ashadow" title="Shadow"><GrpShadow path={`${base}.shadow`} value={a.shadow} /></Sub>
+    </>
+  );
+}
+
+/** Colour swatch row: the colours themselves plus their look. `base` is fs.<id> or os.<id>.<n>. */
+export function SwatchStyle({ base, s, onChange, onRemove }: { base: string; s: SwatchSettings; onChange: (s: SwatchSettings) => void; onRemove: () => void }) {
+  return (
+    <>
+      <Sub k="switems" title="Colours"><SwatchEditor value={s} onChange={onChange} onRemoveAll={onRemove} /></Sub>
+      <Sub k="swlook" title="Shape and border">
+        <CTog label="Keep swatches round" path={`${base}.round`} value={s.round} />
+        {!s.round && <CNum label="Corner radius" path={`${base}.br`} value={s.br} min={0} max={48} unit="px" />}
+        <div className="cg">
+          <CNum label="Swatch size" path={`${base}.size`} value={s.size} min={12} max={96} unit="px" />
+          <CNum label="Border width" path={`${base}.bw`} value={s.bw} min={0} max={8} unit="px" />
+        </div>
+        {s.bw > 0 && <CColor label="Border colour" path={`${base}.bc`} value={s.bc} />}
+        <CColor label="Selected outline" path={`${base}.ring`} value={s.ring} />
+        <CNum label="Outline width" path={`${base}.ringW`} value={s.ringW} min={1} max={8} unit="px" />
+      </Sub>
+      <Sub k="swplace" title="Layout and spacing">
+        <CSeg label="Alignment" path={`${base}.align`} value={s.align} options={[["left", "Left"], ["center", "Centre"], ["right", "Right"]]} />
+        <div className="cg">
+          <CNum label="Space between" path={`${base}.gap`} value={s.gap} min={0} max={48} unit="px" />
+          <CNum label="Space above" path={`${base}.mar.t`} value={s.mar.t} min={-20} max={80} unit="px" />
+          <CNum label="Space below" path={`${base}.mar.b`} value={s.mar.b} min={-20} max={80} unit="px" />
+        </div>
+      </Sub>
+    </>
+  );
 }

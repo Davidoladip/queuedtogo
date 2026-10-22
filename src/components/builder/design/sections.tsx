@@ -4,15 +4,18 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { themeFromPalette } from "@/lib/design/color";
 import {
-  FONTS, FONT_STACKS, KIND_PLURAL, LAYOUTS, SHAPES, SHARED_KINDS, computed, computedShared, elementsOf, repEl, srcOf,
-  type FormModel,
+  FONTS, FONT_STACKS, KIND_PLURAL, LAYOUTS, SHAPES, SHARED_KINDS, artFor, computed, computedQuestionChoice, computedShared, elementsOf, repEl, srcOf, swatchesFor,
+  type El, type FormModel,
 } from "@/lib/design/engine";
+import { artDefaultFor, type ArtSettings, type SwatchSettings } from "@/lib/design/media";
+import { ArtUploader } from "../media-controls";
+import { optMeta } from "./paths";
 import { processImage } from "@/lib/design/image";
 import { fieldIdOf } from "../QuestionsPanel";
 import { CColor, CSeg, CTex, CText, CTog, Sub } from "./controls";
 import { useDesign } from "./context";
 import { ColorPicker } from "./ColorPicker";
-import { Contrast, GrpBorder, GrpText, ImageStyle, StyleBody, posName, posOptions } from "./groups";
+import { ArtStyle, Contrast, GrpBorder, GrpText, ImageStyle, StyleBody, SwatchStyle, posName, posOptions } from "./groups";
 
 const ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml";
 
@@ -121,6 +124,9 @@ export function SecElement() {
   if (!el) return <>{picker}<p className="hint">Click any element in the preview, such as a button, an input box, a label or a picture, or choose one above. Its own style controls appear here.</p></>;
   const head = <div className="elhead"><b>{el.name}</b><code>Element ID: {el.sid}</code></div>;
   if (el.kind === "image" && el.f) return <>{picker}{head}<ImageStyle f={el.f} /></>;
+  if (el.kind === "art") return <>{picker}{head}<ArtElement sid={el.sid} /></>;
+  if (el.kind === "swatch") return <>{picker}{head}<SwatchElement sid={el.sid} /></>;
+  if (el.part === "opt" && el.f && el.opt != null) return <>{picker}{head}<OptionElement el={el} /></>;
 
   const isShared = (SHARED_KINDS as readonly string[]).includes(el.kind);
   const sc = isShared && scope === "g" ? "g" : "el";
@@ -153,6 +159,103 @@ export function SecElement() {
       )}
       <StyleBody el={el} pf={pf} s={s} ctx="e" />
       <Contrast form={form} el={el} scope={sc} />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- artwork, swatches and option elements
+/** Path prefix for an artwork or swatch element id. */
+function mediaBase(sid: string): { base: string; fid: string | null; n: number | null } | null {
+  if (sid === "__hart") return { base: "ha", fid: null, n: null };
+  const m = sid.match(/^(.+?)(?:__o(\d+))?__(art|sw)$/);
+  if (!m) return null;
+  const n = m[2] != null ? Number(m[2]) : null;
+  const root = m[3] === "art" ? (n != null ? "oa" : "fa") : (n != null ? "os" : "fs");
+  return { base: n != null ? `${root}.${m[1]}.${n}` : `${root}.${m[1]}`, fid: m[1], n };
+}
+
+function ArtElement({ sid }: { sid: string }) {
+  const { form, update, setSelected } = useDesign();
+  const a = artFor(form, sid), mb = mediaBase(sid);
+  if (!a || !mb) return null;
+  const setArt = (fn: (cur: ArtSettings | null) => ArtSettings | null) => update((d) => {
+    if (!mb.fid) { d.design.headArt = fn(d.design.headArt); return; }
+    const f = d.fields.find((x) => x.id === mb.fid);
+    if (!f) return;
+    if (mb.n == null) { const v = fn(f.config.art ?? null); if (v) f.config.art = v; else delete f.config.art; return; }
+    const meta = optMeta(d, f.id, mb.n);
+    if (meta) meta.art = fn(meta.art);
+  });
+  return (
+    <>
+      <div className="notebox">This artwork&apos;s settings belong to it alone. Click the image in the preview to come back here.</div>
+      <ArtStyle base={mb.base} a={a}
+        onReplace={(path, name) => setArt((cur) => (cur ? { ...cur, src: { path }, name } : cur))}
+        onRemove={() => { setArt(() => null); setSelected(null); }} />
+    </>
+  );
+}
+
+function SwatchElement({ sid }: { sid: string }) {
+  const { form, update, setSelected } = useDesign();
+  const sw = swatchesFor(form, sid), mb = mediaBase(sid);
+  if (!sw || !mb || !mb.fid) return null;
+  const setSw = (v: SwatchSettings | null) => update((d) => {
+    const f = d.fields.find((x) => x.id === mb.fid);
+    if (!f) return;
+    if (mb.n == null) { if (v) f.config.swatches = v; else delete f.config.swatches; return; }
+    const meta = optMeta(d, f.id, mb.n);
+    if (meta) meta.swatches = v;
+  });
+  return <SwatchStyle base={mb.base} s={sw} onChange={setSw} onRemove={() => { setSw(null); setSelected(null); }} />;
+}
+
+/** One option of a choice question: style it alone, or every option in its question, or every option in the form. */
+function OptionElement({ el }: { el: El }) {
+  const { form, scope, setScope, setPs, update } = useDesign();
+  const f = el.f!, n = el.opt!;
+  const sc = scope === "q" || scope === "g" ? scope : "el";
+  const own = Object.keys(f.config.optMeta?.[n]?.style ?? {}).length > 0;
+  const qOwn = Object.keys(form.design.el[f.id] ?? {}).length > 0;
+  const pf = sc === "el" ? `o.${f.id}.${n}` : sc === "q" ? `e.${f.id}` : "g.choice";
+  const s = sc === "el" ? computed(form, el) : sc === "q" ? computedQuestionChoice(form, el) : computedShared(form, el);
+  const pick = (v: "el" | "q" | "g") => { setScope(v); setPs({ ctx: "", state: "default" }); };
+  return (
+    <>
+      <div className="seg sm" role="group" aria-label="Apply changes to">
+        <button type="button" aria-pressed={sc === "el"} onClick={() => pick("el")}>This option only</button>
+        <button type="button" aria-pressed={sc === "q"} onClick={() => pick("q")}>All options in this question</button>
+        <button type="button" aria-pressed={sc === "g"} onClick={() => pick("g")}>All option buttons in the form</button>
+      </div>
+      <div className="notebox">
+        {sc === "el" && (own
+          ? <>This option has its own style, so changes to the question or the form don&apos;t override it. <button type="button" className="linkbtn" onClick={() => update((d) => { const m = optMeta(d, f.id, n); if (m) m.style = {}; })}>Reset this option</button></>
+          : "Changes apply to this option only.")}
+        {sc === "q" && <>Changes apply to every option in this question. Options with their own style keep it.{qOwn && <> <button type="button" className="linkbtn" onClick={() => update((d) => { delete d.design.el[f.id]; })}>Reset this question&apos;s options</button></>}</>}
+        {sc === "g" && "Changes apply to every option button in the form. Questions and options with their own style keep it."}
+      </div>
+      <StyleBody el={el} pf={pf} s={s} ctx={sc === "q" ? `q:${f.id}` : "e"} />
+      <Contrast form={form} el={el} scope={sc === "g" ? "g" : "el"} />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- Heading artwork
+export function SecHeadArt() {
+  const { form, update, upload, assetBase, setSelected } = useDesign();
+  const a = form.design.headArt;
+  return (
+    <>
+      <p className="hint">A logo, illustration or banner shown with the form title. It is separate from the event artwork at the top of the page.</p>
+      {a ? (
+        <ArtStyle base="ha" a={a}
+          onReplace={(path, name) => update((d) => { if (d.design.headArt) d.design.headArt = { ...d.design.headArt, src: { path }, name }; })}
+          onRemove={() => { update((d) => { d.design.headArt = null; }); setSelected(null); }} />
+      ) : (
+        <ArtUploader art={null} assetBase={assetBase} upload={upload} label="heading artwork"
+          onUploaded={(path, name) => { update((d) => { d.design.headArt = { ...artDefaultFor("head"), src: { path }, name }; }); setSelected("__hart"); }}
+          onRemove={() => {}} />
+      )}
     </>
   );
 }
@@ -414,6 +517,7 @@ export function resetAllStyles(d: FormModel) {
 
 export const SECTIONS: [string, string, () => ReactNode][] = [
   ["theme", "Global theme", SecTheme],
+  ["hart", "Heading artwork", SecHeadArt],
   ["element", "Individual element styles", SecElement],
   ["type", "Typography", SecType],
   ["buttons", "Buttons", SecButtons],

@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toDraftInput } from "@/lib/validation/form";
 import { getFormDesign, publishForm, saveDraft, setFormStatus, updateBrandColors } from "@/server/actions/forms";
 import type { PreviewState } from "./design/context";
+import { applyPath } from "./design/paths";
 import { QuestionsPanel } from "./QuestionsPanel";
 import { DesignPanel } from "./DesignPanel";
 import { SettingsPanel } from "./SettingsPanel";
@@ -56,6 +57,7 @@ export function Builder(props: BuilderProps) {
   const [pending, startTransition] = useTransition();
   const [ps, setPs] = useState<PreviewState>({ ctx: "", state: "default" });
   const [brand, setBrandState] = useState<string[]>(props.brand);
+  const [previewThanks, setPreviewThanks] = useState(false);
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
   const notify = useCallback((text: string) => setToast((t) => ({ text, n: (t?.n ?? 0) + 1 })), []);
   useEffect(() => {
@@ -91,13 +93,18 @@ export function Builder(props: BuilderProps) {
   }, [undo, redo, store]);
 
   const upload: Upload = useCallback(async (img) => {
-    if (props.demo) throw new Error("Uploads need a connected Supabase project.");
-    const supabase = createClient();
     const path = `${orgId}/forms/${formId}/${newId()}.${img.ext}`;
+    if (props.demo) {
+      // Development harness: store in the in-memory stand-in bucket (src/app/dev/assets).
+      const res = await fetch(`${assetBase}/${path}`, { method: "POST", headers: { "content-type": img.contentType }, body: img.blob });
+      if (!res.ok) throw new Error("The upload didn't go through.");
+      return { path };
+    }
+    const supabase = createClient();
     const { error } = await supabase.storage.from("form-assets").upload(path, img.blob, { contentType: img.contentType, cacheControl: "31536000", upsert: false });
     if (error) throw new Error(/mime|type/i.test(error.message) ? "That file type isn't allowed. Use a PNG, JPG or WebP image." : /size|large/i.test(error.message) ? "That image is too large. Images can be up to 10 MB." : "The upload didn't go through. Check your connection and try again.");
     return { path };
-  }, [orgId, formId, props.demo]);
+  }, [orgId, formId, props.demo, assetBase]);
 
   const setBrand = useCallback(async (colors: string[]): Promise<string | null> => {
     if (props.demo) { setBrandState(colors); return null; }
@@ -172,6 +179,18 @@ export function Builder(props: BuilderProps) {
     setTab(k);
     setPs({ ctx: "", state: "default" });
   }
+  function openDesign(sid: string) {
+    setSelected(sid);
+    setPs({ ctx: "", state: "default" });
+    setTab("design");
+  }
+  /** Drag-to-resize from the preview: artwork width in px. */
+  const resizeArt = useCallback((sid: string, px: number) => {
+    const m = sid.match(/^(.+?)(?:__o(\d+))?__art$/);
+    const base = sid === "__hart" ? "ha" : m ? (m[2] != null ? `oa.${m[1]}.${m[2]}` : `fa.${m[1]}`) : null;
+    if (!base) return;
+    update((d) => { applyPath(d, `${base}.wUnit`, "px"); applyPath(d, `${base}.w`, px); }, { coalesce: "rsz:" + sid });
+  }, [update]);
   const forced = tab === "design" && ps.state !== "default" ? ps : null;
 
   const publicUrl = `${siteUrl}/f/${orgSlug}/${form.slug}`;
@@ -209,7 +228,7 @@ export function Builder(props: BuilderProps) {
             ))}
           </div>
           <div className="b-body">
-            {tab === "questions" && <QuestionsPanel form={form} update={update} selected={selected} setSelected={setSelected} upload={upload} assetBase={assetBase} />}
+            {tab === "questions" && <QuestionsPanel form={form} update={update} selected={selected} setSelected={setSelected} upload={upload} assetBase={assetBase} openDesign={openDesign} />}
             {tab === "design" && (
               <DesignPanel form={form} update={update} selected={selected} setSelected={setSelected} upload={upload} assetBase={assetBase}
                 ps={ps} setPs={setPs} brand={brand} setBrand={setBrand} canEditBrand={props.canEditBrand} otherForms={props.otherForms}
@@ -217,7 +236,7 @@ export function Builder(props: BuilderProps) {
             )}
             {tab === "settings" && (
               <SettingsPanel form={form} update={update} orgSlug={orgSlug} siteUrl={siteUrl} status={status} version={version}
-                onStatus={onStatus} pending={pending} canDelete={props.canDelete} />
+                onStatus={onStatus} pending={pending} canDelete={props.canDelete} orgName={orgName} onPreviewThanks={() => setPreviewThanks(true)} />
             )}
           </div>
         </section>
@@ -230,6 +249,10 @@ export function Builder(props: BuilderProps) {
                 <button type="button" className="linkbtn" onClick={() => setPs({ ctx: "", state: "default" })}>Show default</button>
               </span>
             )}
+            <div className="b-seg sm" role="group" aria-label="Preview screen">
+              <button type="button" aria-pressed={!previewThanks} onClick={() => setPreviewThanks(false)}>Form</button>
+              <button type="button" aria-pressed={previewThanks} onClick={() => setPreviewThanks(true)}>Thank-you screen</button>
+            </div>
             <div className="b-seg sm">
               {(["desktop", "phone"] as const).map((d) => (
                 <button key={d} type="button" aria-pressed={device === d} onClick={() => setDevice(d)}>{d === "desktop" ? "Desktop" : "Phone"}</button>
@@ -238,8 +261,8 @@ export function Builder(props: BuilderProps) {
           </div>
           <div className={`b-frame ${device}`}>
             <FormRenderer form={form} assetBase={assetBase} mode="edit" businessName={orgName} selected={selected} onSelect={onSelect}
-              forced={forced ? { state: forced.state, sid: forced.ctx === "e" ? selected : null, kind: forced.ctx.startsWith("g.") ? forced.ctx.slice(2) : null } : null}
-              onInsertArtwork={(index, file) => void insertArtwork(file, index)} />
+              forced={forced ? { state: forced.state, sid: forced.ctx === "e" ? selected : forced.ctx.startsWith("q:") ? forced.ctx.slice(2) : null, kind: forced.ctx.startsWith("g.") ? forced.ctx.slice(2) : null } : null}
+              onInsertArtwork={(index, file) => void insertArtwork(file, index)} onResizeArt={resizeArt} showThanks={previewThanks} />
           </div>
         </section>
       </div>

@@ -14,8 +14,9 @@ export type DesignCtx = {
   update: (fn: (d: FormModel) => void) => void;
   selected: string | null;
   setSelected: (sid: string | null) => void;
-  scope: "el" | "g";
-  setScope: (s: "el" | "g") => void;
+  /** el = this element, q = all options in this question, g = all elements of this kind. */
+  scope: "el" | "q" | "g";
+  setScope: (s: "el" | "q" | "g") => void;
   ps: PreviewState;
   setPs: (p: PreviewState) => void;
   open: Record<string, boolean>;

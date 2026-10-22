@@ -16,6 +16,7 @@ import {
   type FormField,
   type FormModel,
 } from "@/lib/design/engine";
+import { DEFAULT_THANKS, fillMessage, type ArtSettings, type SwatchSettings } from "@/lib/design/media";
 
 type Mode = "edit" | "live";
 
@@ -34,6 +35,10 @@ type Props = {
   forced?: ForcedState | null;
   /** Edit mode: an image was chosen or dropped to insert before field `index`. */
   onInsertArtwork?: (index: number, file: File) => void;
+  /** Edit mode: an artwork block was resized with its drag handle (new width in px). */
+  onResizeArt?: (sid: string, widthPx: number) => void;
+  /** Edit mode: show the thank-you screen customers see after submitting. */
+  showThanks?: boolean;
   /** Live mode: shown instead of the form, e.g. when it is closed. */
   closedMessage?: string | null;
 };
@@ -49,7 +54,7 @@ const PHONE = (v: string) => {
 };
 const isLocked = (f: FormField) => LOCKABLE.has(f.type) && f.config.locked === true;
 
-export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, closedMessage }: Props) {
+export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage }: Props) {
   const E = mode === "edit";
   const t = form.design.theme;
   const art = srcOf(form.design.art, assetBase);
@@ -101,6 +106,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   /** Missing required answers on a page (formats aren't checked until Next/Submit). */
   function missing(i: number, fd: FormData) {
     return pages[i].blocks.some(({ f }) => {
+      if (colourMissing(f, fd)) return true;
       if (!f.required || isLocked(f)) return false;
       const values = fd.getAll(f.id).map((v) => (typeof v === "string" ? v.trim() : v.size ? "file" : ""));
       return f.type === "sizes" ? !values.some((v) => Number(v) > 0) : !values.some(Boolean);
@@ -116,6 +122,8 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
     const fd = new FormData(formRef.current!);
     const errs: Record<string, string> = {};
     for (const { f } of pages[i].blocks) {
+      const colour = colourMissing(f, fd);
+      if (colour) { errs[f.id] = colour; continue; }
       if (f.type === "submit" || isLocked(f) || (!f.required && !["email", "phone"].includes(f.type))) continue;
       const values = fd.getAll(f.id).map((v) => (typeof v === "string" ? v.trim() : v.size ? "file" : ""));
       const filled = f.type === "sizes" ? values.some((v) => Number(v) > 0) : values.some(Boolean);
@@ -161,14 +169,29 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
     <button type="button" className={`qf-btn qf-prev${fs("__prev", "button")}`} data-sid="__prev" data-kind="button" onClick={() => nav(-1)} tabIndex={ti}>{prevLabel(i)}</button>
   );
 
-  const head = (
-    <>
+  const artProps = { assetBase, editing: E, selected: selected ?? null, onResize: onResizeArt };
+  const headText = (
+    <div className="qf-head-t">
       {(form.eventDate || form.venue) && (
         <div className="qf-eyebrow">{fmtDay(form.eventDate)}{form.eventDate && form.venue ? " · " : ""}{form.venue}</div>
       )}
       <h2 className={`qf-title${fs("__title", "heading")}`} data-sid="__title" data-kind="heading">{form.title}</h2>
       {form.intro && <p className={`qf-intro${fs("__intro", "text")}`} data-sid="__intro" data-kind="text">{form.intro}</p>}
-    </>
+    </div>
+  );
+  const ha = form.design.headArt;
+  const head = ha && srcOf(ha.src, assetBase)
+    ? <div className={`qf-head qf-head-${ha.pos}`}><ArtBlock sid="__hart" a={ha} alt={ha.alt || `${form.title} artwork`} {...artProps} />{headText}</div>
+    : <div className="qf-head">{headText}</div>;
+  const consentText = fillMessage(form.settings.notify.consentText, { channel: CHANNELS[form.settings.notify.channel], business: businessName });
+  const thanks = (
+    <div className="qf-done" role="status">
+      <h2 className="qf-title" data-sid="__title" data-kind="heading">You&apos;re in the queue!</h2>
+      <p className="qf-intro" data-sid="__intro" data-kind="text">{fillMessage(form.thanks || DEFAULT_THANKS, { order_number: "QTG-1001", business: businessName, form_title: form.title })}</p>
+      <div>Your order number</div>
+      <div className="num">QTG-1001</div>
+      {E && <div className="qf-sample">Sample order number. Customers see their real one.</div>}
+    </div>
   );
 
   const body = (
@@ -190,7 +213,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
                   {form.settings.notify.consent && (
                     <label className="qf-check">
                       <input type="checkbox" name="__consent" defaultChecked tabIndex={ti} />
-                      {" "}Send me {CHANNELS[form.settings.notify.channel]} updates about my order. Reply STOP to opt out.
+                      {" "}{consentText}
                     </label>
                   )}
                   {notice && <div className="qf-closed" role="status">{notice}</div>}
@@ -201,7 +224,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
                 </>
               ), last, f.id);
             }
-            const content = <Block f={f} editing={E} error={errors[f.id] ?? (E && forced?.state === "error" && fs(f.id, "input") ? "Please answer this question." : undefined)} assetBase={assetBase} fs={fs} />;
+            const content = <Block f={f} editing={E} error={errors[f.id] ?? (E && forced?.state === "error" && fs(f.id, "input") ? "Please answer this question." : undefined)} fs={fs} art={artProps} />;
             if (!E && f.type === "image" && !srcOf(merge(IMG_DEFAULT, f.config.img).src, assetBase)) return null;
             return blk(idx, content, last, f.id);
           })}
@@ -243,8 +266,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
           {art && L === "background" && <div className="qf-bg"><img src={art} alt="" /></div>}
           <div className="qf-main">
             <div className="qf-card">
-              {head}
-              {closedMessage ? <div className="qf-closed">{closedMessage}</div> : body}
+              {showThanks ? thanks : <>{head}{closedMessage ? <div className="qf-closed">{closedMessage}</div> : body}</>}
             </div>
             <div className="qf-powered">Order form by {businessName} · Powered by QueuedToGo</div>
           </div>
@@ -263,8 +285,76 @@ function PageSection({ children, hidden, index, editing, pbLabel }: { children: 
   );
 }
 
-function Block({ f: raw, editing, error, assetBase, fs }: { f: FormField; editing: boolean; error?: string; assetBase: string; fs: (sid: string, kind: string) => string }) {
-  const f = { ...raw, options: raw.options.map((o) => o.trim()).filter(Boolean) };
+type ArtCtx = { assetBase: string; editing: boolean; selected: string | null; onResize?: (sid: string, widthPx: number) => void };
+
+/** Required colour choice not made: on the question, or on the option the customer picked. */
+function colourMissing(f: FormField, fd: FormData): string | null {
+  const sw = f.config.swatches;
+  if (sw?.selectable && sw.required && !fd.get(`${f.id}__color`)) return "Choose a colour.";
+  if (f.type === "choice" || f.type === "multi") {
+    const picked = new Set(fd.getAll(f.id).map(String));
+    for (const [i, o] of f.options.entries()) {
+      const m = f.config.optMeta?.[i]?.swatches;
+      if (m?.selectable && m.required && picked.has(o.trim()) && !fd.get(`${f.id}__o${i}__color`)) return `Choose a colour for ${o.trim()}.`;
+    }
+  }
+  return null;
+}
+
+/** An uploaded image with its own styling. In the editor, the selected one shows a drag handle to resize it. */
+function ArtBlock({ sid, a, alt, assetBase, editing, selected, onResize }: { sid: string; a: ArtSettings; alt: string } & ArtCtx) {
+  const src = srcOf(a.src, assetBase);
+  if (!src) return null;
+  const startDrag = (e: React.PointerEvent<HTMLSpanElement>) => {
+    if (!onResize) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const box = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+    const x0 = e.clientX, w0 = box.width, k = a.align === "center" ? 2 : a.align === "right" ? -1 : 1;
+    const move = (m: PointerEvent) => onResize(sid, Math.round(Math.max(16, Math.min(2000, w0 + (m.clientX - x0) * k))));
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  return (
+    <div className="qf-art-blk" data-sid={sid} data-kind="art">
+      <span className="qf-art-in">
+        <img src={src} alt={alt} />
+        {editing && selected === sid && onResize && (
+          <span className="qf-rsz" role="slider" aria-label="Drag to resize the artwork" aria-valuenow={a.w} tabIndex={-1} onPointerDown={startDrag} />
+        )}
+      </span>
+    </div>
+  );
+}
+
+/** Round colour swatches. When selectable, the customer's pick is submitted as `<name>`. */
+function Swatches({ sid, s, name, label, editing, fs }: { sid: string; s: SwatchSettings; name: string; label: string; editing: boolean; fs: (sid: string, kind: string) => string }) {
+  const forcedSel = fs(sid, "swatch").includes("fs-selected");
+  return (
+    <div className={`qf-sw${fs(sid, "swatch")}`} data-sid={sid} data-kind="swatch" role={s.selectable ? "radiogroup" : "list"} aria-label={label}>
+      {s.items.map((c, i) => {
+        const dot = <span className="qf-sw-dot" style={{ background: c.color }} />;
+        const text = s.labels && c.label ? <span className="qf-sw-l">{c.label}</span> : null;
+        const title = c.label ? `${c.label} (${c.color})` : c.color;
+        return s.selectable ? (
+          <label key={i} className={`qf-sw-i${forcedSel && i === 0 ? " fs-selected" : ""}`} title={title}>
+            <input type="radio" name={name} value={c.label ? `${c.label} (${c.color})` : c.color} aria-label={title} tabIndex={editing ? -1 : undefined} />
+            {dot}{text}
+          </label>
+        ) : (
+          <span key={i} className="qf-sw-i" title={title} role="listitem">{dot}{text}<span className="sr-only">{title}</span></span>
+        );
+      })}
+    </div>
+  );
+}
+
+function Block({ f: raw, editing, error, fs, art }: { f: FormField; editing: boolean; error?: string; fs: (sid: string, kind: string) => string; art: ArtCtx }) {
+  // Keep each option's original index, so per-option artwork, swatches and styles stay attached.
+  const opts = raw.options.map((o, i) => ({ o: o.trim(), i })).filter((x) => x.o);
+  const f = raw;
+  const assetBase = art.assetBase;
   const ti = editing ? -1 : undefined;
   const req = f.required ? <span className="qf-req" aria-hidden="true">*</span> : null;
   const helpId = `qh-${f.id}`, errId = `qe-${f.id}`, inId = `q-${f.id}`;
@@ -274,9 +364,15 @@ function Block({ f: raw, editing, error, assetBase, fs }: { f: FormField; editin
   const labSid = `${f.id}__label`;
   const lab = <label className={`qf-label${fs(labSid, "label")}`} data-sid={labSid} data-kind="label" htmlFor={inId}>{f.label}{req}</label>;
   const glab = <span className={`qf-label${fs(labSid, "label")}`} data-sid={labSid} data-kind="label" id={`ql-${f.id}`}>{f.label}{req}</span>;
-  const wrap = (kind: string, inner: ReactNode) => (
-    <div className={`qf-field${error ? " invalid" : ""}${fs(f.id, kind)}`} data-sid={f.id} data-kind={kind}>{inner}{err}</div>
-  );
+  const fArt = f.config.art ? <ArtBlock sid={`${f.id}__art`} a={f.config.art} alt={f.config.art.alt} {...art} /> : null;
+  const fSw = f.config.swatches ? <Swatches sid={`${f.id}__sw`} s={f.config.swatches} name={`${f.id}__color`} label={`${f.label || "Question"}: colours`} editing={editing} fs={fs} /> : null;
+  const wrap = (kind: string, inner: ReactNode) => {
+    const pos = f.config.art?.pos ?? "above";
+    const body = !fArt ? inner
+      : pos === "left" || pos === "right" ? <div className={`qf-media qf-media-${pos}`}>{fArt}<div className="qf-media-t">{inner}</div></div>
+        : pos === "below" ? <>{inner}{fArt}</> : <>{fArt}{inner}</>;
+    return <div className={`qf-field${error ? " invalid" : ""}${fs(f.id, kind)}`} data-sid={f.id} data-kind={kind}>{body}{fSw}{err}</div>;
+  };
   const locked = isLocked(f);
   const common = { id: inId, name: f.id, "aria-describedby": describedBy, "aria-invalid": error ? true : undefined, "aria-required": (f.required && !locked) || undefined, tabIndex: ti };
 
@@ -307,20 +403,33 @@ function Block({ f: raw, editing, error, assetBase, fs }: { f: FormField; editin
     }
     case "long": return wrap("input", <>{lab}{help}<textarea className="qf-in" placeholder={f.placeholder || undefined} {...common} /></>);
     case "dropdown":
-      return wrap("input", <>{lab}{help}<select className="qf-in" defaultValue="" {...common}><option value="">Choose…</option>{f.options.map((o, i) => <option key={i}>{o}</option>)}</select></>);
+      return wrap("input", <>{lab}{help}<select className="qf-in" defaultValue="" {...common}><option value="">Choose…</option>{opts.map(({ o, i }) => <option key={i}>{o}</option>)}</select></>);
     case "choice": case "multi": {
       const ty = f.type === "choice" ? "radio" : "checkbox", list = f.config.display === "list";
       return wrap("choice", <>{glab}{help}
         <div className={`qf-opts${list ? " list" : ""}`} role={f.type === "choice" ? "radiogroup" : "group"} aria-labelledby={`ql-${f.id}`} aria-describedby={describedBy}>
-          {f.options.map((o, i) => (
-            <label key={i} className={list ? "qf-li" : "qf-opt"}><input type={ty} name={f.id} value={o} tabIndex={ti} /><span>{o}</span></label>
-          ))}
+          {opts.map(({ o, i }) => {
+            const sid = `${f.id}__o${i}`, m = f.config.optMeta?.[i];
+            const oArt = m?.art ? <ArtBlock sid={`${sid}__art`} a={m.art} alt={m.art.alt || o} {...art} /> : null;
+            const text = oArt ? <span className={`qf-opt-c ${m!.art!.pos}`}>{oArt}<span className="qf-opt-t">{o}</span></span> : o;
+            const optLabel = (
+              <label key={i} className={`${list ? "qf-li" : "qf-opt"}${fs(sid, "option")}`} data-sid={sid} data-kind="option">
+                <input type={ty} name={f.id} value={o} tabIndex={ti} /><span>{text}</span>
+              </label>
+            );
+            return m?.swatches ? (
+              <div key={i} className="qf-optw">
+                {optLabel}
+                <Swatches sid={`${sid}__sw`} s={m.swatches} name={`${sid}__color`} label={`${o}: colours`} editing={editing} fs={fs} />
+              </div>
+            ) : optLabel;
+          })}
         </div></>);
     }
     case "sizes":
       return wrap("input", <>{glab}{help}
         <div className="qf-sizes" role="group" aria-labelledby={`ql-${f.id}`}>
-          {f.options.map((o, i) => <label key={i}>{o}<input className="qf-in" type="number" min={0} inputMode="numeric" name={f.id} data-size={o} placeholder="0" tabIndex={ti} /></label>)}
+          {opts.map(({ o, i }) => <label key={i}>{o}<input className="qf-in" type="number" min={0} inputMode="numeric" name={f.id} data-size={o} placeholder="0" tabIndex={ti} /></label>)}
         </div></>);
     case "upload":
       return wrap("input", <>{glab}{help}

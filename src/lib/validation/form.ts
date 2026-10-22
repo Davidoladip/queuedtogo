@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FIELD_TYPES, normalizeDesign, normalizeSettings, type FormModel } from "@/lib/design/engine";
+import { FIELD_TYPES, normalizeDesign, normalizeField, normalizeSettings, type FormModel } from "@/lib/design/engine";
 
 const jsonSize = (v: unknown) => JSON.stringify(v ?? null).length;
 
@@ -17,7 +17,7 @@ export const fieldSchema = z.object({
   placeholder: z.string().max(200, "Placeholders can be up to 200 characters."),
   required: z.boolean(),
   options: z.array(z.string().max(200, "Options can be up to 200 characters.")).max(100, "A block can have up to 100 options."),
-  config: z.record(z.string(), z.unknown()).refine((c) => jsonSize(c) < 8000, "This block's settings are too large."),
+  config: z.record(z.string(), z.unknown()).refine((c) => jsonSize(c) < 30000, "This block's settings are too large. Remove some artwork or swatches from it."),
 });
 
 export const draftSchema = z.object({
@@ -76,7 +76,8 @@ export function parseDraft(input: unknown) {
       settings: normalizeSettings(d.settings),
       design: normalizeDesign(d.design),
     },
-    fields: d.fields,
+    // Re-normalised too: artwork, swatches and option styles are clamped and cleaned before storage.
+    fields: d.fields.map((f) => ({ ...normalizeField(f)!, id: f.id })),
   };
 }
 
