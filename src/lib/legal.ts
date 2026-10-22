@@ -2,11 +2,11 @@
 // These must match what is submitted to Twilio for toll-free / A2P registration.
 export const LEGAL = {
   /** The legal name of the business that operates QueuedToGo and is registered with Twilio. */
-  operator: "",
+  operator: "ThreadToGo LLC",
   /** A public email address that reads replies (customers and carrier reviewers use it). */
-  contactEmail: "",
+  contactEmail: "hello@threadtogo.com",
   /** Optional: mailing address or city and state. */
-  address: "",
+  address: "Glen Burnie, Maryland",
   /** The name of the texting program, as registered with Twilio. */
   program: "QueuedToGo Order Updates",
   updated: "October 22, 2026",
