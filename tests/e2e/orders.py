@@ -22,6 +22,7 @@ def fill_order(pg, item="Cap"):
     pg.locator(".qf-opt", has_text=item).click()
     pg.get_by_label("Email").fill("Lena@Example.com")
     pg.locator('.qf-sizes input').nth(1).fill("2")
+    pg.locator('input[name="__consent"]').check()
 
 with sync_playwright() as p:
     b = p.chromium.launch()
@@ -33,6 +34,10 @@ with sync_playwright() as p:
     pg.goto(BASE + "/dev/form")
     check("the form carries its version and a retry key", pg.locator('input[name="__v"]').input_value() == "1" and len(pg.locator('input[name="__k"]').input_value()) >= 16)
     check("the bot trap is hidden from people", pg.locator(".qf-hp").bounding_box()["x"] < -5000 and pg.locator(".qf-hp").get_attribute("aria-hidden") == "true")
+    pg.get_by_label("Your name").fill("Lena Ortiz"); pg.get_by_label("Mobile number").fill("(555) 123-4567"); pg.get_by_role("button", name="Next").click()
+    check("the text-updates box starts unticked (carrier rules)", not pg.locator('input[name="__consent"]').is_checked())
+    check("the consent wording names the business and the costs", "Msg & data rates may apply" in pg.inner_text(".qf-check"))
+    pg.goto(BASE + "/dev/form")
     fill_order(pg)
     pg.get_by_role("button", name="Place my order").click()
     check("the button shows it is sending", pg.get_by_role("button", name="Sending…").count() == 1 or pg.locator(".qf-done").count() == 1)

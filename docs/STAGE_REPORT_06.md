@@ -20,6 +20,11 @@
    - The **Notifications** page shows the Twilio connection status (which settings are missing, never their values), the switch, each stage's message with a live preview and text count, a test-text sender (owners and admins, up to 5 an hour) and the message log.
    - **Each job page** lists the texts sent about that job, and the history notes "Customer update sent".
 
+## 1b. Consent box (carrier rules)
+- **Never pre-ticked.** The "text me updates" box on order forms now starts unticked. US carriers reject toll-free and 10DLC registrations with pre-ticked boxes, and consent must be the customer's own choice.
+- **New default wording:** "Text me updates about this order from {business}. Up to 6 msgs per order. Msg & data rates may apply. Reply STOP to opt out, HELP for help." It names the business, the frequency, the costs, STOP and HELP.
+- **Existing forms keep their saved wording.** Update it under the form's **Settings → Permission checkbox text** ("Reset to default" gives the new wording), then publish again.
+
 ## 2. Security
 - **Twilio credentials** are server-only environment variables, never sent to the browser.
 - **Webhooks** are refused unless their `X-Twilio-Signature` matches. That's an HMAC of the exact public URL and every field, keyed by the Auth Token, compared in constant time, and the request must also carry our Account SID. The signature code reproduces Twilio's published example.

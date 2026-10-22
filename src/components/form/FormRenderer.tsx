@@ -263,7 +263,8 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
                 <>
                   {form.settings.notify.consent && (
                     <label className="qf-check">
-                      <input type="checkbox" name="__consent" defaultChecked tabIndex={ti} />
+                      {/* Never pre-ticked: consent to texts must be the customer's own choice (carrier rules). */}
+                      <input type="checkbox" name="__consent" tabIndex={ti} />
                       {" "}{consentText}
                     </label>
                   )}

@@ -159,7 +159,8 @@ export const emptyMeta = (): OptionMeta => ({ art: null, swatches: null, style: 
 export const hasMeta = (m: OptionMeta | undefined) => !!m && (!!m.art || !!m.swatches || Object.keys(m.style).length > 0);
 
 // ---------------------------------------------------------------- customer messages
-export const DEFAULT_CONSENT = "Send me {channel} updates about my order. Reply STOP to opt out.";
+// Carrier rules: name the business, give the frequency, "Msg & data rates may apply", STOP and HELP.
+export const DEFAULT_CONSENT = "Text me updates about this order from {business}. Up to 6 msgs per order. Msg & data rates may apply. Reply STOP to opt out, HELP for help.";
 export const DEFAULT_THANKS = "Thanks! We've got your order and will send you updates as it moves along.";
 export const CONSENT_VARS = ["channel", "business"] as const;
 export const THANKS_VARS = ["order_number", "business", "form_title"] as const;
