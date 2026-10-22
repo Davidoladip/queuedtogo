@@ -42,7 +42,7 @@ export function StageEditor(p: Props) {
   };
 
   return (
-    <section className="panel" aria-labelledby="stg">
+    <section className="qb panel" aria-labelledby="stg">
       <div className="panel-head">
         <div>
           <h2 id="stg">Stages</h2>

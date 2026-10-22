@@ -103,7 +103,7 @@ export function Board(p: Props) {
   }
 
   return (
-    <>
+    <div className="qb">
       <div className="stats" aria-label="Summary">
         <div className="stat"><b>{open.length}</b><span>Open jobs</span></div>
         <div className="stat"><b>{dueToday}</b><span>Due today</span></div>
@@ -170,7 +170,7 @@ export function Board(p: Props) {
       </div>
       <p className="sr-only" role="status" aria-live="polite">{live}</p>
       {toast && <div className={`toast${toast.bad ? " bad" : ""}`} role={toast.bad ? "alert" : "status"}>{toast.text}</div>}
-    </>
+    </div>
   );
 }
 

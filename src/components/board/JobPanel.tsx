@@ -71,7 +71,7 @@ export function JobPanel(p: Props) {
   const time = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: p.timeZone });
 
   return (
-    <>
+    <div className="qb">
       <div className="view-head">
         <div>
           <Link href={p.boardHref} className="btn ghost small">← Production board</Link>
@@ -200,6 +200,6 @@ export function JobPanel(p: Props) {
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
