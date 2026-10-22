@@ -4,6 +4,8 @@
 // in the URL, and every query is also limited by row level security, so a member of one business can
 // never read or change another business's jobs or stages.
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { dispatchQueued } from "@/server/messaging";
 import { canManage, requireWorkspace } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -41,6 +43,8 @@ export async function moveJob(orgSlug: string, jobId: string, fromStageId: strin
     if (!now) return { ok: false, error: NOT_FOUND, conflict: true };
     return { ok: false, conflict: true, error: `Someone else just moved this job to ${now.workflow_stages?.name ?? "another stage"}. The board has been updated.` };
   }
+  // If this stage texts the customer, the database queued it with the move; send it after replying.
+  after(() => dispatchQueued({ orgId: org.id, jobId }));
   refresh(orgSlug);
   return { ok: true };
 }

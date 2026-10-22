@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireWorkspace } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { loadJob } from "@/lib/board-data";
+import { loadMessageLog } from "@/lib/notify-data";
 import { isUuid, todayIn } from "@/lib/board";
 import { siteUrl } from "@/lib/urls";
 import { addNote, moveJob, updateJob } from "@/server/actions/jobs";
@@ -17,7 +18,7 @@ export default async function JobPage({ params }: { params: Promise<{ orgSlug: s
   const supabase = await createClient();
   const data = await loadJob(supabase, org.id, jobId);
   if (!data) notFound();
-  const site = await siteUrl();
+  const [site, messages] = await Promise.all([siteUrl(), loadMessageLog(supabase, org.id, { jobId, limit: 30 })]);
 
   return (
     <JobPanel
@@ -34,6 +35,8 @@ export default async function JobPage({ params }: { params: Promise<{ orgSlug: s
       move={moveJob.bind(null, org.slug)}
       update={updateJob.bind(null, org.slug)}
       addNote={addNote.bind(null, org.slug)}
+      messages={messages}
+      notificationsHref={`/w/${org.slug}/notifications`}
     />
   );
 }

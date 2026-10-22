@@ -2,11 +2,13 @@
 
 import { createHmac, randomUUID } from "node:crypto";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { adminClient } from "@/lib/supabase/admin";
 import { formFromPublished } from "@/lib/design/fromDb";
 import { UPLOAD_TYPES, checkSubmission, sniffMatches } from "@/lib/submission";
 import { siteUrl } from "@/lib/urls";
 import type { Json } from "@/types/database";
+import { dispatchQueued } from "@/server/messaging";
 
 export type SubmitResult =
   | { ok: true; number: number; trackingUrl: string }
@@ -96,6 +98,8 @@ export async function submitOrder(orgSlug: string, formSlug: string, fd: FormDat
   }
   const r = data as { number: number; tracking_token: string; repeat: boolean };
   if (r.repeat) await removeFiles(admin, stored);
+  // The order confirmation text (if the business has texting on) goes out after the reply.
+  else after(() => dispatchQueued({ orgId: form.org_id }));
   return { ok: true, number: r.number, trackingUrl: `${await siteUrl()}/t/${r.tracking_token}` };
 }
 

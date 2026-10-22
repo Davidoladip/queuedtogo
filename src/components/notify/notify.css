@@ -1,0 +1,31 @@
+/* Notifications page. Every rule is scoped under .qn so it can't restyle other pages. */
+.qn .qn-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .qn .qn-grid { grid-template-columns: minmax(0, 1fr); } }
+.qn .qn-conn { display: flex; flex-direction: column; gap: 2px; border-radius: 10px; padding: 10px 12px; margin: 10px 0 14px; font-size: 13.5px; }
+.qn .qn-conn.on { background: var(--good-soft); color: var(--good); }
+.qn .qn-conn.off { background: var(--warn-soft); color: var(--warn); }
+.qn .qn-conn span { color: var(--fg); overflow-wrap: anywhere; }
+.qn .qn-switch { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.qn .qn-switch input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+.qn .qn-ok { color: var(--good); font-size: 13.5px; }
+.qn .qn-err { color: var(--bad); font-size: 13px; }
+.qn .qn-test { display: flex; gap: 8px; flex-wrap: wrap; }
+.qn .qn-test input { flex: 1 1 180px; width: auto; }
+.qn .qn-var { font-family: var(--f-mono); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; margin-right: 4px; font-size: 12.5px; }
+.qn .qn-rules { display: flex; flex-direction: column; gap: 10px; }
+.qn .qn-rule { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.qn .qn-rule.off textarea { opacity: .6; }
+.qn .qn-rule-head { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.qn .qn-rule-head .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none; }
+.qn .qn-toggle { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.qn .qn-rule textarea { width: 100%; resize: vertical; }
+.qn .qn-preview { font-size: 13px; background: var(--surface-2); border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere; }
+.qn .qn-rule-btns { display: flex; gap: 8px; }
+.qn .qn-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.qn .qn-log li { padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+.qn .qn-log li:last-child { border-bottom: 0; }
+.qn .qn-log-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13.5px; }
+.qn .qn-log-top time { font-size: 12px; white-space: nowrap; }
+.qn .qn-body { font-size: 13.5px; overflow-wrap: anywhere; }
+.qn .qn-reason { font-size: 12.5px; color: var(--warn); }
+.qn .qn-log li[data-status="failed"] .qn-reason, .qn .qn-log li[data-status="undelivered"] .qn-reason { color: var(--bad); }

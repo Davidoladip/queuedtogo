@@ -6,7 +6,7 @@ Built with Next.js 16 (App Router, TypeScript, React 19) and Supabase (Postgres,
 
 - Migration plan and screen map: [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md)
 - Live site: https://queuedtogo.com (also https://queuedtogo.vercel.app)
-- What's built so far: [`docs/STAGE_REPORT_01.md`](docs/STAGE_REPORT_01.md) (auth, workspaces) and [`docs/STAGE_REPORT_02.md`](docs/STAGE_REPORT_02.md) (form builder, deployment) and [`docs/STAGE_REPORT_03.md`](docs/STAGE_REPORT_03.md) (design upgrade) and [`docs/STAGE_REPORT_04.md`](docs/STAGE_REPORT_04.md) (orders) and [`docs/STAGE_REPORT_05.md`](docs/STAGE_REPORT_05.md) (production board)
+- What's built so far: [`docs/STAGE_REPORT_01.md`](docs/STAGE_REPORT_01.md) (auth, workspaces) and [`docs/STAGE_REPORT_02.md`](docs/STAGE_REPORT_02.md) (form builder, deployment) and [`docs/STAGE_REPORT_03.md`](docs/STAGE_REPORT_03.md) (design upgrade) and [`docs/STAGE_REPORT_04.md`](docs/STAGE_REPORT_04.md) (orders) and [`docs/STAGE_REPORT_05.md`](docs/STAGE_REPORT_05.md) (production board) and [`docs/STAGE_REPORT_06.md`](docs/STAGE_REPORT_06.md) (customer texts)
 - Production security checklist: [`docs/SECURITY.md`](docs/SECURITY.md)
 
 ---
@@ -47,6 +47,10 @@ The smoke and prototype tests use Python with Playwright: `pip install playwrigh
 | `NEXT_PUBLIC_SITE_URL` | Links in emails and invitations | No. `http://localhost:3000` locally, your domain in production. |
 | `SUPABASE_SECRET_KEY` | Server only: public form submissions (`submit_form`) and customer uploads. Without it, public forms say ordering isn't switched on. | **Yes.** Never prefix with `NEXT_PUBLIC_`, never commit. |
 | `SUBMISSION_IP_SALT` | Server only, optional: key for hashing visitor IPs for rate limits (defaults to the secret key) | **Yes.** Any long random string. |
+| `TWILIO_ACCOUNT_SID` | Server only: customer text updates (`AC…`) | No, but keep it private. |
+| `TWILIO_AUTH_TOKEN` | Server only: checks that Twilio webhooks are genuine, and sends texts if no API key is set | **Yes.** |
+| `TWILIO_MESSAGING_SERVICE_SID` | Server only: the Messaging Service that sends the texts (`MG…`). `TWILIO_FROM_NUMBER` (+1…) works instead. | No. |
+| `TWILIO_API_KEY_SID` / `TWILIO_API_KEY_SECRET` | Server only, optional: an API key (`SK…`) used for sending instead of the Auth Token | **Yes** (the secret). |
 
 `.env.local` is ignored by Git. `.env.example` lists every variable without secrets.
 

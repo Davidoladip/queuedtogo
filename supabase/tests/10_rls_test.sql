@@ -380,6 +380,51 @@ select tests.fails($$delete from public.workflow_stages where org_id = tests.id(
 insert into public.jobs (org_id, stage_id, title) values (tests.id('orgB'), tests.id('stageB2'), 'Bob''s job');
 reset role;
 
+-- ---------------------------------------------------------------- customer text updates (Stage 8)
+select tests.login('alice');
+insert into tests.ids select 'qc', id from public.workflow_stages where org_id = tests.id('orgA') and name = 'Quality check';
+insert into tests.ids select 'ready', id from public.workflow_stages where org_id = tests.id('orgA') and name = 'Ready for collection';
+update public.jobs set stage_id = tests.id('stage0') where id = tests.id('jobA');
+select tests.ok((select status || ':' || skip_reason from public.messages where job_id = tests.id('jobA') order by created_at desc, id limit 1) = 'skipped:Texting is switched off for this business.', 'no texts are sent until the business switches texting on');
+select tests.affects($$update public.organizations set texting_enabled = true where id = tests.id('orgA')$$, 1, 'an owner can switch texting on');
+update public.jobs set stage_id = tests.id('stage2') where id = tests.id('jobA');
+select tests.ok((select count(*) from public.messages where job_id = tests.id('jobA') and stage_id = tests.id('stage2') and status = 'queued') = 1, 'moving a job to a stage that notifies the customer queues a text');
+select tests.ok((select to_address = '+15555550142' and template = (select message_template from public.workflow_stages where id = tests.id('stage2')) and created_by = tests.id('alice')
+  from public.messages where job_id = tests.id('jobA') and stage_id = tests.id('stage2') and status = 'queued'), 'the queued text has the customer''s number, the stage''s message and who moved the job');
+insert into tests.vals values ('msgs', (select count(*)::text from public.messages where job_id = tests.id('jobA')));
+update public.jobs set stage_id = tests.id('qc') where id = tests.id('jobA');
+select tests.ok((select count(*)::text from public.messages where job_id = tests.id('jobA')) = tests.val('msgs'), 'stages that don''t notify the customer send nothing');
+update public.jobs set stage_id = tests.id('stage2') where id = tests.id('jobA');
+select tests.ok((select skip_reason from public.messages where job_id = tests.id('jobA') and stage_id = tests.id('stage2') order by created_at desc, status limit 1) like 'An update for this stage was already sent%', 'moving a job back and forth doesn''t text the customer twice for one stage');
+update public.customers set consent_updates = false where id = tests.id('custA');
+update public.jobs set stage_id = tests.id('ready') where id = tests.id('jobA');
+select tests.ok((select skip_reason from public.messages where job_id = tests.id('jobA') and stage_id = tests.id('ready') order by created_at desc limit 1) = 'The customer didn''t agree to order updates.', 'customers who didn''t agree are never texted');
+update public.customers set consent_updates = true, preferred_channel = 'whatsapp' where id = tests.id('custA');
+update public.jobs set stage_id = tests.id('stage0') where id = tests.id('jobA');
+select tests.ok((select skip_reason from public.messages where job_id = tests.id('jobA') and stage_id = tests.id('stage0') order by created_at desc limit 1) like 'WhatsApp and email%', 'customers who chose WhatsApp or email aren''t sent a text');
+update public.customers set preferred_channel = 'sms' where id = tests.id('custA');
+select tests.fails($$insert into public.messages (org_id, to_address, body) values (tests.id('orgA'), '+15555550100', 'spam')$$, 'the app cannot write messages directly');
+select tests.fails($$update public.messages set status = 'delivered' where org_id = tests.id('orgA')$$, 'the app cannot change message statuses');
+select tests.fails($$delete from public.messages where org_id = tests.id('orgA')$$, 'the message log cannot be deleted');
+reset role;
+
+select tests.login('finn');
+select tests.ok((select count(*) from public.messages) >= 5, 'team members can read their business''s message log');
+select tests.affects($$update public.organizations set texting_enabled = false where id = tests.id('orgA')$$, 0, 'members cannot switch texting off or on');
+reset role;
+select tests.login('bob');
+select tests.ok((select count(*) from public.messages where org_id = tests.id('orgA')) = 0 and (select count(*) from public.messages) = (select count(*) from public.messages where org_id = tests.id('orgB')), 'another business cannot read the message log');
+reset role;
+
+set role service_role;
+insert into tests.vals values ('webOrder', public.submit_form(gen_random_uuid(), tests.id('formA'), tests.val('ver')::int, '{}',
+  '{"name":"Mia Chen","phone":"+15555550199","channel":"sms"}', true, 'Web order', null, '[]', null, null, null)::text);
+reset role;
+select tests.ok((select m.status = 'queued' and m.to_address = '+15555550199' and m.stage_id = tests.id('stage0')
+  from public.messages m join public.jobs j on j.id = m.job_id where j.number = (tests.val('webOrder')::jsonb ->> 'number')::int),
+  'a new online order queues its confirmation text');
+update public.organizations set texting_enabled = false where id = tests.id('orgA');
+
 -- ---------------------------------------------------------------- deleting a business (with a job in it)
 select tests.login('bob');
 select tests.affects($$delete from public.organizations where id = tests.id('orgB')$$, 1, 'an owner can delete their business');

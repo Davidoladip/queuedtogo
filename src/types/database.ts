@@ -490,6 +490,32 @@ export type Database = {
           },
         ];
       };
+      messages: {
+        Row: {
+          attempts: number; body: string | null; channel: Database["public"]["Enums"]["notify_channel"]; created_at: string; created_by: string | null;
+          customer_id: string | null; error_code: string | null; error_message: string | null; id: string; idempotency_key: string | null;
+          job_id: string | null; kind: string; org_id: string; provider_sid: string | null; sent_at: string | null; skip_reason: string | null;
+          stage_id: string | null; status: string; template: string | null; to_address: string | null; updated_at: string;
+        };
+        Insert: {
+          attempts?: number; body?: string | null; channel?: Database["public"]["Enums"]["notify_channel"]; created_at?: string; created_by?: string | null;
+          customer_id?: string | null; error_code?: string | null; error_message?: string | null; id?: string; idempotency_key?: string | null;
+          job_id?: string | null; kind?: string; org_id: string; provider_sid?: string | null; sent_at?: string | null; skip_reason?: string | null;
+          stage_id?: string | null; status?: string; template?: string | null; to_address?: string | null; updated_at?: string;
+        };
+        Update: {
+          attempts?: number; body?: string | null; channel?: Database["public"]["Enums"]["notify_channel"]; created_at?: string; created_by?: string | null;
+          customer_id?: string | null; error_code?: string | null; error_message?: string | null; id?: string; idempotency_key?: string | null;
+          job_id?: string | null; kind?: string; org_id?: string; provider_sid?: string | null; sent_at?: string | null; skip_reason?: string | null;
+          stage_id?: string | null; status?: string; template?: string | null; to_address?: string | null; updated_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "messages_customer_id_org_id_fkey"; columns: ["customer_id", "org_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id", "org_id"] },
+          { foreignKeyName: "messages_job_id_org_id_fkey"; columns: ["job_id", "org_id"]; isOneToOne: false; referencedRelation: "jobs"; referencedColumns: ["id", "org_id"] },
+          { foreignKeyName: "messages_org_id_fkey"; columns: ["org_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
+          { foreignKeyName: "messages_stage_id_org_id_fkey"; columns: ["stage_id", "org_id"]; isOneToOne: false; referencedRelation: "workflow_stages"; referencedColumns: ["id", "org_id"] },
+        ];
+      };
       organization_invitations: {
         Row: {
           accepted_at: string | null;
@@ -600,6 +626,7 @@ export type Database = {
           name: string;
           next_job_number: number;
           slug: string;
+          texting_enabled: boolean;
           timezone: string;
           updated_at: string;
         };
@@ -614,6 +641,7 @@ export type Database = {
           name: string;
           next_job_number?: number;
           slug: string;
+          texting_enabled?: boolean;
           timezone?: string;
           updated_at?: string;
         };
@@ -627,6 +655,7 @@ export type Database = {
           name?: string;
           next_job_number?: number;
           slug?: string;
+          texting_enabled?: boolean;
           timezone?: string;
           updated_at?: string;
         };

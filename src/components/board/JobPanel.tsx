@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { CopyField } from "@/components/ui/CopyField";
+import { STATUS_LABEL, type LogEntry } from "@/lib/notify";
 import {
   CHANNEL_LABEL, PRIORITIES, actorName, completeStage, describeEvent, dueState, formatDay, orderedStages, reopenStage,
   type ActionResult, type BoardEvent, type BoardJob, type BoardMember, type BoardStage, type JobPatch,
@@ -26,6 +27,9 @@ type Props = {
   move: (jobId: string, fromStageId: string, toStageId: string) => Promise<ActionResult>;
   update: (jobId: string, patch: JobPatch) => Promise<ActionResult>;
   addNote: (jobId: string, body: string) => Promise<ActionResult>;
+  /** Texts sent (or not sent) to the customer about this job, newest first. */
+  messages?: LogEntry[];
+  notificationsHref?: string;
 };
 
 type Status = { kind: "saved" | "error"; text: string; at: number } | null;
@@ -185,6 +189,27 @@ export function JobPanel(p: Props) {
               </dl>
             ) : <p className="muted">No customer is linked to this job.</p>}
             {p.submissionHref && <p style={{ marginTop: 12 }}><Link href={p.submissionHref}>See the order form answers →</Link></p>}
+          </section>
+          <section className="panel" aria-labelledby="txts">
+            <h2 id="txts">Texts to the customer</h2>
+            {p.messages?.length ? (
+              <ul className="events">
+                {p.messages.map((m) => {
+                  const st = STATUS_LABEL[m.status] ?? { text: m.status, tone: "plain" as const };
+                  return (
+                    <li key={m.id} data-status={m.status}>
+                      <span>
+                        <span className={`pill ${st.tone}`}>{st.text}</span>{m.stage ? ` ${m.stage}` : ""}
+                        {m.body && <><br /><span className="nt">{m.body}</span></>}
+                        {m.reason && <><br /><small className="muted">{m.reason}</small></>}
+                      </span>
+                      <time dateTime={m.at}>{time(m.at)}</time>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : <p className="muted" style={{ fontSize: 13.5 }}>None yet. Texts go out when the job reaches a stage that notifies the customer.</p>}
+            {p.notificationsHref && <p style={{ marginTop: 8, fontSize: 13.5 }}><Link href={p.notificationsHref}>Notification settings →</Link></p>}
           </section>
           <section className="panel" aria-labelledby="trk">
             <h2 id="trk">Tracking link</h2>
