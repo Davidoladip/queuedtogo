@@ -75,3 +75,9 @@ textarea.qf-in{resize:vertical}
 /* Public form page: the themed form fills the window */
 .pf-page{min-height:100vh;display:flex;flex-direction:column}
 .pf-page>.qf-wrap{flex:1}
+.qf-ins{position:absolute;left:50%;top:-21px;transform:translateX(-50%);z-index:3;opacity:0;background:var(--accent);color:var(--accent-fg);border:0;border-radius:99px;font:600 12px/1 var(--f-body);padding:6px 11px;cursor:pointer;transition:opacity .12s;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.qf-ins.after{top:auto;bottom:-21px}
+.editing .qf-blk:hover>.qf-ins,.qf-ins:focus-visible{opacity:1}
+.qf-blk.drop-before::before,.qf-blk.drop-after::after{content:"";position:absolute;left:0;right:0;height:4px;border-radius:2px;background:var(--accent);z-index:4}
+.qf-blk.drop-before::before{top:-12px}
+.qf-blk.drop-after::after{bottom:-12px}

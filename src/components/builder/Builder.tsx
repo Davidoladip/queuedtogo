@@ -4,11 +4,12 @@ import "./builder.css";
 import Link from "next/link";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { FormRenderer } from "@/components/form/FormRenderer";
-import { newId, type FormModel } from "@/lib/design/engine";
-import type { ProcessedImage } from "@/lib/design/image";
+import { IMG_DEFAULT, blankField, newId, normalizeDesign, type FormModel } from "@/lib/design/engine";
+import { processImage, type ProcessedImage } from "@/lib/design/image";
 import { createClient } from "@/lib/supabase/client";
 import { toDraftInput } from "@/lib/validation/form";
-import { publishForm, saveDraft, setFormStatus } from "@/server/actions/forms";
+import { getFormDesign, publishForm, saveDraft, setFormStatus, updateBrandColors } from "@/server/actions/forms";
+import type { PreviewState } from "./design/context";
 import { QuestionsPanel } from "./QuestionsPanel";
 import { DesignPanel } from "./DesignPanel";
 import { SettingsPanel } from "./SettingsPanel";
@@ -30,6 +31,11 @@ export type BuilderProps = {
   publishedVersion: number;
   changedSincePublish: boolean;
   canDelete: boolean;
+  /** Business brand colours (organizations.brand.colors); only owners and admins can change them. */
+  brand: string[];
+  canEditBrand: boolean;
+  /** Other forms in the business, for "copy the design from another form". */
+  otherForms: { id: string; title: string }[];
   /** Development harness only: saves stay in memory and nothing is sent to the server. */
   demo?: boolean;
 };
@@ -48,6 +54,15 @@ export function Builder(props: BuilderProps) {
   const [unpublished, setUnpublished] = useState(props.changedSincePublish || props.publishedVersion === 0);
   const [banner, setBanner] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [ps, setPs] = useState<PreviewState>({ ctx: "", state: "default" });
+  const [brand, setBrandState] = useState<string[]>(props.brand);
+  const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
+  const notify = useCallback((text: string) => setToast((t) => ({ text, n: (t?.n ?? 0) + 1 })), []);
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(id);
+  }, [toast]);
 
   const [hist, setHist] = useState({ undo: false, redo: false });
   const [store] = useState(() => new DraftStore(
@@ -84,6 +99,48 @@ export function Builder(props: BuilderProps) {
     return { path };
   }, [orgId, formId, props.demo]);
 
+  const setBrand = useCallback(async (colors: string[]): Promise<string | null> => {
+    if (props.demo) { setBrandState(colors); return null; }
+    const res = await updateBrandColors(orgId, colors);
+    if (!res.ok) return res.error;
+    setBrandState(res.colors ?? colors);
+    return null;
+  }, [orgId, props.demo]);
+
+  /** Upload an image and add it as an artwork block before field `index`. */
+  const insertArtwork = useCallback(async (file: File, index: number) => {
+    try {
+      const p = await processImage(file, 1400);
+      const { path } = await upload(p);
+      const f = blankField("image");
+      f.config.img = { ...IMG_DEFAULT, src: { path }, name: p.name };
+      update((d) => { d.fields.splice(Math.max(0, Math.min(index, d.fields.length)), 0, f); });
+      setSelected(f.id);
+      notify("Artwork added. Style it under Individual element styles.");
+    } catch (ex) { notify((ex as Error).message); }
+  }, [upload, update, notify]);
+
+  const copyDesignFrom = useCallback(async (sourceId: string): Promise<string | null> => {
+    const res = props.demo
+      ? { ok: true as const, design: { theme: { page: "#12306B", card: "#FFFFFF", text: "#12213F", accent: "#FFC93C", accentText: "#141414", font: "sporty", radius: "square" } } }
+      : await getFormDesign(sourceId);
+    if (!res.ok) return res.error;
+    const src = normalizeDesign(res.design);
+    update((d) => {
+      const keepArt = d.design.art, keepPalette = d.design.palette;
+      d.design.theme = { ...src.theme, layout: d.design.theme.layout };
+      d.design.shared = src.shared;
+      d.design.page = src.page;
+      d.design.card = src.card;
+      d.design.adv = src.adv;
+      for (const sid of ["__submit", "__next", "__prev"]) {
+        if (src.el[sid]) d.design.el[sid] = src.el[sid]; else delete d.design.el[sid];
+      }
+      d.design.art = keepArt; d.design.palette = keepPalette;
+    });
+    return null;
+  }, [update, props.demo]);
+
   function onPublish() {
     setBanner(null);
     startTransition(async () => {
@@ -108,8 +165,14 @@ export function Builder(props: BuilderProps) {
 
   function onSelect(sid: string) {
     setSelected(sid);
+    setPs({ ctx: "", state: "default" });
     if (tab === "settings") setTab("questions");
   }
+  function pickTab(k: Tab) {
+    setTab(k);
+    setPs({ ctx: "", state: "default" });
+  }
+  const forced = tab === "design" && ps.state !== "default" ? ps : null;
 
   const publicUrl = `${siteUrl}/f/${orgSlug}/${form.slug}`;
   const saveText = { saved: "All changes saved", dirty: "Unsaved changes…", saving: "Saving…", error: "Not saved" }[save];
@@ -135,18 +198,23 @@ export function Builder(props: BuilderProps) {
       {saveError && <div className="notice error b-banner" role="alert">{saveError}</div>}
       {banner && <div className={`notice ${banner.kind} b-banner`} role={banner.kind === "error" ? "alert" : "status"}>{banner.text}</div>}
 
+      {toast && <div className="b-toast" role="status" key={toast.n}>{toast.text}</div>}
       <div className="b-grid">
         <section className="panel b-panel" aria-label="Form settings">
           <div className="b-tabs" role="tablist">
             {(["questions", "design", "settings"] as Tab[]).map((k) => (
-              <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
+              <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => pickTab(k)}>
                 {{ questions: "Questions", design: "Design", settings: "Settings" }[k]}
               </button>
             ))}
           </div>
           <div className="b-body">
             {tab === "questions" && <QuestionsPanel form={form} update={update} selected={selected} setSelected={setSelected} upload={upload} assetBase={assetBase} />}
-            {tab === "design" && <DesignPanel form={form} update={update} selected={selected} setSelected={setSelected} upload={upload} assetBase={assetBase} />}
+            {tab === "design" && (
+              <DesignPanel form={form} update={update} selected={selected} setSelected={setSelected} upload={upload} assetBase={assetBase}
+                ps={ps} setPs={setPs} brand={brand} setBrand={setBrand} canEditBrand={props.canEditBrand} otherForms={props.otherForms}
+                copyDesignFrom={copyDesignFrom} insertArtwork={insertArtwork} notify={notify} />
+            )}
             {tab === "settings" && (
               <SettingsPanel form={form} update={update} orgSlug={orgSlug} siteUrl={siteUrl} status={status} version={version}
                 onStatus={onStatus} pending={pending} canDelete={props.canDelete} />
@@ -156,6 +224,12 @@ export function Builder(props: BuilderProps) {
         <section className="b-prev" aria-label="Form preview">
           <div className="b-prev-bar">
             <span>Live preview · click any part of the form to {tab === "design" ? "style" : "edit"} it</span>
+            {forced && (
+              <span className="ps-bar">
+                <span className="pill warn">Showing {forced.state} state</span>
+                <button type="button" className="linkbtn" onClick={() => setPs({ ctx: "", state: "default" })}>Show default</button>
+              </span>
+            )}
             <div className="b-seg sm">
               {(["desktop", "phone"] as const).map((d) => (
                 <button key={d} type="button" aria-pressed={device === d} onClick={() => setDevice(d)}>{d === "desktop" ? "Desktop" : "Phone"}</button>
@@ -163,7 +237,9 @@ export function Builder(props: BuilderProps) {
             </div>
           </div>
           <div className={`b-frame ${device}`}>
-            <FormRenderer form={form} assetBase={assetBase} mode="edit" businessName={orgName} selected={selected} onSelect={onSelect} />
+            <FormRenderer form={form} assetBase={assetBase} mode="edit" businessName={orgName} selected={selected} onSelect={onSelect}
+              forced={forced ? { state: forced.state, sid: forced.ctx === "e" ? selected : null, kind: forced.ctx.startsWith("g.") ? forced.ctx.slice(2) : null } : null}
+              onInsertArtwork={(index, file) => void insertArtwork(file, index)} />
           </div>
         </section>
       </div>

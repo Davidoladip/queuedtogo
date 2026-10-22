@@ -77,3 +77,4 @@ details.b-card[open] > summary { margin-bottom: 10px; }
 .b-frame.phone { max-width: 390px; margin-inline: auto; width: 100%; }
 .b-frame .qf-wrap { min-height: 520px; }
 
+.b-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 80; background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); }

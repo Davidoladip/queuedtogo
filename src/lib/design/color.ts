@@ -94,3 +94,25 @@ export function themeFromPalette(p: string[]): ThemeColours | null {
   for (let i = 0; i < 12 && contrast(accent, card) < 1.8; i++) accent = mix(accent, darkPage ? "#FFFFFF" : "#000000", 0.12);
   return { page, card, text, accent, accentText: bestOn(accent) };
 }
+
+export const toRgba = (c: RGBA) =>
+  c.a < 0.999
+    ? `rgba(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)}, ${+c.a.toFixed(2)})`
+    : `rgb(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)})`;
+
+export type HSV = { h: number; s: number; v: number };
+export function rgb2hsv({ r, g, b }: { r: number; g: number; b: number }): HSV {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) {
+    h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return { h, s: mx ? d / mx : 0, v: mx };
+}
+export function hsv2rgb({ h, s, v }: HSV) {
+  const f = (k0: number) => { const k = (k0 + h / 60) % 6; return (v - v * s * Math.max(0, Math.min(k, 4 - k, 1))) * 255; };
+  return { r: f(5), g: f(3), b: f(1) };
+}

@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- artwork sizing is controlled by the form design CSS, not next/image */
 
 import { useState } from "react";
-import { BLOCKS, IMG_DEFAULT, blankField, hasOptions, isInput, newId, srcOf, type FieldType, type FormField, type FormModel } from "@/lib/design/engine";
+import { BLOCKS, IMG_DEFAULT, LOCKABLE, blankField, hasOptions, isInput, newId, srcOf, type FieldType, type FormField, type FormModel } from "@/lib/design/engine";
 import { processImage } from "@/lib/design/image";
 import { NumberInput, Seg, TextInput, Toggle } from "./controls";
 import type { Update, Upload } from "./Builder";
@@ -192,6 +192,16 @@ function FieldEditor({ form, f, patch, update, upload, assetBase }: {
               onChange={(v) => patch(f.id, (x) => { x.config.display = v; })} />
           )}
           <Toggle label="Required" checked={f.required} onChange={(v) => patch(f.id, (x) => { x.required = v; })} />
+          {LOCKABLE.has(f.type) && (
+            <>
+              <Toggle label="Prefill and lock this answer" hint="Customers see the answer but can't change it, e.g. the event name or a fixed price." checked={f.config.locked === true}
+                onChange={(v) => patch(f.id, (x) => { x.config.locked = v; })} />
+              {f.config.locked && (
+                <TextInput label="Locked answer" type={f.type === "date" ? "date" : f.type === "number" ? "number" : "text"} value={String(f.config.value ?? "")} maxLength={200}
+                  onChange={(v) => patch(f.id, (x) => { x.config.value = v; }, "lockv")} />
+              )}
+            </>
+          )}
           {f.type === "upload" && <p className="muted b-note">Customer file uploads are switched on with online ordering (next stage).</p>}
         </>
       )}

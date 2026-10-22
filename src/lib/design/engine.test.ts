@@ -169,3 +169,11 @@ describe("draft validation", () => {
     expect(r.data.design.theme.accent).toBe("#3346D3");
   });
 });
+
+describe("prototype pollution", () => {
+  it("drops __proto__ element keys from stored designs", () => {
+    const d = normalizeDesign(JSON.parse('{"el":{"__proto__":{"polluted":1},"__submit":{"color":"#000000"}}}'));
+    expect(Object.keys(d.el)).toEqual(["__submit"]);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+});

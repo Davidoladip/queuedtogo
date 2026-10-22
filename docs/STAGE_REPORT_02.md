@@ -69,4 +69,28 @@ The builder tests run against the dev harness, which saves to memory, because th
 4. **Hand check on the live site:** create a form, upload artwork, publish, open the public link, close the form.
 5. **Not in this stage:**
    - **Submissions (Stage 6):** submitting says "opens soon" and nothing is sent.
-   - **Advanced styling:** the prototype's full per-element controls (state styles, gradients, spacing) aren't in the builder yet. Saved designs already keep those settings.
+
+## 5. Update: full prototype Design tab (Stage 5b)
+
+The Design tab now has all ten sections from the prototype:
+
+| Section | Contents |
+|---|---|
+| Global theme | Event artwork (upload or drop), colours found in the artwork, match form colours, three layouts, five theme colours, contrast check |
+| Individual element styles | Pick any element (or click it in the preview). Style **this element only** or **all elements of its kind**, and choose a part (label or input). Typography, size and spacing, background (solid, gradient, texture, image), border and corners (per-corner radius), interactive states (hover, pressed, focus, error, disabled, selected) with live state preview, contrast checks, reset |
+| Typography | Font style presets; shared styles for all labels, headings and text |
+| Buttons | Submit text; the full style set for all buttons; quick links to style one button |
+| Text boxes and input fields | Full style set for all inputs, and for choice/radio/checkbox options |
+| Colours and brand palette | Business brand colours (saved on the business; owners and admins can change them), recently used colours (this browser), theme colours, artwork colours |
+| Borders and corners | Corner style for the whole form; button and input borders |
+| Backgrounds and textures | Page and form colours with 10 textures, colour, strength and pattern size |
+| Artwork and images | Place new artwork at a chosen position, drop zone, list with edit, move, duplicate and delete. **+ Artwork** buttons appear between blocks in the preview, and images can be dropped onto the preview |
+| Advanced settings | Disable Next and Submit until required questions are answered; progress bar; copy the design from another form; reset all styles (with undo) |
+
+Also new:
+- **Round colour picker:** a saturation/brightness square, hue and opacity sliders, HEX or RGBA input, copy, and brand, recent and form colours.
+- **Prefill and lock answers:** for short-answer, email, phone, number and date questions.
+
+Security fix found by the new unit tests: an element id of `__proto__` could change the shared object prototype. Such ids are now rejected in the design path logic and when designs are loaded.
+
+Tests: 25 unit, 67 builder/browser, 21 smoke, 100 database checks, all passing.

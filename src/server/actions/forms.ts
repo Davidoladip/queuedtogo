@@ -119,3 +119,34 @@ export async function deleteForm(fd: FormData): Promise<void> {
   revalidatePath(`/w/${orgSlug}/forms`);
   redirect(`/w/${orgSlug}/forms?${data?.length ? "deleted=1" : "notdeleted=1"}`);
 }
+
+const brandSchema = z.object({
+  orgId: z.uuid(),
+  colors: z.array(z.string().regex(/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/, "Brand colours must be hex codes.")).max(18, "You can save up to 18 brand colours."),
+});
+
+/** Saves the business's brand colours (organizations.brand.colors). RLS allows owners and admins only. */
+export async function updateBrandColors(orgId: string, colors: string[]): Promise<{ ok: true; colors: string[] } | { ok: false; error: string }> {
+  await requireUser();
+  const parsed = brandSchema.safeParse({ orgId, colors: [...new Set(colors.map((c) => String(c).toUpperCase()))] });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Those colours aren't valid." };
+  const supabase = await createClient();
+  const { data: org, error: rErr } = await supabase.from("organizations").select("brand").eq("id", parsed.data.orgId).maybeSingle();
+  if (rErr || !org) return { ok: false, error: "We couldn't find that business." };
+  const prev = org.brand && typeof org.brand === "object" && !Array.isArray(org.brand) ? org.brand : {};
+  const { data, error } = await supabase.from("organizations").update({ brand: { ...prev, colors: parsed.data.colors } }).eq("id", parsed.data.orgId).select("id").maybeSingle();
+  if (error) return { ok: false, error: dbErrorMessage(error, "We couldn't save the brand colours.") };
+  if (!data) return { ok: false, error: "Only owners and admins can change brand colours." };
+  return { ok: true, colors: parsed.data.colors };
+}
+
+/** Reads another form's saved design (same business only, enforced by RLS) for "copy the design". */
+export async function getFormDesign(formId: string): Promise<{ ok: true; design: unknown } | { ok: false; error: string }> {
+  await requireUser();
+  if (!idSchema.safeParse(formId).success) return { ok: false, error: "That form id isn't valid." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("forms").select("design").eq("id", formId).maybeSingle();
+  if (error) return { ok: false, error: dbErrorMessage(error, "We couldn't load that form's design.") };
+  if (!data) return { ok: false, error: "That form no longer exists, or you no longer have access to it." };
+  return { ok: true, design: data.design };
+}

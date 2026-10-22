@@ -87,6 +87,9 @@ export type FieldConfig = {
   img?: typeof IMG_DEFAULT & { src?: ImageRef | null };
   next?: string;
   prev?: string;
+  /** Prefill and lock (short, email, phone, number, date): customers see the value but can't change it. */
+  locked?: boolean;
+  value?: string;
 };
 export type FormField = {
   id: string;
@@ -457,7 +460,7 @@ export function normalizeDesign(raw: unknown): Design {
   const shared = {} as Record<SharedKind, Style>;
   for (const k of SHARED_KINDS) shared[k] = obj(obj(d.shared)[k]);
   const el: Record<string, Style> = {};
-  for (const [k, v] of Object.entries(obj(d.el))) if (SAFE_ID.test(k)) el[k] = obj(v);
+  for (const [k, v] of Object.entries(obj(d.el))) if (SAFE_ID.test(k) && !["__proto__", "constructor", "prototype"].includes(k)) el[k] = obj(v);
   const art = obj(d.art).path && SAFE_PATH.test(obj(d.art).path) ? { path: String(obj(d.art).path) } : null;
   return {
     v: 1,
@@ -555,4 +558,29 @@ export function pagesOf(form: FormModel) {
   const last = pages[pages.length - 1];
   if (!last.blocks.length && pages.length > 1) { pages.pop(); pages[pages.length - 1].pb = null; }
   return pages;
+}
+
+// ---------------------------------------------------------------- builder helpers
+export const FONT_OPTS: [string, string][] = [
+  ["head", "Form heading font"], ["body", "Form body font"], ["plex", "IBM Plex Sans"], ["bricolage", "Bricolage Grotesque"], ["playfair", "Playfair Display"],
+  ["oswald", "Oswald"], ["baloo", "Baloo 2"], ["system", "System sans-serif"], ["serif", "Georgia (serif)"], ["mono", "Monospace"],
+];
+export const WEIGHTS: [number, string][] = [[300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semibold"], [700, "Bold"], [800, "Extra bold"]];
+export const KIND_PLURAL: Record<string, string> = { button: "buttons", input: "input boxes", choice: "option buttons", label: "labels", heading: "headings", text: "text blocks" };
+export const LOCKABLE = new Set<FieldType>(["short", "email", "phone", "number", "date"]);
+
+/** A stand-in element of a kind, used to show and edit the shared style for "all buttons" etc. */
+export function repEl(kind: string): El {
+  const f = (type: FieldType) => ({ ...blankField(type), id: "__rep" });
+  switch (kind) {
+    case "button": return { kind, btn: "submit", sid: "__rep", name: "All buttons" };
+    case "input": return { kind, f: f("short"), sid: "__rep", name: "All input boxes" };
+    case "choice": return { kind, f: f("choice"), sid: "__rep", name: "All option buttons" };
+    default: return { kind, sid: "__rep", name: kind };
+  }
+}
+/** The shared style for an element's kind (theme defaults plus "all of this kind" settings), without its own overrides. */
+export function computedShared(form: FormModel, el: El): Style {
+  const shared = (SHARED_KINDS as readonly string[]).includes(el.kind) ? form.design.shared[el.kind as SharedKind] : null;
+  return merge(elDefault(form, el), shared);
 }

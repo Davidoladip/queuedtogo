@@ -56,6 +56,13 @@ with sync_playwright() as p:
     check("consent checkbox mentions SMS and STOP", "SMS updates" in pg.inner_text(".qf-check") and "STOP" in pg.inner_text(".qf-check"))
     pg.screenshot(path=f"{SHOTS}/public-form.png", full_page=True)
 
+    pg.goto(BASE + "/dev/form?gate=1")
+    nxt = pg.get_by_role("button", name="Next")
+    check("'disable until valid' holds Next until required answers are in", nxt.is_disabled())
+    pg.get_by_label("Your name").fill("Lena")
+    pg.get_by_label("Mobile number").fill("5551234567")
+    check("Next turns on once required answers are filled", nxt.is_enabled())
+
     ph = b.new_page(viewport={"width": 390, "height": 844})
     ph.goto(BASE + "/dev/form")
     check("public form fits a phone without sideways scrolling", ph.evaluate("document.documentElement.scrollWidth <= window.innerWidth"))
@@ -98,33 +105,128 @@ with sync_playwright() as p:
     pg.locator(".b-row.open").get_by_role("radio", name="List").click()
     check("options can show as a list", pg.locator(".b-frame .qf-opts.list").count() == 1)
 
-    # Design tab
-    pg.get_by_role("tab", name="Design").click()
-    acc = pg.get_by_label("Accent (buttons)", exact=True)
-    acc.fill("#1D4ED8"); pg.wait_for_timeout(400)
-    check("accent colour restyles the submit button", css_color(pg, '.b-frame [data-sid="__submit"]', "backgroundColor") == "rgb(29, 78, 216)", css_color(pg, '.b-frame [data-sid="__submit"]', "backgroundColor"))
-    check("button text switches to a readable colour", css_color(pg, '.b-frame [data-sid="__submit"]') == "rgb(255, 255, 255)")
-    acc.fill("not a colour"); pg.wait_for_timeout(400)
-    check("invalid colours are flagged and not applied", acc.get_attribute("aria-invalid") == "true" and css_color(pg, '.b-frame [data-sid="__submit"]', "backgroundColor") == "rgb(29, 78, 216)")
-    pg.get_by_role("radio", name="Pill").click()
-    check("corner shape changes buttons", css_color(pg, '.b-frame [data-sid="__submit"]', "borderTopLeftRadius") == "999px")
-    pg.select_option("#" + pg.get_by_label("Page texture").get_attribute("id"), "dots")
-    check("page texture applies", "data:image/svg+xml" in css_color(pg, ".b-frame .qf-wrap", "backgroundImage"))
+    # Prefill and lock (Questions tab)
+    pg.locator('.b-frame [data-sid$="__label"]', has_text="Mobile number").click()
+    pg.locator(".b-row.open").get_by_label("Prefill and lock this answer").check()
+    pg.locator(".b-row.open").get_by_label("Locked answer").fill("(555) 000-1111")
+    locked = pg.locator(".b-frame input[type=tel]")
+    check("a locked answer shows prefilled and can't be edited", locked.is_disabled() and locked.input_value() == "(555) 000-1111")
+    pg.locator(".b-row.open").get_by_label("Prefill and lock this answer").uncheck()
 
-    # Per-element styling
+    # Design tab: ten sections like the prototype
+    SUB = '.b-frame [data-sid="__submit"]'
+    pg.get_by_role("tab", name="Design").click()
+    names = pg.eval_on_selector_all(".dsec > summary", "els => els.map(e => e.childNodes[0].textContent.trim())")
+    check("design tab has all ten prototype sections", names == ["Global theme", "Individual element styles", "Typography", "Buttons", "Text boxes and input fields",
+        "Colours and brand palette", "Borders and corners", "Backgrounds and textures", "Artwork and images", "Advanced settings"], names)
+
+    acc = pg.get_by_label("Buttons colour code", exact=True)
+    acc.fill("#1D4ED8"); pg.wait_for_timeout(400)
+    check("theme button colour restyles the submit button", css_color(pg, SUB, "backgroundColor") == "rgb(29, 78, 216)", css_color(pg, SUB, "backgroundColor"))
+    check("button text switches to a readable colour", css_color(pg, SUB) == "rgb(255, 255, 255)")
+    acc.fill("not a colour"); pg.wait_for_timeout(300)
+    check("invalid colour codes are flagged and not applied", "not a colour code" in pg.inner_text(".dsec[open]") and css_color(pg, SUB, "backgroundColor") == "rgb(29, 78, 216)")
+    acc.blur()
+    check("contrast is checked for the theme", "Text on form" in pg.inner_text(".contrast"))
+
+    # Round colour picker
+    pg.locator(".dsec", has_text="Global theme").get_by_role("button", name=re.compile("^Buttons: .*Open colour picker")).click()
+    check("colour picker opens", pg.get_by_role("dialog", name="Buttons colour picker").count() == 1)
+    pg.get_by_role("dialog").get_by_role("button", name="Use #E8633A").first.click(); pg.wait_for_timeout(400)
+    check("picking a brand colour applies it", css_color(pg, SUB, "backgroundColor") == "rgb(232, 99, 58)")
+    hue = pg.get_by_role("dialog").get_by_label("Hue")
+    hue.fill("200"); pg.wait_for_timeout(300)
+    check("the hue slider changes the colour", css_color(pg, SUB, "backgroundColor") != "rgb(232, 99, 58)")
+    pg.get_by_role("dialog").get_by_role("button", name="Use #E8633A").first.click()
+    pg.keyboard.press("Escape")
+    check("Escape closes the picker", pg.get_by_role("dialog").count() == 0)
+
+    # Typography: font presets
+    pg.locator(".dsec > summary", has_text="Typography").click()
+    pg.locator(".fontpick button", has_text="Sporty").click()
+    check("font style preset applies (Sporty uses uppercase headings)", css_color(pg, '.b-frame [data-sid="__title"]', "textTransform") == "uppercase")
+
+    # Buttons: shared styles, gradient fill and interactive states
+    pg.locator(".dsec > summary", has_text="Buttons").click()
+    btns = pg.locator(".dsec", has_text="The settings below apply to every button")
+    btns.get_by_role("button", name="Gradient", exact=True).click(); pg.wait_for_timeout(300)
+    check("buttons can use a gradient fill", "linear-gradient" in css_color(pg, SUB, "backgroundImage"))
+    btns.get_by_role("button", name="Solid", exact=True).click()
+    btns.get_by_role("button", name="Hover", exact=True).click()
+    check("choosing a state previews it on every button", "fs-hover" in pg.get_attribute(SUB, "class") and "Showing hover state" in pg.inner_text(".b-prev-bar"))
+    btns.get_by_label("Background colour code", exact=True).last.fill("#0B7A3B"); pg.wait_for_timeout(300)
+    check("hover colour shows on the previewed button", css_color(pg, SUB, "backgroundColor") == "rgb(11, 122, 59)")
+    pg.get_by_role("button", name="Show default").click()
+    check("Show default ends the state preview", "fs-hover" not in pg.get_attribute(SUB, "class"))
+    pg.locator(".dsec > summary", has_text="Buttons").click()
+
+    # Borders and corners
+    pg.locator(".dsec > summary", has_text="Borders and corners").click()
+    pg.locator(".dsec", has_text="Corner style for the whole form").get_by_role("button", name="Pill").first.click(); pg.wait_for_timeout(200)
+    check("corner style changes buttons", css_color(pg, SUB, "borderTopLeftRadius") == "999px")
+    pg.locator(".dsec > summary", has_text="Borders and corners").click()
+
+    # Backgrounds and textures
+    pg.locator(".dsec > summary", has_text="Backgrounds and textures").click()
+    pg.locator(".sub", has_text="Page background").locator(".texbtn", has_text="Dots").click()
+    check("page texture applies", "data:image/svg+xml" in css_color(pg, ".b-frame .qf-wrap", "backgroundImage"))
+    pg.locator(".dsec > summary", has_text="Backgrounds and textures").click()
+
+    # Individual element styles
     pg.locator('.b-frame [data-sid="__title"]').click()
-    check("clicking the title selects it for styling", "Form title" in pg.inner_text(".b-el-head"))
-    pg.locator(".b-card", has_text="Selected element").get_by_label("Text colour", exact=True).fill("#C2185B")
+    el = pg.locator(".dsec", has_text="Element ID")
+    check("clicking the title opens its own style controls", el.count() == 1 and "Form title" in pg.inner_text(".elhead"))
+    el.get_by_label("Text colour colour code", exact=True).fill("#C2185B"); pg.wait_for_timeout(200)
     check("per-element colour applies to the title only", css_color(pg, '.b-frame [data-sid="__title"]') == "rgb(194, 24, 91)" and css_color(pg, ".b-frame .qf-label") != "rgb(194, 24, 91)")
+    el.get_by_label("Letter spacing").fill("0.2")
+    check("letter spacing applies", css_color(pg, '.b-frame [data-sid="__title"]', "letterSpacing") != "normal")
     pg.locator('.b-frame [data-sid$="__label"]').first.click()
-    sel = pg.locator(".b-card", has_text="Selected element")
-    sel.get_by_role("radio", name="All question labels").click()
-    sel.get_by_label("Text colour", exact=True).fill("#0B7A3B")
+    el = pg.locator(".dsec", has_text="Element ID")
+    el.get_by_role("button", name="All labels").click()
+    el.get_by_label("Text colour colour code", exact=True).fill("#0B7A3B"); pg.wait_for_timeout(200)
     colors = pg.eval_on_selector_all(".b-frame .qf-label", "els => els.map(e => getComputedStyle(e).color)")
-    check("'apply to all' styles every label", len(colors) > 2 and all(c == "rgb(11, 122, 59)" for c in colors), colors)
-    sel.get_by_role("button", name=re.compile("Reset all")).click()
+    check("'all labels' styles every label", len(colors) > 2 and all(c == "rgb(11, 122, 59)" for c in colors), colors)
+    el.get_by_role("button", name="Reset Text colour").click()
     colors = pg.eval_on_selector_all(".b-frame .qf-label", "els => els.map(e => getComputedStyle(e).color)")
     check("reset removes the shared style", all(c != "rgb(11, 122, 59)" for c in colors))
+    # Input box: padding, error state preview
+    pg.locator('.b-frame .qf-field[data-kind="input"]').first.click()
+    el = pg.locator(".dsec", has_text="Element ID")
+    el.get_by_label("Inner padding left").fill("30"); pg.wait_for_timeout(200)
+    check("inner padding applies to one input", css_color(pg, ".b-frame .qf-field[data-kind=input] .qf-in", "paddingLeft") == "30px")
+    el.get_by_role("button", name="Error", exact=True).click()
+    check("error state preview shows the message", "Please answer this question." in pg.inner_text(".b-frame .qf-field.fs-error"))
+    pg.get_by_role("button", name="Show default").click()
+
+    # Colours and brand palette
+    pg.locator(".dsec > summary", has_text="Colours and brand palette").click()
+    pg.wait_for_selector("text=Recently used")
+    cols = pg.locator(".dsec", has_text="Brand colours")
+    check("recently used colours are remembered", cols.locator(".dotrow").nth(1).locator(".dot-c").count() >= 1)
+    cols.get_by_role("button", name="Remove #12306B from brand colours").click(); pg.wait_for_timeout(200)
+    check("brand colours can be removed", cols.get_by_role("button", name="Copy #12306B").count() == 0)
+    pg.locator(".dsec > summary", has_text="Colours and brand palette").click()
+
+    # Artwork and images (uploads need Supabase; the harness reports that clearly)
+    pg.locator(".dsec > summary", has_text="Artwork and images").click()
+    pg.wait_for_selector("text=Place new artwork")
+    check("artwork section offers a position for new artwork", pg.locator(".dsec", has_text="Place new artwork").locator("select option").count() > 3)
+    pg.locator(".b-frame .qf-blk").nth(1).hover()
+    check("'+ Artwork' appears between questions in the preview", pg.locator(".b-frame .qf-ins").count() > 3)
+    pg.locator(".dsec > summary", has_text="Artwork and images").click()
+
+    # Advanced: copy design, reset all
+    pg.locator(".dsec > summary", has_text="Advanced settings").click()
+    adv = pg.locator(".dsec", has_text="Start over")
+    adv.get_by_role("button", name="Copy", exact=True).click(); pg.wait_for_timeout(400)
+    check("copying another form's design applies its theme", css_color(pg, SUB, "backgroundColor") == "rgb(255, 201, 60)", css_color(pg, SUB, "backgroundColor"))
+    adv.get_by_role("button", name="Reset all element styles").click()
+    check("reset all asks for a second click", adv.get_by_role("button", name="Click again to remove all custom styles").count() == 1)
+    adv.get_by_role("button", name="Click again to remove all custom styles").click()
+    check("reset all removes per-element styles", css_color(pg, '.b-frame [data-sid="__title"]') != "rgb(194, 24, 91)")
+    pg.get_by_role("button", name="↶ Undo").click()
+    check("reset all can be undone", css_color(pg, '.b-frame [data-sid="__title"]') == "rgb(194, 24, 91)")
+    adv.get_by_label("Disable Next and Submit until required questions are answered").check()
 
     # Phone preview
     pg.get_by_role("button", name="Phone").click()
