@@ -41,7 +41,16 @@ type Props = {
   showThanks?: boolean;
   /** Live mode: shown instead of the form, e.g. when it is closed. */
   closedMessage?: string | null;
+  /** Live mode: the published version (sent back so answers match the form the customer saw). */
+  version?: number;
+  /** Live mode: sends the order. Without it, the form explains that ordering isn't switched on. */
+  onSubmitOrder?: (fd: FormData) => Promise<OrderResult>;
 };
+
+export type OrderResult = { ok: true; number: number; trackingUrl: string } | { ok: false; message: string; errors?: Record<string, string> };
+
+/** A fresh key per order attempt, so a double click or retry never creates two orders. */
+const newClientKey = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().replace(/-/g, "") : `${Date.now()}${Math.random().toString(36).slice(2)}`.padEnd(20, "0"));
 
 const fmtDay = (iso: string | null) =>
   iso ? new Date(iso + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "";
@@ -54,7 +63,7 @@ const PHONE = (v: string) => {
 };
 const isLocked = (f: FormField) => LOCKABLE.has(f.type) && f.config.locked === true;
 
-export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage }: Props) {
+export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder }: Props) {
   const E = mode === "edit";
   const t = form.design.theme;
   const art = srcOf(form.design.art, assetBase);
@@ -67,6 +76,10 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   const [notice, setNotice] = useState<string | null>(null);
   const [ready, setReady] = useState<boolean[]>([]);
   const [drop, setDrop] = useState<{ idx: number; after: boolean } | null>(null);
+  const [sending, setSending] = useState(false);
+  const [done, setDone] = useState<{ number: number; trackingUrl: string } | null>(null);
+  const [clientKey, setClientKey] = useState(newClientKey);
+  const [formKey, setFormKey] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const insertAt = useRef(0);
@@ -138,12 +151,34 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
     return !first;
   }
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (E) return;
+    if (E || sending) return;
     if (!validatePage(shownPage)) return;
-    // Public submissions are connected in Stage 6 (server route with rate limiting).
-    setNotice("Thanks! Online ordering for this form opens soon, so your answers weren't sent yet.");
+    if (!onSubmitOrder) { setNotice("Online ordering isn't switched on for this form yet. Please check back soon."); return; }
+    setSending(true);
+    setNotice(null);
+    try {
+      const res = await onSubmitOrder(new FormData(formRef.current!));
+      if (res.ok) { setDone({ number: res.number, trackingUrl: res.trackingUrl }); window.scrollTo?.({ top: 0, behavior: "smooth" }); return; }
+      setNotice(res.message);
+      if (res.errors && Object.keys(res.errors).length) {
+        setErrors(res.errors);
+        // Go back to the first page with a problem.
+        const first = Object.keys(res.errors)[0];
+        const p = pages.findIndex((pg) => pg.blocks.some(({ f }) => f.id === first));
+        if (p >= 0) setPage(p);
+      }
+    } catch {
+      setNotice("We couldn't reach the order system. Check your connection and try again. Your answers are still here.");
+    } finally {
+      setSending(false);
+    }
+  }
+  function another() {
+    setDone(null); setErrors({}); setNotice(null); setPage(0); setReady([]);
+    setClientKey(newClientKey());
+    setFormKey((k) => k + 1);
   }
 
   function nav(dir: 1 | -1) {
@@ -184,19 +219,35 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
     ? <div className={`qf-head qf-head-${ha.pos}`}><ArtBlock sid="__hart" a={ha} alt={ha.alt || `${form.title} artwork`} {...artProps} />{headText}</div>
     : <div className="qf-head">{headText}</div>;
   const consentText = fillMessage(form.settings.notify.consentText, { channel: CHANNELS[form.settings.notify.channel], business: businessName });
+  const orderNo = done ? `QTG-${done.number}` : "QTG-1001";
   const thanks = (
     <div className="qf-done" role="status">
       <h2 className="qf-title" data-sid="__title" data-kind="heading">You&apos;re in the queue!</h2>
-      <p className="qf-intro" data-sid="__intro" data-kind="text">{fillMessage(form.thanks || DEFAULT_THANKS, { order_number: "QTG-1001", business: businessName, form_title: form.title })}</p>
+      <p className="qf-intro" data-sid="__intro" data-kind="text">{fillMessage(form.thanks || DEFAULT_THANKS, { order_number: orderNo, business: businessName, form_title: form.title })}</p>
       <div>Your order number</div>
-      <div className="num">QTG-1001</div>
+      <div className="num">{orderNo}</div>
       {E && <div className="qf-sample">Sample order number. Customers see their real one.</div>}
+      {done && (
+        <>
+          <div>Track your order any time:</div>
+          <a className="lk" href={done.trackingUrl}>{done.trackingUrl}</a>
+          <button type="button" className="qf-btn qf-submit" data-sid="__submit" data-kind="button" onClick={another}>Submit another order</button>
+        </>
+      )}
     </div>
   );
 
   const body = (
-    <form className="qf-form" ref={formRef} noValidate onSubmit={onSubmit} onInput={recheck} onChange={recheck}
+    <form key={formKey} className="qf-form" ref={formRef} noValidate onSubmit={onSubmit} onInput={recheck} onChange={recheck} aria-busy={sending || undefined}
 >
+      {!E && (
+        <>
+          <input type="hidden" name="__v" value={version ?? ""} />
+          <input type="hidden" name="__k" value={clientKey} />
+          {/* Left empty by people; bots that fill every box are turned away. */}
+          <div className="qf-hp" aria-hidden="true"><label>Leave this empty<input type="text" name="__hp" tabIndex={-1} autoComplete="off" defaultValue="" /></label></div>
+        </>
+      )}
       {multi && form.design.adv.progress && (
         <div className="qf-prog">
           <div className="qf-prog-track"><span style={{ width: `${(((E ? 0 : shownPage) + 1) * 100 / pages.length).toFixed(1)}%` }} /></div>
@@ -219,7 +270,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
                   {notice && <div className="qf-closed" role="status">{notice}</div>}
                   <div className="qf-nav">
                     {i > 0 && prevBtn(i)}
-                    <button type="submit" className={`qf-btn qf-submit${fs("__submit", "button")}`} data-sid="__submit" data-kind="button" tabIndex={ti} disabled={blocked(i)}>{form.submitLabel || "Submit"}</button>
+                    <button type="submit" className={`qf-btn qf-submit${fs("__submit", "button")}`} data-sid="__submit" data-kind="button" tabIndex={ti} disabled={blocked(i) || sending}>{sending ? "Sending…" : form.submitLabel || "Submit"}</button>
                   </div>
                 </>
               ), last, f.id);
@@ -266,7 +317,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
           {art && L === "background" && <div className="qf-bg"><img src={art} alt="" /></div>}
           <div className="qf-main">
             <div className="qf-card">
-              {showThanks ? thanks : <>{head}{closedMessage ? <div className="qf-closed">{closedMessage}</div> : body}</>}
+              {showThanks || done ? thanks : <>{head}{closedMessage ? <div className="qf-closed">{closedMessage}</div> : body}</>}
             </div>
             <div className="qf-powered">Order form by {businessName} · Powered by QueuedToGo</div>
           </div>

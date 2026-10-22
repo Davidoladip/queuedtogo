@@ -15,7 +15,7 @@
     "db:types": "supabase gen types typescript --linked --schema public > src/types/database.ts",
     "db:types:local": "supabase gen types typescript --db-url \"$DATABASE_URL\" --schema public > src/types/database.ts",
     "test:unit": "vitest run",
-    "test:builder": "python3 tests/e2e/builder.py && python3 tests/e2e/customize.py"
+    "test:builder": "python3 tests/e2e/builder.py && python3 tests/e2e/customize.py && python3 tests/e2e/orders.py"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

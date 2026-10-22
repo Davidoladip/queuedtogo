@@ -116,3 +116,6 @@ span.qf-sw-i{cursor:default}
 .qf-sw-l{font-size:12px;line-height:1.2;max-width:80px;text-align:center;overflow-wrap:anywhere}
 /* Thank-you screen */
 .qf-done .qf-sample{font-size:12px;opacity:.7}
+.qf-hp{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+.qf-form[aria-busy="true"]{opacity:.85}
+.qf-done a.lk{color:inherit;text-decoration:underline}

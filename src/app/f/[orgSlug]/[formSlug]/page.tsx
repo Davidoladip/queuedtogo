@@ -5,9 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { assetBaseFor } from "@/lib/design/engine";
 import { formFromPublished } from "@/lib/design/fromDb";
-import { FormRenderer } from "@/components/form/FormRenderer";
+import { PublicOrderForm } from "./PublicOrderForm";
 
-type PublicForm = { form_id: string; org_name: string; org_slug: string; status: "live" | "closed"; config: Record<string, unknown> | null; title?: string };
+type PublicForm = { form_id: string; org_name: string; org_slug: string; status: "live" | "closed"; version: number | null; config: Record<string, unknown> | null; title?: string };
 
 const SLUG = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/;
 
@@ -35,11 +35,14 @@ export default async function PublicFormPage({ params }: { params: Promise<{ org
   const model = formFromPublished(form.form_id, formSlug, form.config ?? { title: "Order form" });
   return (
     <div className="pf-page">
-      <FormRenderer
+      <PublicOrderForm
         form={model}
+        orgSlug={orgSlug}
+        formSlug={formSlug}
+        orgName={form.org_name}
         assetBase={assetBaseFor(env.supabaseUrl)}
-        mode="live"
-        businessName={form.org_name}
+        version={form.version ?? undefined}
+        orderingOn={Boolean(process.env.SUPABASE_SECRET_KEY)}
         closedMessage={form.status === "closed" ? `${form.org_name} is no longer taking orders through this form.` : null}
       />
     </div>

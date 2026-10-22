@@ -52,7 +52,9 @@ with sync_playwright() as p:
     pg.get_by_label("Email").fill("lena@example.com")
     pg.locator(".qf-opt", has_text="Cap").click()
     pg.get_by_role("button", name="Place my order").click()
-    check("submitting says ordering opens soon (no fake success)", "opens soon" in pg.inner_text(".qf-card") and "You're in the queue" not in pg.inner_text(".qf-card"))
+    pg.wait_for_selector(".qf-done")
+    check("submitting shows the thank-you screen with the order number", "You're in the queue" in pg.inner_text(".qf-card") and "QTG-1001" in pg.inner_text(".qf-card"))
+    pg.goto(BASE + "/dev/form")
     check("consent checkbox mentions SMS and STOP", "SMS updates" in pg.inner_text(".qf-check") and "STOP" in pg.inner_text(".qf-check"))
     pg.screenshot(path=f"{SHOTS}/public-form.png", full_page=True)
 

@@ -9,10 +9,10 @@ grant usage on schema tests to anon, authenticated, service_role;
 create table tests.ids (k text primary key, v uuid);
 grant select, insert on tests.ids to anon, authenticated, service_role;
 create table tests.vals (k text primary key, v text);
-grant select, insert, update on tests.vals to anon, authenticated;
+grant select, insert, update on tests.vals to anon, authenticated, service_role;
 create table tests.passed (n serial, label text);
-grant insert, select on tests.passed to anon, authenticated;
-grant usage on sequence tests.passed_n_seq to anon, authenticated;
+grant insert, select on tests.passed to anon, authenticated, service_role;
+grant usage on sequence tests.passed_n_seq to anon, authenticated, service_role;
 
 create function tests.id(k text) returns uuid language sql stable as $$ select v from tests.ids where ids.k = id.k $$;
 create function tests.val(k text) returns text language sql stable as $$ select v from tests.vals where vals.k = val.k $$;
@@ -264,6 +264,62 @@ reset role;
 select tests.ok((select form_id from public.form_fields where id = tests.id('fld1')) = tests.id('formA') and (select label from public.form_fields where id = tests.id('fld1')) = 'Name', 'the other business''s field is untouched');
 select tests.login('alice');
 select tests.affects(format($$insert into storage.objects (bucket_id, name) values ('form-assets', '%s/forms/x/y.webp')$$, tests.id('orgA')), 1, 'members can upload builder artwork');
+reset role;
+
+-- ---------------------------------------------------------------- public submissions (Stage 6)
+insert into tests.vals values ('ver', (select published_version::text from public.forms where id = tests.id('formA')));
+select tests.ok((public.get_public_form('threadtogo', 'food-fest') ->> 'version')::int = tests.val('ver')::int, 'the public form includes its published version');
+select tests.anon();
+select tests.fails($$select public.submit_form(gen_random_uuid(), tests.id('formA'), 1, '{}', '{}', false, 'x', null, '[]', null, null, null)$$, 'visitors cannot call submit_form directly');
+reset role;
+select tests.login('alice');
+select tests.fails($$select public.submit_form(gen_random_uuid(), tests.id('formA'), 1, '{}', '{}', false, 'x', null, '[]', null, null, null)$$, 'signed-in users cannot call submit_form directly');
+reset role;
+
+set role service_role;
+insert into tests.ids values ('sub1', gen_random_uuid());
+insert into tests.vals values ('r1', (select public.submit_form(tests.id('sub1'), tests.id('formA'), tests.val('ver')::int,
+  '{"name":{"label":"Your name","value":"Lena Ortiz"}}', '{"name":"Lena O.","email":"LENA@example.com","phone":"+15555550142","channel":"sms"}',
+  true, 'Food Fest · Lena', '1 × Hoodie', jsonb_build_array(jsonb_build_object('path', tests.id('orgA') || '/subs/a.png', 'mime', 'image/png', 'size', 1200, 'name', 'logo.png')),
+  'iphash-1', 'Mozilla/5.0', 'clientkey-000000000001')::text));
+reset role;
+select tests.ok((tests.val('r1')::jsonb ->> 'number')::int = 1002, 'a submission creates the next numbered job');
+select tests.ok(char_length(tests.val('r1')::jsonb ->> 'tracking_token') = 64, 'the customer gets a tracking token');
+select tests.ok((select customer_id from public.form_submissions where id = tests.id('sub1')) = tests.id('custA'), 'an existing customer is matched by email (any case)');
+select tests.ok((select name from public.customers where id = tests.id('custA')) = 'Lena O.' and (select consent_updates from public.customers where id = tests.id('custA')), 'the customer record is updated with the new name and consent');
+select tests.ok((select stage_id from public.jobs where submission_id = tests.id('sub1')) = tests.id('stage0'), 'new jobs start in the first production stage');
+select tests.ok((select title || '|' || summary from public.jobs where submission_id = tests.id('sub1')) = 'Food Fest · Lena|1 × Hoodie', 'the job gets a title and summary');
+select tests.ok((select count(*) from public.files where submission_id = tests.id('sub1') and bucket = 'submission-uploads') = 1, 'uploaded files are recorded with the submission');
+select tests.ok((select count(*) from public.job_events where job_id = (select id from public.jobs where submission_id = tests.id('sub1')) and type = 'created') = 1, 'the new job starts its audit history');
+
+set role service_role;
+select tests.ok((public.submit_form(gen_random_uuid(), tests.id('formA'), tests.val('ver')::int, '{}', '{"name":"Lena"}', false, 'x', null, '[]', 'iphash-1', null, 'clientkey-000000000001') ->> 'number')::int = 1002,
+  'a repeated click returns the first order instead of creating a second');
+select tests.fails(format($$select public.submit_form(gen_random_uuid(), %L, %s, '{}', '{"name":"Old"}', false, 'x', null, '[]', null, null, null)$$, tests.id('formA'), tests.val('ver')::int - 1), 'answers to an older version of the form are refused');
+select tests.fails(format($$select public.submit_form(gen_random_uuid(), %L, %s, '{}', '{"name":"Planted"}', false, 'x', null, jsonb_build_array(jsonb_build_object('path', %L, 'mime', 'image/png', 'size', 10, 'name', 'x')), null, null, null)$$,
+  tests.id('formA'), tests.val('ver')::int, tests.id('orgB') || '/subs/x.png'), 'files must be in the business''s own folder');
+select tests.fails(format($$select public.submit_form(gen_random_uuid(), %L, 0, '{}', '{"name":"x"}', false, 'x', null, '[]', null, null, null)$$, tests.id('formB')), 'draft forms do not take orders');
+do $$ begin
+  for i in 1..9 loop
+    perform public.submit_form(gen_random_uuid(), tests.id('formA'), tests.val('ver')::int, '{}', jsonb_build_object('name', 'Guest ' || i), false, 'x', null, '[]', 'iphash-2', null, null);
+  end loop;
+end $$;
+select tests.ok((select count(*) from public.form_submissions where source_ip_hash = 'iphash-2') = 9, 'ordinary repeat orders from one device are accepted');
+select public.submit_form(gen_random_uuid(), tests.id('formA'), tests.val('ver')::int, '{}', '{"name":"Guest 10"}', false, 'x', null, '[]', 'iphash-2', null, null);
+select tests.fails(format($$select public.submit_form(gen_random_uuid(), %L, %s, '{}', '{"name":"Guest 11"}', false, 'x', null, '[]', 'iphash-2', null, null)$$, tests.id('formA'), tests.val('ver')::int), 'more than 10 orders from one device in 10 minutes are refused');
+reset role;
+select tests.login('alice');
+update public.forms set status = 'closed' where id = tests.id('formA');
+reset role;
+set role service_role;
+select tests.fails(format($$select public.submit_form(gen_random_uuid(), %L, %s, '{}', '{"name":"Late"}', false, 'x', null, '[]', null, null, null)$$, tests.id('formA'), tests.val('ver')::int), 'closed forms do not take orders');
+reset role;
+select tests.login('alice');
+update public.forms set status = 'live' where id = tests.id('formA');
+select tests.ok((select count(*) from public.form_submissions where id = tests.id('sub1')) = 1, 'the business can read its submissions');
+reset role;
+select tests.login('bob');
+select tests.ok((select count(*) from public.form_submissions) = 0 and (select count(*) from public.files) = 0, 'another business cannot read the submissions or files');
 reset role;
 
 -- ---------------------------------------------------------------- deleting a business

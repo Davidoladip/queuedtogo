@@ -6,7 +6,7 @@ Built with Next.js 16 (App Router, TypeScript, React 19) and Supabase (Postgres,
 
 - Migration plan and screen map: [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md)
 - Live site: https://queuedtogo.com (also https://queuedtogo.vercel.app)
-- What's built so far: [`docs/STAGE_REPORT_01.md`](docs/STAGE_REPORT_01.md) (auth, workspaces) and [`docs/STAGE_REPORT_02.md`](docs/STAGE_REPORT_02.md) (form builder, deployment) and [`docs/STAGE_REPORT_03.md`](docs/STAGE_REPORT_03.md) (design upgrade)
+- What's built so far: [`docs/STAGE_REPORT_01.md`](docs/STAGE_REPORT_01.md) (auth, workspaces) and [`docs/STAGE_REPORT_02.md`](docs/STAGE_REPORT_02.md) (form builder, deployment) and [`docs/STAGE_REPORT_03.md`](docs/STAGE_REPORT_03.md) (design upgrade) and [`docs/STAGE_REPORT_04.md`](docs/STAGE_REPORT_04.md) (orders)
 - Production security checklist: [`docs/SECURITY.md`](docs/SECURITY.md)
 
 ---
@@ -45,8 +45,8 @@ The smoke and prototype tests use Python with Playwright: `pip install playwrigh
 | `NEXT_PUBLIC_SUPABASE_URL` | Browser and server | No. Your project URL. |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser and server | No. Designed to be public; every query is limited by RLS. |
 | `NEXT_PUBLIC_SITE_URL` | Links in emails and invitations | No. `http://localhost:3000` locally, your domain in production. |
-| `SUPABASE_SECRET_KEY` | Server only (Stage 6, public form submissions) | **Yes.** Never prefix with `NEXT_PUBLIC_`, never commit. |
-| `SUBMISSION_IP_SALT` | Server only (Stage 6, rate limiting) | **Yes.** Any long random string. |
+| `SUPABASE_SECRET_KEY` | Server only: public form submissions (`submit_form`) and customer uploads. Without it, public forms say ordering isn't switched on. | **Yes.** Never prefix with `NEXT_PUBLIC_`, never commit. |
+| `SUBMISSION_IP_SALT` | Server only, optional: key for hashing visitor IPs for rate limits (defaults to the secret key) | **Yes.** Any long random string. |
 
 `.env.local` is ignored by Git. `.env.example` lists every variable without secrets.
 

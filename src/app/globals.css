@@ -146,3 +146,13 @@ table.list { border-collapse: collapse; width: 100%; font-size: 14px; }
 .nf-form { display: flex; flex-direction: column; gap: 10px; }
 .nf-row { display: flex; gap: 8px; }
 @media (max-width: 520px) { .nf-row { flex-direction: column; } }
+
+/* ---------- Submissions ---------- */
+.sub-filter { display: flex; gap: 8px; align-items: center; }
+.sub-filter select { width: auto; }
+dl.answers { margin: 8px 0 0; display: flex; flex-direction: column; gap: 10px; }
+dl.answers > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+dl.answers > div:last-child { border-bottom: 0; }
+dl.answers dt { color: var(--muted); font-size: 13.5px; }
+dl.answers dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) { dl.answers > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } }

@@ -57,7 +57,8 @@ with sync_playwright() as p:
     picked = pg.evaluate("() => { const fd = new FormData(document.querySelector('.qf-form')); return [...fd.entries()].filter(([k]) => k.endsWith('__color')).map(([k, v]) => v); }")
     check("the chosen colour is part of the customer's answers", picked == ["Red (#C62828)"], picked)
     pg.get_by_role("button", name="Place my order").click()
-    check("with the colour chosen, the form gets past validation", "opens soon" in pg.inner_text(".qf-card"))
+    pg.wait_for_selector(".qf-done")
+    check("with the colour chosen, the order goes through", "You're in the queue" in pg.inner_text(".qf-card"))
 
     # ------------------------------------------------------------ builder: options editor
     pg.goto(BASE + "/dev/builder")

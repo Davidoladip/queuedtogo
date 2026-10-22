@@ -757,6 +757,13 @@ export type Database = {
       };
       is_org_member: { Args: { p_org: string }; Returns: boolean };
       publish_form: { Args: { p_form: string }; Returns: number };
+      submit_form: {
+        Args: {
+          p_submission: string; p_form: string; p_version: number; p_answers: Json; p_customer: Json; p_consent: boolean;
+          p_title: string; p_summary: string; p_files: Json; p_ip_hash: string; p_user_agent: string; p_client_key: string;
+        };
+        Returns: Json;
+      };
       save_form_draft: { Args: { p_data: Json; p_fields: Json; p_form: string }; Returns: string };
       seed_default_stages: { Args: { p_org: string }; Returns: undefined };
       storage_org_id: { Args: { p_name: string }; Returns: string };
