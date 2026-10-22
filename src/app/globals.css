@@ -156,3 +156,9 @@ dl.answers > div:last-child { border-bottom: 0; }
 dl.answers dt { color: var(--muted); font-size: 13.5px; }
 dl.answers dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 520px) { dl.answers > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+
+/* ---------- Privacy policy and terms ---------- */
+.legal h2 { font-size: 18px; margin: 22px 0 6px; }
+.legal p, .legal li { line-height: 1.6; }
+.legal p + p { margin-top: 8px; }
+.legal ul { margin: 6px 0; padding-left: 22px; }

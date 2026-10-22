@@ -119,3 +119,5 @@ span.qf-sw-i{cursor:default}
 .qf-hp{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
 .qf-form[aria-busy="true"]{opacity:.85}
 .qf-done a.lk{color:inherit;text-decoration:underline}
+.qf-legal { font-size: 12px; opacity: .75; margin: -4px 0 0; }
+.qf-legal a { color: inherit; }

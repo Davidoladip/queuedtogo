@@ -1,5 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- artwork sizing is controlled by the form design CSS, not next/image */
+import { legalReady } from "@/lib/legal";
 import "./form.css";
 
 import { useMemo, useRef, useState, type DragEvent, type FormEvent, type MouseEvent, type ReactNode } from "react";
@@ -267,6 +268,9 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
                       <input type="checkbox" name="__consent" tabIndex={ti} />
                       {" "}{consentText}
                     </label>
+                  )}
+                  {form.settings.notify.consent && legalReady() && (
+                    <p className="qf-legal">See the <a href="/terms" target="_blank" rel="noopener">texting terms</a> and <a href="/privacy" target="_blank" rel="noopener">privacy policy</a>.</p>
                   )}
                   {notice && <div className="qf-closed" role="status">{notice}</div>}
                   <div className="qf-nav">
