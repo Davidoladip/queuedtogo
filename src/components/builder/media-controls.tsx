@@ -45,11 +45,17 @@ export function ArtUploader({ art, assetBase, upload, onUploaded, onRemove, labe
 }
 
 /** Quick placement controls shown next to an uploaded artwork (full styling lives in the Design tab). */
-export function ArtQuick({ art, set, beside = true }: { art: ArtSettings; set: (k: string, v: unknown) => void; beside?: boolean }) {
+export function ArtQuick({ art, set, beside = true, asTitle = false }: { art: ArtSettings; set: (k: string, v: unknown) => void; beside?: boolean; asTitle?: boolean }) {
   const pos: [string, string][] = beside ? [["above", "Above"], ["below", "Below"], ["left", "Left"], ["right", "Right"]] : [["above", "Above"], ["below", "Below"]];
+  if (asTitle) pos.push(["title", "Instead of title"]);
   return (
     <>
-      <Seg label="Position" value={art.pos} options={pos as ["above", string][]} onChange={(v) => set("pos", v)} />
+      <Seg label="Position" value={art.pos} options={pos as ["above", string][]} onChange={(v) => {
+        set("pos", v);
+        // A title artwork usually spans the card: start it wide if it's still a small logo size.
+        if (v === "title" && art.wUnit === "px" && art.w < 300) { set("wUnit", "%"); set("w", 100); }
+      }} />
+      {art.pos === "title" && <p className="hint">The artwork replaces the title text. The title still names the page in the browser tab and for screen readers, so keep it filled in.</p>}
       <div className="row">
         <NumberInput label="Width" value={art.w} min={art.wUnit === "%" ? 5 : 16} max={art.wUnit === "%" ? 100 : 800} suffix={art.wUnit} onChange={(v) => set("w", v)} />
         <Seg label="Align" value={art.align} options={[["left", "Left"], ["center", "Centre"], ["right", "Right"]]} onChange={(v) => set("align", v)} />

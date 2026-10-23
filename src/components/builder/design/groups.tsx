@@ -379,7 +379,7 @@ export function ArtStyle({ base, a, onReplace, onRemove }: { base: string; a: Ar
         <p className="hint">0 means no limit. You can also drag the blue handle on the selected artwork in the preview.</p>
       </Sub>
       <Sub k="aplace" title="Position and spacing">
-        <CSeg label="Position" path={`${base}.pos`} value={a.pos} options={[["above", "Above text"], ["below", "Below text"], ["left", "Left of text"], ["right", "Right of text"]]} />
+        <CSeg label="Position" path={`${base}.pos`} value={a.pos} options={[["above", "Above text"], ["below", "Below text"], ["left", "Left of text"], ["right", "Right of text"], ...(base === "ha" ? [["title", "Instead of title"] as [string, string]] : [])]} />
         <CSeg label="Horizontal alignment" path={`${base}.align`} value={a.align} options={[["left", "Left"], ["center", "Centre"], ["right", "Right"]]} />
         {beside && <CSeg label="Vertical alignment" path={`${base}.valign`} value={a.valign} options={[["top", "Top"], ["center", "Middle"], ["bottom", "Bottom"]]} />}
         <CBox label="Padding" path={`${base}.pad`} value={a.pad} />

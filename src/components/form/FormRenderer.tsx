@@ -206,18 +206,28 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   );
 
   const artProps = { assetBase, editing: E, selected: selected ?? null, onResize: onResizeArt };
+  const ha = form.design.headArt;
+  const hasArt = Boolean(ha && srcOf(ha.src, assetBase));
+  const artAsTitle = hasArt && ha!.pos === "title";
   const headText = (
     <div className="qf-head-t">
       {(form.eventDate || form.venue) && (
         <div className="qf-eyebrow">{fmtDay(form.eventDate)}{form.eventDate && form.venue ? " · " : ""}{form.venue}</div>
       )}
-      <h2 className={`qf-title${fs("__title", "heading")}`} data-sid="__title" data-kind="heading">{form.title}</h2>
+      {artAsTitle ? (
+        <>
+          {/* The artwork stands in for the title; the title text stays for screen readers and search. */}
+          <h2 className="qf-title qf-vh">{form.title}</h2>
+          <ArtBlock sid="__hart" a={ha!} alt="" {...artProps} />
+        </>
+      ) : (
+        <h2 className={`qf-title${fs("__title", "heading")}`} data-sid="__title" data-kind="heading">{form.title}</h2>
+      )}
       {form.intro && <p className={`qf-intro${fs("__intro", "text")}`} data-sid="__intro" data-kind="text">{form.intro}</p>}
     </div>
   );
-  const ha = form.design.headArt;
-  const head = ha && srcOf(ha.src, assetBase)
-    ? <div className={`qf-head qf-head-${ha.pos}`}><ArtBlock sid="__hart" a={ha} alt={ha.alt || `${form.title} artwork`} {...artProps} />{headText}</div>
+  const head = hasArt && !artAsTitle
+    ? <div className={`qf-head qf-head-${ha!.pos}`}><ArtBlock sid="__hart" a={ha!} alt={ha!.alt || `${form.title} artwork`} {...artProps} />{headText}</div>
     : <div className="qf-head">{headText}</div>;
   const consentText = fillMessage(form.settings.notify.consentText, { channel: CHANNELS[form.settings.notify.channel], business: businessName });
   const orderNo = done ? `QTG-${done.number}` : "QTG-1001";

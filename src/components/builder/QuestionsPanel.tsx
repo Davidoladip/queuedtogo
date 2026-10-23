@@ -64,7 +64,7 @@ export function QuestionsPanel({ form, update, selected, setSelected, upload, as
             onRemove={() => update((d) => { d.design.headArt = null; })} />
           {form.design.headArt && (
             <>
-              <ArtQuick art={form.design.headArt} set={(k, v) => update((d) => { if (d.design.headArt) (d.design.headArt as Record<string, unknown>)[k] = v; }, { coalesce: "hart:" + k })} />
+              <ArtQuick asTitle art={form.design.headArt} set={(k, v) => update((d) => { if (d.design.headArt) (d.design.headArt as Record<string, unknown>)[k] = v; }, { coalesce: "hart:" + k })} />
               <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => openDesign("__hart")}>More artwork styling in Design →</button>
             </>
           )}

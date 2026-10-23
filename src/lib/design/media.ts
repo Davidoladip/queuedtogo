@@ -21,7 +21,8 @@ export function normalizeShadow(raw: unknown): Shadow {
 export const shadowCss = (raw: unknown) => { const s = normalizeShadow(raw); return s.on ? `${s.x}px ${s.y}px ${s.blur}px ${s.color}` : "none"; };
 
 // ---------------------------------------------------------------- artwork
-export type ArtPos = "above" | "below" | "left" | "right";
+/** "title" (heading artwork only): the artwork takes the title's place; the title text stays for screen readers. */
+export type ArtPos = "above" | "below" | "left" | "right" | "title";
 export type ArtSettings = {
   src: { path: string } | null;
   name: string;
@@ -72,7 +73,7 @@ export function normalizeArt(raw: unknown, base: ArtSettings = ART_DEFAULT): Art
     valign: en(a.valign, ["top", "center", "bottom"] as const, base.valign),
     bw: num(a.bw, 0, 20, base.bw), bc: cc(a.bc) || base.bc, br: num(a.br, 0, 999, base.br),
     op: num(a.op, 0, 100, base.op), bg: cc(a.bg) || "", shadow: normalizeShadow(a.shadow),
-    pos: en(a.pos, ["above", "below", "left", "right"] as const, base.pos),
+    pos: en(a.pos, ["above", "below", "left", "right", "title"] as const, base.pos),
   };
 }
 
