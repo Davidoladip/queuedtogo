@@ -48,7 +48,7 @@
 | Browser: builder, customisation, orders, board, smoke | 67/67, 59/59, 18/18, 51/51, 21/21 |
 | Live database (rolled back) | Texting off by default; with texting on and consent, a move queues a text with the customer's number; the app can't write messages directly. Nothing left behind. |
 
-**Not yet tested:** a real text through Twilio. That needs a Twilio account, an approved sender, and the settings in Vercel. This workspace can't reach Twilio, and no text has been sent.
+**Live test (Oct 23, 2026):** a test text was sent from queuedtogo.com through Twilio, arrived on the owner's phone, and Twilio's signed delivery report marked it Delivered about 4 seconds later. An earlier attempt, before the number's registration was approved, was correctly logged as Not delivered (30034).
 
 ## 5. Still to come
 - **WhatsApp and email updates.** The customer's choice is already recorded; until then those customers are logged as "Not sent".
