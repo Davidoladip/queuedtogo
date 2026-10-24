@@ -7,6 +7,7 @@ const SECTIONS = [
   ["forms", "Event forms"],
   ["submissions", "Submissions"],
   ["board", "Production board"],
+  ["event", "Event day"],
   ["notifications", "Notifications"],
   ["tracking", "Tracking"],
   ["settings", "Settings"],

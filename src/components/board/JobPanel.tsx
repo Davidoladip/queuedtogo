@@ -30,6 +30,8 @@ type Props = {
   /** Texts sent (or not sent) to the customer about this job, newest first. */
   messages?: LogEntry[];
   notificationsHref?: string;
+  /** Link to print this job's ticket. */
+  printHref?: string;
 };
 
 type Status = { kind: "saved" | "error"; text: string; at: number } | null;
@@ -128,6 +130,7 @@ export function JobPanel(p: Props) {
               {stage && !stage.isFinal && done && <button type="button" className="btn primary" disabled={busy} onClick={() => void moveTo(done.id)}>Mark complete</button>}
               {stage?.isFinal && reopen && <button type="button" className="btn" disabled={busy} onClick={() => void moveTo(reopen.id)}>Reopen (back to {reopen.name})</button>}
               {!editing && <button type="button" className="btn ghost" onClick={() => setEditing(true)}>Edit title and summary</button>}
+              {p.printHref && <a className="btn ghost" href={p.printHref} target="_blank" rel="noopener">Print ticket</a>}
             </div>
             {editing && (
               <form

@@ -6,7 +6,7 @@ Built with Next.js 16 (App Router, TypeScript, React 19) and Supabase (Postgres,
 
 - Migration plan and screen map: [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md)
 - Live site: https://queuedtogo.com (also https://queuedtogo.vercel.app)
-- What's built so far: [`docs/STAGE_REPORT_01.md`](docs/STAGE_REPORT_01.md) (auth, workspaces) and [`docs/STAGE_REPORT_02.md`](docs/STAGE_REPORT_02.md) (form builder, deployment) and [`docs/STAGE_REPORT_03.md`](docs/STAGE_REPORT_03.md) (design upgrade) and [`docs/STAGE_REPORT_04.md`](docs/STAGE_REPORT_04.md) (orders) and [`docs/STAGE_REPORT_05.md`](docs/STAGE_REPORT_05.md) (production board) and [`docs/STAGE_REPORT_06.md`](docs/STAGE_REPORT_06.md) (customer texts)
+- What's built so far: [`docs/STAGE_REPORT_01.md`](docs/STAGE_REPORT_01.md) (auth, workspaces) and [`docs/STAGE_REPORT_02.md`](docs/STAGE_REPORT_02.md) (form builder, deployment) and [`docs/STAGE_REPORT_03.md`](docs/STAGE_REPORT_03.md) (design upgrade) and [`docs/STAGE_REPORT_04.md`](docs/STAGE_REPORT_04.md) (orders) and [`docs/STAGE_REPORT_05.md`](docs/STAGE_REPORT_05.md) (production board) and [`docs/STAGE_REPORT_06.md`](docs/STAGE_REPORT_06.md) (customer texts) and [`docs/STAGE_REPORT_07.md`](docs/STAGE_REPORT_07.md) (email, alerts and event-day tools)
 - Production security checklist: [`docs/SECURITY.md`](docs/SECURITY.md)
 
 ---
@@ -51,6 +51,8 @@ The smoke and prototype tests use Python with Playwright: `pip install playwrigh
 | `TWILIO_AUTH_TOKEN` | Server only: checks that Twilio webhooks are genuine, and sends texts if no API key is set | **Yes.** |
 | `TWILIO_MESSAGING_SERVICE_SID` | Server only: the Messaging Service that sends the texts (`MG…`). `TWILIO_FROM_NUMBER` (+1…) works instead. | No. |
 | `TWILIO_API_KEY_SID` / `TWILIO_API_KEY_SECRET` | Server only, optional: an API key (`SK…`) used for sending instead of the Auth Token | **Yes** (the secret). |
+| `RESEND_API_KEY` | Server only: sends emails through Resend (`re_…`) | **Yes.** |
+| `EMAIL_FROM` | Server only: the sender, on a domain verified in Resend, e.g. `QueuedToGo <updates@queuedtogo.com>` | No. |
 
 `.env.local` is ignored by Git. `.env.example` lists every variable without secrets.
 

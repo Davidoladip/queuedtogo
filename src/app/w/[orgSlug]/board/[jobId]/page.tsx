@@ -37,6 +37,7 @@ export default async function JobPage({ params }: { params: Promise<{ orgSlug: s
       addNote={addNote.bind(null, org.slug)}
       messages={messages}
       notificationsHref={`/w/${org.slug}/notifications`}
+      printHref={`/w/${org.slug}/event/print?kind=tickets&ids=${jobId}`}
     />
   );
 }
