@@ -127,8 +127,8 @@ async function deliverEmail(m: Row, cfg: EmailConfig | null | undefined, fetchIm
   }
   const r = await sendEmail(cfg, {
     to: m.to_address!, subject: content.subject, html: content.html, text: content.text,
-    replyTo: m.kind === "team_alert" || m.kind === "test" ? null : org.reply_to_email, idempotencyKey: `qtg-${m.id}`,
     unsubscribeUrl: m.kind === "stage_update" ? stopUrl : null, fromName: org.name,
+    tags: { message_id: m.id, kind: m.kind.replace("_", "-") },
   }, fetchImpl);
   return r.ok
     ? { kind: "sent", providerId: r.id, body: content.text.slice(0, 1600), subject: content.subject.slice(0, 200) }

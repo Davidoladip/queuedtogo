@@ -51,8 +51,7 @@ The smoke and prototype tests use Python with Playwright: `pip install playwrigh
 | `TWILIO_AUTH_TOKEN` | Server only: checks that Twilio webhooks are genuine, and sends texts if no API key is set | **Yes.** |
 | `TWILIO_MESSAGING_SERVICE_SID` | Server only: the Messaging Service that sends the texts (`MG…`). `TWILIO_FROM_NUMBER` (+1…) works instead. | No. |
 | `TWILIO_API_KEY_SID` / `TWILIO_API_KEY_SECRET` | Server only, optional: an API key (`SK…`) used for sending instead of the Auth Token | **Yes** (the secret). |
-| `RESEND_API_KEY` | Server only: sends emails through Resend (`re_…`) | **Yes.** |
-| `EMAIL_FROM` | Server only: the sender, on a domain verified in Resend, e.g. `QueuedToGo <updates@queuedtogo.com>` | No. |
+| `EMAIL_FROM` | Server only: the email sender, on a domain verified in Twilio Email, e.g. `QueuedToGo <updates@queuedtogo.com>`. Emails use the Twilio settings above. | No. |
 
 `.env.local` is ignored by Git. `.env.example` lists every variable without secrets.
 

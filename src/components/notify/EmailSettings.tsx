@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import type { NotifyResult } from "@/lib/notify";
 
 type Props = {
-  status: { apiKey: boolean; from: boolean; ready: boolean };
+  status: { twilio: boolean; from: boolean; ready: boolean };
   emailOn: boolean;
   replyTo: string;
   myAlerts: boolean;
@@ -53,7 +53,7 @@ export function EmailSettings(p: Props) {
           <div className={`qn-conn ${p.status.ready ? "on" : "off"}`} role="status">
             <b>{p.status.ready ? "● Email is connected" : "○ Email isn't connected yet"}</b>
             {!p.status.ready && (
-              <span>Missing in Vercel: {[!p.status.apiKey && "RESEND_API_KEY", !p.status.from && "EMAIL_FROM"].filter(Boolean).join(", ")}. Until then no emails are sent, and the log says why.</span>
+              <span>Missing in Vercel: {[!p.status.twilio && "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN", !p.status.from && "EMAIL_FROM"].filter(Boolean).join(", ")}. Email goes through your Twilio account (Twilio Email). Until then no emails are sent, and the log says why.</span>
             )}
           </div>
           <label className="qn-switch">
@@ -66,10 +66,10 @@ export function EmailSettings(p: Props) {
             <span><b>Send emails for this business</b><br />
               <small className="muted">An order confirmation to every customer who gives an email address; stage updates to customers who chose email and agreed to updates; and new-order alerts to your team.</small></span>
           </label>
-          <form className="qn-reply" onSubmit={(e) => { e.preventDefault(); void run(() => p.saveReplyTo(reply), reply.trim() ? "Replies will go to " + reply.trim() + "." : "Reply address removed.", setMsg); }}>
+          <form className="qn-reply" onSubmit={(e) => { e.preventDefault(); void run(() => p.saveReplyTo(reply), reply.trim() ? "Customers will see " + reply.trim() + " as your contact." : "Contact address removed.", setMsg); }}>
             <label>
-              <span className="muted">Customers&apos; replies go to</span>
-              <input type="email" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="hello@yourbusiness.com" disabled={!p.canEdit} aria-label="Reply-to email address" />
+              <span className="muted">Contact email shown to customers</span>
+              <input type="email" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="hello@yourbusiness.com" disabled={!p.canEdit} aria-label="Contact email for customers" />
             </label>
             <button className="btn" disabled={!p.canEdit || busy || reply.trim() === p.replyTo}>Save</button>
           </form>

@@ -55,7 +55,7 @@ export async function devSetMyAlerts(on: unknown): Promise<NotifyResult> {
 }
 export async function devSendTestEmail(): Promise<NotifyResult> {
   if (!harnessEnabled()) return OFF;
-  if (!emailConfig()) return { ok: false, error: "Email isn't connected yet. Add RESEND_API_KEY and EMAIL_FROM in Vercel first." };
+  if (!emailConfig()) return { ok: false, error: "Email isn't connected yet. Add EMAIL_FROM in Vercel (with your Twilio settings) first." };
   return { ok: false, error: "The harness doesn't send real emails." };
 }
 export async function devStopUpdates(): Promise<{ ok: boolean }> {

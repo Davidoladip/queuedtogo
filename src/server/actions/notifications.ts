@@ -82,7 +82,7 @@ export async function setEmailOn(orgSlug: string, enabled: unknown): Promise<Not
   return { ok: true };
 }
 
-/** Where customers' replies to emails go (for example the business's own inbox). Empty clears it. */
+/** The contact address shown in customer emails (for example the business's own inbox). Empty clears it. */
 export async function saveReplyTo(orgSlug: string, value: unknown): Promise<NotifyResult> {
   const { org } = await requireWorkspace(orgSlug);
   if (!canManage(org.role)) return { ok: false, error: ADMIN_ONLY };
@@ -113,7 +113,7 @@ export async function setMyAlerts(orgSlug: string, on: unknown): Promise<NotifyR
 export async function sendTestEmail(orgSlug: string): Promise<NotifyResult> {
   const { user, org } = await requireWorkspace(orgSlug);
   if (!canManage(org.role)) return { ok: false, error: ADMIN_ONLY };
-  if (!emailConfig()) return { ok: false, error: "Email isn't connected yet. Add RESEND_API_KEY and EMAIL_FROM in Vercel first." };
+  if (!emailConfig()) return { ok: false, error: "Email isn't connected yet. Add EMAIL_FROM in Vercel (with your Twilio settings) first." };
   if (!user.email || !isEmail(user.email)) return { ok: false, error: "Your account has no email address to send to." };
   const admin = adminClient();
   if (!admin) return { ok: false, error: "The server isn't set up to send emails (the Supabase secret key is missing)." };

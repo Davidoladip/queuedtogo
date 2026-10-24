@@ -1,25 +1,32 @@
 // Emails: order confirmations, stage updates for customers who chose email, and new-order alerts
-// for the team. Sent through Resend's REST API (one call, no SDK). The API key is a server-only
-// environment variable and never reaches the browser.
+// for the team. Sent through Twilio Email (comms.twilio.com) with the same Twilio account used for
+// texts, so there's no separate email subscription. Credentials are server-only environment
+// variables and never reach the browser.
 
-export type EmailConfig = { apiKey: string; from: string };
+export type EmailConfig = { user: string; pass: string; from: string };
 
 const EMAIL = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
 /** "QueuedToGo <updates@queuedtogo.com>" or "updates@queuedtogo.com". */
 const FROM = /^(?:[^<>@\r\n]{1,80} <[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+>|[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+)$/;
+const AC = /^AC[0-9a-f]{32}$/;
+const SK = /^SK[0-9a-f]{32}$/;
 
+/** Twilio credentials (API key if set, otherwise Account SID + Auth Token) and the verified sender address. */
 export function emailConfig(env: Record<string, string | undefined> = process.env): EmailConfig | null {
-  const apiKey = env.RESEND_API_KEY?.trim() ?? "";
+  const sid = env.TWILIO_ACCOUNT_SID?.trim() ?? "";
+  const token = env.TWILIO_AUTH_TOKEN?.trim() ?? "";
+  const keySid = env.TWILIO_API_KEY_SID?.trim() ?? "";
+  const keySecret = env.TWILIO_API_KEY_SECRET?.trim() ?? "";
   const from = env.EMAIL_FROM?.trim() ?? "";
-  if (!/^re_[A-Za-z0-9_]{16,}$/.test(apiKey) || !FROM.test(from)) return null;
-  return { apiKey, from };
+  if (!FROM.test(from)) return null;
+  if (SK.test(keySid) && keySecret.length >= 32) return { user: keySid, pass: keySecret, from };
+  if (AC.test(sid) && token.length >= 32) return { user: sid, pass: token, from };
+  return null;
 }
 export function emailSetupStatus(env: Record<string, string | undefined> = process.env) {
-  return {
-    apiKey: /^re_[A-Za-z0-9_]{16,}$/.test(env.RESEND_API_KEY?.trim() ?? ""),
-    from: FROM.test(env.EMAIL_FROM?.trim() ?? ""),
-    ready: emailConfig(env) !== null,
-  };
+  const twilio = (AC.test(env.TWILIO_ACCOUNT_SID?.trim() ?? "") && (env.TWILIO_AUTH_TOKEN?.trim().length ?? 0) >= 32)
+    || (SK.test(env.TWILIO_API_KEY_SID?.trim() ?? "") && (env.TWILIO_API_KEY_SECRET?.trim().length ?? 0) >= 32);
+  return { twilio, from: FROM.test(env.EMAIL_FROM?.trim() ?? ""), ready: emailConfig(env) !== null };
 }
 export const isEmail = (v: string) => v.length <= 254 && EMAIL.test(v);
 
@@ -29,51 +36,54 @@ export type EmailResult = { ok: true; id: string } | { ok: false; code: string; 
 
 export async function sendEmail(
   cfg: EmailConfig,
-  msg: { to: string; subject: string; html: string; text: string; replyTo?: string | null; idempotencyKey?: string; unsubscribeUrl?: string | null; fromName?: string | null },
+  msg: { to: string; subject: string; html: string; text: string; unsubscribeUrl?: string | null; fromName?: string | null; tags?: Record<string, string> },
   fetchImpl: typeof fetch = fetch,
 ): Promise<EmailResult> {
   if (!isEmail(msg.to)) return { ok: false, code: "invalid_to", message: "The email address isn't valid.", retry: false };
-  // Show the business's name as the sender, on QueuedToGo's verified address.
+  // Show the business's name as the sender, on QueuedToGo's verified address (plain ASCII: no Unicode allowed in "from").
   const address = cfg.from.match(/<([^>]+)>/)?.[1] ?? cfg.from;
-  const name = (msg.fromName ?? "").replace(/[<>"\r\n]/g, "").trim().slice(0, 60);
+  const defaultName = cfg.from.match(/^(.*?) </)?.[1] ?? "QueuedToGo";
+  const biz = (msg.fromName ?? "").replace(/[^\x20-\x7E]/g, "").replace(/[<>"]/g, "").trim().slice(0, 60);
   const headers: Record<string, string> = {};
   if (msg.unsubscribeUrl) headers["List-Unsubscribe"] = `<${msg.unsubscribeUrl}>`;
+  const tags = Object.fromEntries(
+    Object.entries(msg.tags ?? {})
+      .map(([k, v]) => [k.replace(/[^A-Za-z0-9._~-]/g, "").slice(0, 128), v.replace(/[^A-Za-z0-9._~-]/g, "").slice(0, 256)])
+      .filter(([k, v]) => k && v)
+      .slice(0, 10),
+  );
   try {
-    const res = await fetchImpl("https://api.resend.com/emails", {
+    const res = await fetchImpl("https://comms.twilio.com/v1/Emails", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${cfg.apiKey}`,
-        "Content-Type": "application/json",
-        ...(msg.idempotencyKey ? { "Idempotency-Key": msg.idempotencyKey } : {}),
-      },
+      headers: { Authorization: "Basic " + Buffer.from(`${cfg.user}:${cfg.pass}`).toString("base64"), "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: name ? `${name} via QueuedToGo <${address}>` : cfg.from,
-        to: [msg.to],
-        subject: msg.subject,
-        html: msg.html,
-        text: msg.text,
-        ...(msg.replyTo && isEmail(msg.replyTo) ? { reply_to: msg.replyTo } : {}),
-        ...(Object.keys(headers).length ? { headers } : {}),
+        from: { address, name: biz ? `${biz} via QueuedToGo` : defaultName },
+        to: [{ address: msg.to }],
+        content: { subject: msg.subject, html: msg.html, text: msg.text, ...(Object.keys(headers).length ? { headers } : {}) },
+        ...(Object.keys(tags).length ? { tags } : {}),
       }),
       signal: AbortSignal.timeout(10_000),
     });
-    const data = (await res.json().catch(() => ({}))) as { id?: string; name?: string; message?: string };
-    if (res.ok && data.id) return { ok: true, id: data.id };
+    const data = (await res.json().catch(() => ({}))) as { operationId?: string; code?: number | string; message?: string; detail?: string };
+    if (res.status === 202 || (res.ok && data.operationId)) return { ok: true, id: String(data.operationId ?? `accepted-${Date.now()}`).slice(0, 100) };
     return {
       ok: false,
-      code: String(data.name ?? res.status).slice(0, 20),
-      message: (data.message ?? `The email service answered ${res.status}.`).slice(0, 300),
-      retry: res.status === 429 || res.status >= 500,
+      code: String(data.code ?? res.status).slice(0, 20),
+      message: (data.message ?? data.detail ?? `Twilio Email answered ${res.status}.`).slice(0, 300),
+      // Only retry when Twilio clearly didn't take the email (busy or down), so a retry can't send it twice.
+      retry: res.status === 429 || res.status === 500 || res.status === 503,
     };
   } catch (e) {
-    return { ok: false, code: "network", message: e instanceof Error ? e.message.slice(0, 200) : "Network error", retry: true };
+    // The request may or may not have reached Twilio, so it isn't retried (no duplicate emails).
+    return { ok: false, code: "network", message: e instanceof Error ? e.message.slice(0, 200) : "Network error", retry: false };
   }
 }
 
 export function explainEmailError(code: string, fallback: string): string {
-  if (code === "401" || code === "403" || /api_key|unauthorized|restricted/i.test(code)) return "The email service rejected the API key. Check RESEND_API_KEY in Vercel.";
-  if (/validation_error|422/.test(code)) return "The email service refused this email. Check that queuedtogo.com is verified in Resend and EMAIL_FROM uses it.";
+  if (code === "401" || code === "403" || code === "20003") return "Twilio rejected the account details for email. Check the Twilio settings in Vercel, and that Twilio Email is enabled on the account.";
+  if (code === "400" || code === "422") return "Twilio Email refused this email. Check that queuedtogo.com is a verified sender domain in Twilio and EMAIL_FROM uses it.";
   if (code === "invalid_to") return "The email address isn't valid.";
+  if (code === "network") return "The connection to Twilio dropped, so the email may not have been sent. It wasn't retried, to avoid sending it twice.";
   return fallback;
 }
 
@@ -112,6 +122,7 @@ export type CustomerEmailInput = {
   message?: string | null;
   trackingUrl: string;
   stopUrl: string | null;
+  /** The business's contact address, shown in the email (Twilio Email has no reply-to setting). */
   replyTo: string | null;
 };
 
@@ -122,7 +133,9 @@ export function customerEmail(v: CustomerEmailInput) {
   if (v.formTitle) details.push(["For", v.formTitle]);
   if (v.summary) details.push(["Items", v.summary]);
   if (v.stage) details.push(["Status", v.stage]);
-  const contact = v.replyTo ? `Questions? Reply to this email to reach ${esc(v.business)}.` : `Questions? Contact ${esc(v.business)} and quote ${order}.`;
+  const contact = v.replyTo
+    ? `Questions? Email ${esc(v.business)} at <a href="mailto:${esc(v.replyTo)}" style="color:#5A6077">${esc(v.replyTo)}</a> and quote ${order}.`
+    : `Questions? Contact ${esc(v.business)} and quote ${order}.`;
   const footer = [
     contact,
     v.stopUrl ? `You're getting this because you asked for updates on your order. <a href="${esc(v.stopUrl)}" style="color:#5A6077">Stop order updates</a>.` : "You're getting this because you placed an order.",

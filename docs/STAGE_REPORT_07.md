@@ -7,9 +7,9 @@
 - **Settings.** The **Notifications** page has:
   - email connection status (which settings are missing, never their values)
   - a **Send emails for this business** switch, off by default (owners and admins)
-  - the address where customers' replies go (the business's own inbox)
+  - the contact address shown to customers in emails (the business's own inbox)
   - **Send a test email to me**
-- **Sending.** Emails go out through Resend from QueuedToGo's address, with the business's name as the sender ("Threadtogo via QueuedToGo") and replies going to the business. Each email carries a no-duplicates key, so a retry can never send it twice. Everything customers or businesses type is escaped in the HTML.
+- **Sending.** Emails go out through **Twilio Email**, on the same Twilio account and bill as texts (no separate subscription). They come from QueuedToGo's verified address, with the business's name as the sender ("Threadtogo via QueuedToGo"). Twilio Email has no reply-to setting, so customer emails show the business's contact address instead. A send is retried only when Twilio clearly didn't accept it (busy or down), never after a dropped connection, so no email is sent twice. Everything customers or businesses type is escaped in the HTML.
 - **Stop updates.** The link in emails opens the tracking page and asks the customer to confirm with a button, so email security scanners that open links can't turn updates off by accident. Stopping turns off texts and emails and cancels anything still waiting. The tracking page also shows the button whenever updates are on.
 - **Message log.** It shows Text or Email, the subject, and shortened addresses (l•••@example.com).
 
@@ -38,11 +38,11 @@
 | Check | Result |
 |---|---|
 | Typecheck, lint, production build | pass |
-| Unit (Vitest) | 84/84, 16 new: email settings, confirmation and update wording, escaping, team alerts, the Resend call (sender name, reply-to, no-duplicates key, unsubscribe header), errors and retries, sending queued emails; item counts, CSV quoting and formula guard, pickup search, label text |
+| Unit (Vitest) | 84/84, 16 new: email settings, confirmation and update wording, escaping, team alerts, the Twilio Email call (Twilio account, sender name, unsubscribe header, tags, no retry after a dropped connection), errors and retries, sending queued emails; item counts, CSV quoting and formula guard, pickup search, label text |
 | Database (local Postgres) | 182/182, 18 new: email off by default; only owners and admins switch it on; reply-to checked; confirmation queued; no duplicate update; team alerts honour each member's choice; stage updates by email; stop from the tracking link (and a made-up link does nothing); waiting updates cancelled; email off queues nothing; email address checks |
 | Browser: notifications | 43/43, 16 new for email settings, alerts, log and stop updates |
 | Browser: event day (`tests/e2e/eventday.py`) | 27/27: pickup search (number, name, last 4), mark collected, phone layout, summary counts and totals, tickets with QR, 4×6 and Avery sizes, print view without app buttons, CSV contents and formula guard |
 | Browser: builder, customisation, orders, board, smoke | 67/67, 64/64, 20/20, 51/51, 21/21 |
 | Live database (rolled back) | A new email order queued one confirmation and one team alert, with no duplicate update; stopping from the tracking link turned updates off. Nothing left behind. |
 
-**Not yet tested:** a real email through Resend. That needs the queuedtogo.com domain verified in Resend and `RESEND_API_KEY` and `EMAIL_FROM` in Vercel.
+**Not yet tested:** a real email through Twilio Email. That needs queuedtogo.com verified as a sender domain in Twilio and `EMAIL_FROM` in Vercel.
