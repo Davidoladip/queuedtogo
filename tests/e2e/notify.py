@@ -86,7 +86,7 @@ with sync_playwright() as p:
         check("changes can be undone before saving", not pg.get_by_label("Text the customer at Quality check").is_checked() and "quality checks" in pg.get_by_label("Message for Quality check").input_value())
 
         log = pg.locator(".qn-log li")
-        check("the log lists recent updates", log.count() == 3)
+        check("the log lists recent updates", log.count() == 4)
         check("the log shows delivered, not-sent and failed texts", pg.locator('.qn-log li[data-status="delivered"] .pill').inner_text() == "Delivered"
               and pg.locator('.qn-log li[data-status="skipped"] .pill').inner_text() == "Not sent" and pg.locator('.qn-log li[data-status="failed"] .pill').inner_text() == "Failed")
         check("the log says why a text wasn't sent", "didn't agree to order updates" in pg.inner_text(".qn-log") and "The number doesn't exist." in pg.inner_text(".qn-log"))
@@ -97,7 +97,7 @@ with sync_playwright() as p:
         pg.goto(BASE + "/dev/notifications?role=member"); pg.wait_for_selector(".qn-rule")
         check("members can see the settings but not change them",
               pg.get_by_role("checkbox", name="Text customers when their order reaches a stage").is_disabled()
-              and pg.get_by_label("Message for New order").is_disabled() and pg.get_by_role("button", name="Save").count() == 0)
+              and pg.get_by_label("Message for New order").is_disabled() and pg.locator(".qn-rules").get_by_role("button", name="Save").count() == 0)
 
         pg.request.post(BASE + "/dev/board/control", data={"action": "reset"})
         pg.goto(BASE + "/dev/board/00000000-0000-4000-8c00-000000000001"); pg.wait_for_selector("text=Texts to the customer")
@@ -108,6 +108,47 @@ with sync_playwright() as p:
         m.goto(BASE + "/dev/notifications"); m.wait_for_selector(".qn-rule")
         check("the page fits a phone", m.evaluate("document.documentElement.scrollWidth") <= 390)
         m.screenshot(path=f"{SHOTS}/notify-phone.png", full_page=True)
+
+        # ------------------------------------------------------------ email settings
+        pg.request.post(BASE + "/dev/notifications/control")
+        pg.goto(BASE + "/dev/notifications"); pg.wait_for_selector("#eml")
+        econn = pg.locator(".qn-conn").nth(1).inner_text()
+        check("the page says plainly that email isn't connected", "Email isn't connected yet" in econn and "RESEND_API_KEY" in econn and "EMAIL_FROM" in econn)
+        check("test emails can't be sent until email is connected", pg.get_by_role("button", name="Send a test email to me").is_disabled())
+        esw = pg.get_by_role("checkbox", name="Send emails for this business")
+        check("email starts switched off", not esw.is_checked())
+        esw.check()
+        check("an owner can switch email on", wait_until(lambda: "Email is on." in pg.inner_text("#eml").replace("\n", " ") or "Email is on" in pg.inner_text(".qn")))
+        pg.get_by_label("Reply-to email address").fill("not an email")
+        pg.locator("section", has=pg.locator("#eml")).get_by_role("button", name="Save").click()
+        check("a bad reply-to address is refused", pg.get_by_label("Reply-to email address").evaluate("e => !e.checkValidity()") and "Replies will go to" not in pg.inner_text(".qn"))
+        pg.get_by_label("Reply-to email address").fill("Hello@Threadtogo.com")
+        pg.locator("section", has=pg.locator("#eml")).get_by_role("button", name="Save").click()
+        check("the reply-to address can be set", wait_until(lambda: "Replies will go to" in pg.inner_text(".qn")))
+        al = pg.get_by_role("checkbox", name="Email me when a new order arrives")
+        check("new-order alerts start on", al.is_checked())
+        al.uncheck()
+        check("a team member can turn their alerts off", wait_until(lambda: "You won't get new-order emails." in pg.inner_text(".qn")))
+        pg.reload(); pg.wait_for_selector("#eml")
+        check("email settings are saved", pg.get_by_role("checkbox", name="Send emails for this business").is_checked()
+              and pg.get_by_label("Reply-to email address").input_value() == "hello@threadtogo.com"
+              and not pg.get_by_role("checkbox", name="Email me when a new order arrives").is_checked())
+        team = pg.locator('.qn-log li', has_text="Team alert")
+        check("team alerts appear in the log as emails", team.count() == 1 and "Email" in team.inner_text() and "New order QTG-1003 from Ada Byron" in team.inner_text())
+        check("email addresses are shortened in the log", "g•••@example.com" in team.inner_text() and "grace@example.com" not in pg.locator(".qn-log").inner_html())
+        pg.screenshot(path=f"{SHOTS}/notify-email.png", full_page=True)
+        pg.goto(BASE + "/dev/notifications?role=member"); pg.wait_for_selector("#eml")
+        check("members can't change the business's email settings", pg.get_by_role("checkbox", name="Send emails for this business").is_disabled() and pg.get_by_label("Reply-to email address").is_disabled()
+              and pg.get_by_role("button", name="Send a test email to me").count() == 0)
+        check("members can still choose their own alerts", not pg.get_by_role("checkbox", name="Email me when a new order arrives").is_disabled())
+
+        # ------------------------------------------------------------ stop updates (tracking page)
+        pg.goto(BASE + "/dev/stop?stop=1"); pg.wait_for_selector("text=Stop order updates?")
+        check("the stop link asks before stopping (email scanners can't stop updates by opening it)", pg.get_by_role("button", name="Stop order updates").count() == 1)
+        pg.get_by_role("button", name="Stop order updates").click()
+        check("a customer can stop updates", wait_until(lambda: "You won't get any more order updates from Demo Business" in pg.inner_text("body")))
+        pg.reload()
+        check("stopped updates stay stopped", "already off" in pg.inner_text("body"))
 
         # Webhooks refuse everything while Twilio isn't set up.
         r = pg.request.post(BASE + "/api/twilio/status", form={"MessageSid": "SM" + "1" * 32, "MessageStatus": "delivered"})

@@ -139,7 +139,7 @@ function fakeAdmin(tables: Record<string, R[]>) {
   };
   return { from } as never;
 }
-const queued = (id: string, extra: R = {}): R => ({ id, org_id: "o1", job_id: "j1", kind: "stage_update", to_address: "+15551234567", template: "Hi {name}, {order} is ready: {link}", body: null, attempts: 0, status: "queued", created_at: new Date().toISOString(), customer_id: "c1", ...extra });
+const queued = (id: string, extra: R = {}): R => ({ id, org_id: "o1", job_id: "j1", kind: "stage_update", channel: "sms", to_address: "+15551234567", template: "Hi {name}, {order} is ready: {link}", body: null, attempts: 0, status: "queued", created_at: new Date().toISOString(), customer_id: "c1", ...extra });
 
 describe("sending queued texts", () => {
   it("sends, records the Twilio id and adds a history line", async () => {

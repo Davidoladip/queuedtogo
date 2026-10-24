@@ -29,3 +29,7 @@
 .qn .qn-body { font-size: 13.5px; overflow-wrap: anywhere; }
 .qn .qn-reason { font-size: 12.5px; color: var(--warn); }
 .qn .qn-log li[data-status="failed"] .qn-reason, .qn .qn-log li[data-status="undelivered"] .qn-reason { color: var(--bad); }
+.qn .qn-chan { font-size: 11px; font-weight: 600; color: var(--muted); border: 1px solid var(--line); padding: 1px 6px; border-radius: 5px; }
+.qn .qn-reply { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin-top: 14px; }
+.qn .qn-reply label { flex: 1 1 240px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; min-width: 0; }
+.qn .qn-reply input { width: 100%; }

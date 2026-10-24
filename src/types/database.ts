@@ -490,24 +490,30 @@ export type Database = {
           },
         ];
       };
+      member_alerts: {
+        Row: { org_id: string; user_id: string; new_order_email: boolean; updated_at: string };
+        Insert: { org_id: string; user_id: string; new_order_email?: boolean; updated_at?: string };
+        Update: { org_id?: string; user_id?: string; new_order_email?: boolean; updated_at?: string };
+        Relationships: [];
+      };
       messages: {
         Row: {
           attempts: number; body: string | null; channel: Database["public"]["Enums"]["notify_channel"]; created_at: string; created_by: string | null;
           customer_id: string | null; error_code: string | null; error_message: string | null; id: string; idempotency_key: string | null;
           job_id: string | null; kind: string; org_id: string; provider_sid: string | null; sent_at: string | null; skip_reason: string | null;
-          stage_id: string | null; status: string; template: string | null; to_address: string | null; updated_at: string;
+          stage_id: string | null; status: string; subject: string | null; template: string | null; to_address: string | null; updated_at: string;
         };
         Insert: {
           attempts?: number; body?: string | null; channel?: Database["public"]["Enums"]["notify_channel"]; created_at?: string; created_by?: string | null;
           customer_id?: string | null; error_code?: string | null; error_message?: string | null; id?: string; idempotency_key?: string | null;
           job_id?: string | null; kind?: string; org_id: string; provider_sid?: string | null; sent_at?: string | null; skip_reason?: string | null;
-          stage_id?: string | null; status?: string; template?: string | null; to_address?: string | null; updated_at?: string;
+          stage_id?: string | null; status?: string; subject?: string | null; template?: string | null; to_address?: string | null; updated_at?: string;
         };
         Update: {
           attempts?: number; body?: string | null; channel?: Database["public"]["Enums"]["notify_channel"]; created_at?: string; created_by?: string | null;
           customer_id?: string | null; error_code?: string | null; error_message?: string | null; id?: string; idempotency_key?: string | null;
           job_id?: string | null; kind?: string; org_id?: string; provider_sid?: string | null; sent_at?: string | null; skip_reason?: string | null;
-          stage_id?: string | null; status?: string; template?: string | null; to_address?: string | null; updated_at?: string;
+          stage_id?: string | null; status?: string; subject?: string | null; template?: string | null; to_address?: string | null; updated_at?: string;
         };
         Relationships: [
           { foreignKeyName: "messages_customer_id_org_id_fkey"; columns: ["customer_id", "org_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id", "org_id"] },
@@ -627,6 +633,8 @@ export type Database = {
           next_job_number: number;
           slug: string;
           texting_enabled: boolean;
+          email_enabled: boolean;
+          reply_to_email: string | null;
           timezone: string;
           updated_at: string;
         };
@@ -642,6 +650,8 @@ export type Database = {
           next_job_number?: number;
           slug: string;
           texting_enabled?: boolean;
+          email_enabled?: boolean;
+          reply_to_email?: string | null;
           timezone?: string;
           updated_at?: string;
         };
@@ -656,6 +666,8 @@ export type Database = {
           next_job_number?: number;
           slug?: string;
           texting_enabled?: boolean;
+          email_enabled?: boolean;
+          reply_to_email?: string | null;
           timezone?: string;
           updated_at?: string;
         };
@@ -793,6 +805,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      stop_updates: { Args: { p_token: string }; Returns: boolean };
       reorder_stages: { Args: { p_org: string; p_order: string[] }; Returns: undefined };
       save_form_draft: { Args: { p_data: Json; p_fields: Json; p_form: string }; Returns: string };
       seed_default_stages: { Args: { p_org: string }; Returns: undefined };

@@ -5,6 +5,7 @@
 import { stageMessageSchema, type NotifyResult } from "@/lib/notify";
 import { toE164 } from "@/lib/submission";
 import { twilioConfig } from "@/lib/sms";
+import { emailConfig, isEmail } from "@/lib/email";
 import { harnessEnabled } from "../sample";
 import { notifyStore } from "./store";
 
@@ -31,4 +32,34 @@ export async function devSendTest(phone: unknown): Promise<NotifyResult> {
   if (typeof phone !== "string" || !toE164(phone)) return { ok: false, error: "Enter a mobile number, like (555) 123-4567." };
   if (!twilioConfig()) return { ok: false, error: "Texting isn't connected to Twilio yet. Add the Twilio settings in Vercel first." };
   return { ok: false, error: "The harness doesn't send real texts." };
+}
+
+export async function devSetEmailOn(on: unknown): Promise<NotifyResult> {
+  if (!harnessEnabled()) return OFF;
+  if (typeof on !== "boolean") return { ok: false, error: "Choose on or off." };
+  notifyStore().emailOn = on;
+  return { ok: true };
+}
+export async function devSaveReplyTo(v: unknown): Promise<NotifyResult> {
+  if (!harnessEnabled()) return OFF;
+  const s = typeof v === "string" ? v.trim().toLowerCase() : "";
+  if (s && !isEmail(s)) return { ok: false, error: "Enter an email address, like hello@yourbusiness.com." };
+  notifyStore().replyTo = s;
+  return { ok: true };
+}
+export async function devSetMyAlerts(on: unknown): Promise<NotifyResult> {
+  if (!harnessEnabled()) return OFF;
+  if (typeof on !== "boolean") return { ok: false, error: "Choose on or off." };
+  notifyStore().myAlerts = on;
+  return { ok: true };
+}
+export async function devSendTestEmail(): Promise<NotifyResult> {
+  if (!harnessEnabled()) return OFF;
+  if (!emailConfig()) return { ok: false, error: "Email isn't connected yet. Add RESEND_API_KEY and EMAIL_FROM in Vercel first." };
+  return { ok: false, error: "The harness doesn't send real emails." };
+}
+export async function devStopUpdates(): Promise<{ ok: boolean }> {
+  if (!harnessEnabled()) return { ok: false };
+  notifyStore().stopped = true;
+  return { ok: true };
 }

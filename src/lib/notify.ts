@@ -11,6 +11,8 @@ export type LogEntry = {
   status: string;
   /** Already shortened on the server (•••• 4567): full numbers never reach the browser in the log. */
   to: string | null;
+  channel?: string;
+  subject?: string | null;
   body: string | null;
   reason: string | null;
   jobId: string | null;

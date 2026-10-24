@@ -21,6 +21,8 @@ type Props = {
   setTexting: (on: boolean) => Promise<NotifyResult>;
   saveStage: (id: string, input: { notify: boolean; template: string }) => Promise<NotifyResult>;
   sendTest: (phone: string) => Promise<NotifyResult>;
+  /** The email settings, shown under the text settings. */
+  emailSlot?: React.ReactNode;
 };
 
 type Msg = { ok: boolean; text: string } | null;
@@ -92,8 +94,11 @@ export function NotificationsPanel(p: Props) {
         </section>
       </div>
 
+      {p.emailSlot}
+
       <section className="panel" style={{ marginTop: 16 }} aria-labelledby="stg">
         <h2 id="stg">Messages for each stage</h2>
+        <p className="muted" style={{ fontSize: 13.5, marginBottom: 4 }}>Sent by text, or by email to customers who chose email.</p>
         <p className="muted" style={{ fontSize: 13.5, marginBottom: 12 }}>
           Insert details with {SMS_VARS.map((v) => <code key={v} className="qn-var">{`{${v}}`}</code>)}. {p.canEdit ? "" : "Only owners and admins can change these."}
         </p>
@@ -116,13 +121,14 @@ export function NotificationsPanel(p: Props) {
                 <li key={m.id} data-status={m.status}>
                   <div className="qn-log-top">
                     <span className={`pill ${st.tone}`}>{st.text}</span>
-                    {m.kind === "test" ? <b>Test text</b> : m.jobId ? <Link href={p.jobHref + m.jobId} className="mono">QTG-{m.orderNumber}</Link> : <span className="mono">—</span>}
+                    <span className="qn-chan">{m.channel === "email" ? "Email" : "Text"}</span>
+                    {m.kind === "test" ? <b>Test</b> : m.kind === "team_alert" ? <b>Team alert{m.orderNumber ? ` · QTG-${m.orderNumber}` : ""}</b> : m.jobId ? <Link href={p.jobHref + m.jobId} className="mono">QTG-{m.orderNumber}</Link> : <span className="mono">—</span>}
                     <span>{m.customer ?? ""}</span>
                     <span className="muted">{m.stage ? `· ${m.stage}` : ""}</span>
                     <span className="muted mono" style={{ marginLeft: "auto" }}>{m.to ?? "—"}</span>
                     <time className="muted" dateTime={m.at}>{time(m.at)}</time>
                   </div>
-                  {m.body && <p className="qn-body">{m.body}</p>}
+                  {m.subject ? <p className="qn-body"><b>{m.subject}</b></p> : m.body && <p className="qn-body">{m.body}</p>}
                   {m.reason && <p className="qn-reason">{m.reason}</p>}
                 </li>
               );

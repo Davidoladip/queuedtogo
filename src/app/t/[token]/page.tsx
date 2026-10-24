@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AutoRefresh } from "@/components/ui/AutoRefresh";
+import { StopUpdates } from "@/components/ui/StopUpdates";
+import { stopUpdates } from "@/server/actions/tracking";
 
 export const metadata: Metadata = { title: "Order tracking", robots: { index: false, follow: false } };
 
@@ -14,11 +16,13 @@ type Tracking = {
   current_stage_id: string;
   stages: { id: string; name: string; position: number; is_final: boolean }[];
   history: { stage_id: string; at: string }[];
+  updates_on?: boolean;
 };
 
 /** Customer tracking page. Shows status only: no customer details, notes or staff names. */
-export default async function TrackingPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function TrackingPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { token } = await params;
+  const sp = await searchParams;
   if (!/^[0-9a-f]{32,}$/.test(token)) notFound();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_job_tracking", { p_token: token });
@@ -58,6 +62,8 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
             );
           })}
         </ol>
+        {t.updates_on && <StopUpdates business={t.org_name} prompt={sp.stop === "1"} stop={stopUpdates.bind(null, token)} />}
+        {!t.updates_on && sp.stop === "1" && <p className="muted" style={{ fontSize: 13 }}>Order updates are already off for this order.</p>}
         <AutoRefresh seconds={60} />
         <p className="muted" style={{ fontSize: 13 }}>This page updates by itself as your order moves along. Questions? Contact {t.org_name} and quote QTG-{t.number}.</p>
       </main>

@@ -7,7 +7,7 @@ const OPT_OUT = "Reply STOP to opt out.";
 export type SmsVars = { name: string | null; order: number | null; link: string | null; business: string; stage: string | null };
 
 /** Fills a stage's message. Adds the opt-out line if the message doesn't mention STOP. */
-export function renderSms(template: string, v: SmsVars): string {
+export function renderSms(template: string, v: SmsVars, opts: { optOut?: boolean } = {}): string {
   const first = (v.name ?? "").trim().split(/\s+/)[0] || "there";
   const values: Record<string, string> = {
     name: first,
@@ -18,7 +18,7 @@ export function renderSms(template: string, v: SmsVars): string {
   };
   let body = template.replace(/\{([a-z_]{1,20})\}/g, (m, k: string) => (k in values ? values[k] : m));
   body = body.replace(/[ \t]+/g, " ").replace(/ +([.,!?])/g, "$1").trim();
-  if (!/\bSTOP\b/.test(body)) body = `${body} ${OPT_OUT}`;
+  if (opts.optOut !== false && !/\bSTOP\b/.test(body)) body = `${body} ${OPT_OUT}`;
   return body.slice(0, 1000);
 }
 

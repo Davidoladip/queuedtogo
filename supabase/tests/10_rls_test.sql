@@ -401,7 +401,7 @@ update public.jobs set stage_id = tests.id('ready') where id = tests.id('jobA');
 select tests.ok((select skip_reason from public.messages where job_id = tests.id('jobA') and stage_id = tests.id('ready') order by created_at desc limit 1) = 'The customer didn''t agree to order updates.', 'customers who didn''t agree are never texted');
 update public.customers set consent_updates = true, preferred_channel = 'whatsapp' where id = tests.id('custA');
 update public.jobs set stage_id = tests.id('stage0') where id = tests.id('jobA');
-select tests.ok((select skip_reason from public.messages where job_id = tests.id('jobA') and stage_id = tests.id('stage0') order by created_at desc limit 1) like 'WhatsApp and email%', 'customers who chose WhatsApp or email aren''t sent a text');
+select tests.ok((select skip_reason from public.messages where job_id = tests.id('jobA') and stage_id = tests.id('stage0') order by created_at desc limit 1) like 'WhatsApp updates%', 'customers who chose WhatsApp aren''t sent a text');
 update public.customers set preferred_channel = 'sms' where id = tests.id('custA');
 select tests.fails($$insert into public.messages (org_id, to_address, body) values (tests.id('orgA'), '+15555550100', 'spam')$$, 'the app cannot write messages directly');
 select tests.fails($$update public.messages set status = 'delivered' where org_id = tests.id('orgA')$$, 'the app cannot change message statuses');
@@ -424,6 +424,53 @@ select tests.ok((select m.status = 'queued' and m.to_address = '+15555550199' an
   from public.messages m join public.jobs j on j.id = m.job_id where j.number = (tests.val('webOrder')::jsonb ->> 'number')::int),
   'a new online order queues its confirmation text');
 update public.organizations set texting_enabled = false where id = tests.id('orgA');
+
+-- ---------------------------------------------------------------- email updates and team alerts (Stage 9)
+select tests.login('finn');
+insert into public.member_alerts (org_id, user_id, new_order_email) values (tests.id('orgA'), tests.id('finn'), false);
+select tests.fails($$insert into public.member_alerts (org_id, user_id, new_order_email) values (tests.id('orgA'), tests.id('alice'), false)$$, 'members cannot change someone else''s alert settings');
+select tests.affects($$update public.organizations set email_enabled = true where id = tests.id('orgA')$$, 0, 'members cannot switch email on');
+reset role;
+select tests.login('bob');
+select tests.ok((select count(*) from public.member_alerts) = 0, 'other businesses cannot see alert settings');
+reset role;
+select tests.login('alice');
+select tests.affects($$update public.organizations set email_enabled = true, reply_to_email = 'hello@threadtogo.example' where id = tests.id('orgA')$$, 1, 'an owner can switch email on and set the reply-to address');
+select tests.fails($$update public.organizations set reply_to_email = 'not an email' where id = tests.id('orgA')$$, 'the reply-to address must be an email');
+reset role;
+
+set role service_role;
+insert into tests.vals values ('emailOrder', public.submit_form(gen_random_uuid(), tests.id('formA'), tests.val('ver')::int, '{}',
+  '{"name":"Nora Diaz","email":"nora@example.com","channel":"email"}', true, 'Email order', null, '[]', null, null, null)::text);
+reset role;
+insert into tests.ids select 'emailJob', id from public.jobs where number = (tests.val('emailOrder')::jsonb ->> 'number')::int and org_id = tests.id('orgA');
+select tests.ok((select count(*) from public.messages where job_id = tests.id('emailJob') and kind = 'confirmation' and channel = 'email' and to_address = 'nora@example.com' and status = 'queued') = 1, 'a new order queues a confirmation email to the customer');
+select tests.ok((select count(*) from public.messages where job_id = tests.id('emailJob') and kind = 'stage_update') = 0, 'email customers don''t also get a separate "order received" update');
+select tests.ok((select count(*) from public.messages where job_id = tests.id('emailJob') and kind = 'team_alert') = 3, 'team members get a new-order alert');
+select tests.ok(not exists (select 1 from public.messages where job_id = tests.id('emailJob') and kind = 'team_alert' and to_address = 'finn@example.com'), 'a member who switched alerts off gets none');
+select tests.login('alice');
+update public.jobs set stage_id = tests.id('stage2') where id = tests.id('emailJob');
+select tests.ok((select channel = 'email' and to_address = 'nora@example.com' and status = 'queued' from public.messages where job_id = tests.id('emailJob') and kind = 'stage_update'), 'customers who chose email get stage updates by email');
+reset role;
+insert into tests.vals select 'emailToken', tracking_token from public.jobs where id = tests.id('emailJob');
+select tests.anon();
+select tests.ok((public.get_job_tracking(tests.val('emailToken')) ->> 'updates_on')::boolean, 'the tracking page knows updates are on');
+select tests.ok(public.stop_updates(tests.val('emailToken')), 'a customer can stop updates from their tracking link');
+select tests.ok(not (public.get_job_tracking(tests.val('emailToken')) ->> 'updates_on')::boolean, 'after stopping, updates are off');
+select tests.ok(not public.stop_updates('nope'), 'a made-up tracking link stops nothing');
+select tests.ok((select count(*) from public.messages) = 0, 'visitors still cannot read messages');
+reset role;
+select tests.ok((select status from public.messages where job_id = tests.id('emailJob') and kind = 'stage_update') = 'skipped'
+  and (select not consent_updates from public.customers where email = 'nora@example.com'), 'stopping cancels waiting updates and records the choice');
+select tests.login('alice');
+update public.organizations set email_enabled = false where id = tests.id('orgA');
+reset role;
+set role service_role;
+insert into tests.vals values ('quietOrder', public.submit_form(gen_random_uuid(), tests.id('formA'), tests.val('ver')::int, '{}',
+  '{"name":"Omar Reed","email":"omar@example.com","channel":"email"}', true, 'Quiet order', null, '[]', null, null, null)::text);
+reset role;
+select tests.ok((select count(*) from public.messages m join public.jobs j on j.id = m.job_id where j.number = (tests.val('quietOrder')::jsonb ->> 'number')::int and m.kind in ('confirmation', 'team_alert')) = 0, 'with email switched off, no emails are queued');
+select tests.fails($$insert into public.messages (org_id, channel, to_address) values (tests.id('orgA'), 'email', '+15555550100')$$, 'an email message needs an email address');
 
 -- ---------------------------------------------------------------- deleting a business (with a job in it)
 select tests.login('bob');
