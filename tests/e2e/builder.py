@@ -253,6 +253,24 @@ with sync_playwright() as p:
     check("publishing confirms and marks the form live", "Published" in pg.inner_text(".notice.success") and pg.locator(".b-top .pill.good", has_text="Live").count() == 1)
     pg.get_by_role("tab", name="Settings").click()
     check("the public link uses the new address", "/f/demo/food-fest-2026" in pg.inner_text(".b-body"))
+    qr = pg.locator('[data-testid="form-qr"]')
+    pg.wait_for_selector('[data-testid="form-qr"] .b-qr-img svg')
+    check("a QR code appears under the public link", qr.locator(".b-qr-img svg").count() == 1 and "food-fest-2026" in qr.locator(".b-qr-img").get_attribute("aria-label"))
+    with pg.expect_download() as d:
+        qr.get_by_role("button", name="Download PNG").click()
+    dl = d.value
+    path = dl.path()
+    head = open(path, "rb").read(8)
+    check("the QR code downloads as a PNG named after the form", dl.suggested_filename == "food-fest-2026-qr.png" and head.startswith(b"\x89PNG"))
+    with pg.expect_download() as d2:
+        qr.get_by_role("button", name="Download SVG").click()
+    check("the QR code downloads as an SVG", d2.value.suggested_filename == "food-fest-2026-qr.svg" and open(d2.value.path()).read().startswith("<svg"))
+    with pg.expect_popup() as pop:
+        qr.get_by_role("button", name="Print a sign").click()
+    sign = pop.value
+    sign.wait_for_load_state()
+    check("a printable sign opens with the title, QR code and link", "Scan to order" in sign.inner_text("body") and sign.locator("img").count() == 1 and "/f/demo/food-fest-2026" in sign.inner_text("body"))
+    sign.close()
     pg.screenshot(path=f"{SHOTS}/builder.png", full_page=True)
 
     check("no browser errors", not errors, errors[:5])

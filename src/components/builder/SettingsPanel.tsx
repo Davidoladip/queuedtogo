@@ -1,6 +1,7 @@
 "use client";
 
 import { CopyField } from "@/components/ui/CopyField";
+import { FormQr } from "./FormQr";
 import { CHANNELS, type FormModel } from "@/lib/design/engine";
 import { CONSENT_VARS, DEFAULT_CONSENT, DEFAULT_THANKS, THANKS_VARS, fillMessage, unknownPlaceholders } from "@/lib/design/media";
 import { deleteForm } from "@/server/actions/forms";
@@ -85,7 +86,7 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
           onChange={(v) => update((d) => { d.settings.notify.consent = v; })} hint="Adds a checkbox above the submit button. US rules require consent before texting." />
         <Select label="Send updates by" value={form.settings.notify.channel} options={Object.entries(CHANNELS) as ["sms", string][]}
           onChange={(v) => update((d) => { d.settings.notify.channel = v; })} />
-        <p className="muted b-note">Messages aren&apos;t sent yet. Sending is connected in a later stage.</p>
+        <p className="muted b-note">Texts and emails are switched on, and each stage&apos;s message is written, on the Notifications page.</p>
       </section>
 
       <section className="b-card form">
@@ -95,6 +96,7 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
             <p className="b-note">Published version {version}. Customers see the published version until you publish again.</p>
             <span className="b-label">Public link</span>
             <CopyField label="Copy link" value={`${siteUrl}/f/${orgSlug}/${form.slug}`} />
+            <FormQr url={`${siteUrl}/f/${orgSlug}/${form.slug}`} slug={form.slug} title={form.title} />
           </>
         ) : (
           <p className="b-note muted">Not published yet. Use <b>Publish form</b> at the top when it&apos;s ready.</p>
