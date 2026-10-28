@@ -52,6 +52,7 @@ The smoke and prototype tests use Python with Playwright: `pip install playwrigh
 | `TWILIO_MESSAGING_SERVICE_SID` | Server only: the Messaging Service that sends the texts (`MG…`). `TWILIO_FROM_NUMBER` (+1…) works instead. | No. |
 | `TWILIO_API_KEY_SID` / `TWILIO_API_KEY_SECRET` | Server only, optional: an API key (`SK…`) used for sending instead of the Auth Token | **Yes** (the secret). |
 | `EMAIL_FROM` | Server only: the email sender, on a domain verified in Twilio Email, e.g. `QueuedToGo <updates@queuedtogo.com>`. Emails use the Twilio settings above. | No. |
+| `CRON_SECRET` | Server only: lets Vercel's daily job (`vercel.json`) send RSVP reminder emails. Any long random string; mark it Sensitive. | No. Without it, reminders aren't sent. |
 
 `.env.local` is ignored by Git. `.env.example` lists every variable without secrets.
 

@@ -18,6 +18,7 @@ import {
   type FormModel,
 } from "@/lib/design/engine";
 import { DEFAULT_THANKS, fillMessage, type ArtSettings, type SwatchSettings } from "@/lib/design/media";
+import { DEFAULT_RSVP_THANKS, RSVP_KEYS, guestsText, rsvpHeadline, whenText, type RsvpStatus } from "@/lib/rsvp";
 
 type Mode = "edit" | "live";
 
@@ -44,11 +45,19 @@ type Props = {
   closedMessage?: string | null;
   /** Live mode: the published version (sent back so answers match the form the customer saw). */
   version?: number;
+  /** Edit mode, RSVP forms: which reply the thank-you preview shows. */
+  previewRsvp?: { status: RsvpStatus; waitlisted: boolean };
   /** Live mode: sends the order. Without it, the form explains that ordering isn't switched on. */
   onSubmitOrder?: (fd: FormData) => Promise<OrderResult>;
 };
 
-export type OrderResult = { ok: true; number: number; trackingUrl: string } | { ok: false; message: string; errors?: Record<string, string> };
+/** What a guest sees after replying to an RSVP form. */
+export type RsvpDone = { status: RsvpStatus; waitlisted: boolean; party: number; name: string | null; manageUrl: string | null; googleUrl: string | null; icsUrl: string | null };
+export type OrderResult =
+  | { ok: true; number: number; trackingUrl: string; rsvp?: undefined }
+  | { ok: true; rsvp: RsvpDone }
+  | { ok: false; message: string; errors?: Record<string, string> };
+type Done = { number: number; trackingUrl: string } | { rsvp: RsvpDone };
 
 /** A fresh key per order attempt, so a double click or retry never creates two orders. */
 const newClientKey = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().replace(/-/g, "") : `${Date.now()}${Math.random().toString(36).slice(2)}`.padEnd(20, "0"));
@@ -64,8 +73,9 @@ const PHONE = (v: string) => {
 };
 const isLocked = (f: FormField) => LOCKABLE.has(f.type) && f.config.locked === true;
 
-export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder }: Props) {
+export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp }: Props) {
   const E = mode === "edit";
+  const isRsvp = form.settings.mode === "rsvp";
   const t = form.design.theme;
   const art = srcOf(form.design.art, assetBase);
   const L = t.layout;
@@ -78,7 +88,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   const [ready, setReady] = useState<boolean[]>([]);
   const [drop, setDrop] = useState<{ idx: number; after: boolean } | null>(null);
   const [sending, setSending] = useState(false);
-  const [done, setDone] = useState<{ number: number; trackingUrl: string } | null>(null);
+  const [done, setDone] = useState<Done | null>(null);
   const [clientKey, setClientKey] = useState(newClientKey);
   const [formKey, setFormKey] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
@@ -156,12 +166,12 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
     e.preventDefault();
     if (E || sending) return;
     if (!validatePage(shownPage)) return;
-    if (!onSubmitOrder) { setNotice("Online ordering isn't switched on for this form yet. Please check back soon."); return; }
+    if (!onSubmitOrder) { setNotice(isRsvp ? "RSVPs aren't switched on for this form yet. Please check back soon." : "Online ordering isn't switched on for this form yet. Please check back soon."); return; }
     setSending(true);
     setNotice(null);
     try {
       const res = await onSubmitOrder(new FormData(formRef.current!));
-      if (res.ok) { setDone({ number: res.number, trackingUrl: res.trackingUrl }); window.scrollTo?.({ top: 0, behavior: "smooth" }); return; }
+      if (res.ok) { setDone(res.rsvp ? { rsvp: res.rsvp } : { number: res.number, trackingUrl: res.trackingUrl }); window.scrollTo?.({ top: 0, behavior: "smooth" }); return; }
       setNotice(res.message);
       if (res.errors && Object.keys(res.errors).length) {
         setErrors(res.errors);
@@ -171,7 +181,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
         if (p >= 0) setPage(p);
       }
     } catch {
-      setNotice("We couldn't reach the order system. Check your connection and try again. Your answers are still here.");
+      setNotice(`We couldn't reach the ${isRsvp ? "RSVP" : "order"} system. Check your connection and try again. Your answers are still here.`);
     } finally {
       setSending(false);
     }
@@ -230,18 +240,47 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
     ? <div className={`qf-head qf-head-${ha!.pos}`}><ArtBlock sid="__hart" a={ha!} alt={ha!.alt || `${form.title} artwork`} {...artProps} />{headText}</div>
     : <div className="qf-head">{headText}</div>;
   const consentText = fillMessage(form.settings.notify.consentText, { channel: CHANNELS[form.settings.notify.channel], business: businessName });
-  const orderNo = done ? `QTG-${done.number}` : "QTG-1001";
-  const thanks = (
+  const orderDone = done && "number" in done ? done : null;
+  const orderNo = orderDone ? `QTG-${orderDone.number}` : "QTG-1001";
+  const rsvpDone: RsvpDone | null = done && "rsvp" in done ? done.rsvp
+    : E && isRsvp ? { status: previewRsvp?.status ?? "yes", waitlisted: previewRsvp?.waitlisted ?? false, party: 2, name: "Sam", manageUrl: form.settings.rsvp.allowChange ? "#" : null, googleUrl: form.eventDate ? "#" : null, icsUrl: form.eventDate ? "#" : null }
+      : null;
+  const rsvpThanks = rsvpDone && (
+    <div className="qf-done qf-rsvp-done" role="status" data-rsvp={rsvpDone.waitlisted ? "wait" : rsvpDone.status}>
+      <h2 className="qf-title" data-sid="__title" data-kind="heading">{rsvpHeadline(form.settings.rsvp, rsvpDone.status, rsvpDone.waitlisted)}</h2>
+      <p className="qf-intro" data-sid="__intro" data-kind="text">
+        {fillMessage(form.thanks || DEFAULT_RSVP_THANKS, { name: (rsvpDone.name || "").split(" ")[0] || "there", business: businessName, form_title: form.title, guests: guestsText(rsvpDone.party) })}
+      </p>
+      {rsvpDone.status !== "no" && (form.eventDate || form.venue) && (
+        <div className="qf-when">
+          {form.eventDate && <div><b>{whenText(form.eventDate, form.settings.rsvp)}</b></div>}
+          {form.venue && <div>{form.venue}</div>}
+          {rsvpDone.party > 1 && <div>Party of {rsvpDone.party}</div>}
+        </div>
+      )}
+      {rsvpDone.waitlisted && <p className="qf-help">We&apos;ll email you if a place opens up.</p>}
+      {rsvpDone.status !== "no" && !rsvpDone.waitlisted && rsvpDone.googleUrl && (
+        <div className="qf-cal">
+          <a className="qf-btn qf-submit" data-sid="__submit" data-kind="button" href={rsvpDone.googleUrl} target="_blank" rel="noopener noreferrer" tabIndex={E ? -1 : undefined}>Add to Google Calendar</a>
+          {rsvpDone.icsUrl && <a className="qf-cal-ics" href={rsvpDone.icsUrl} tabIndex={E ? -1 : undefined}>Apple / Outlook calendar (.ics)</a>}
+        </div>
+      )}
+      {rsvpDone.manageUrl && <a className="qf-manage" href={rsvpDone.manageUrl} tabIndex={E ? -1 : undefined}>Change or cancel your RSVP</a>}
+      {E && <div className="qf-sample">Sample reply. Guests see their own details.</div>}
+      {done && <button type="button" className="qf-link-btn" onClick={another}>Send another RSVP</button>}
+    </div>
+  );
+  const thanks = rsvpThanks || (
     <div className="qf-done" role="status">
       <h2 className="qf-title" data-sid="__title" data-kind="heading">You&apos;re in the queue!</h2>
       <p className="qf-intro" data-sid="__intro" data-kind="text">{fillMessage(form.thanks || DEFAULT_THANKS, { order_number: orderNo, business: businessName, form_title: form.title })}</p>
       <div>Your order number</div>
       <div className="num">{orderNo}</div>
       {E && <div className="qf-sample">Sample order number. Customers see their real one.</div>}
-      {done && (
+      {orderDone && (
         <>
           <div>Track your order any time:</div>
-          <a className="lk" href={done.trackingUrl}>{done.trackingUrl}</a>
+          <a className="lk" href={orderDone.trackingUrl}>{orderDone.trackingUrl}</a>
           <button type="button" className="qf-btn qf-submit" data-sid="__submit" data-kind="button" onClick={another}>Submit another order</button>
         </>
       )}
@@ -272,14 +311,14 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
             if (f.type === "submit") {
               return blk(idx, (
                 <>
-                  {form.settings.notify.consent && (
+                  {form.settings.notify.consent && !isRsvp && (
                     <label className="qf-check">
                       {/* Never pre-ticked: consent to texts must be the customer's own choice (carrier rules). */}
                       <input type="checkbox" name="__consent" tabIndex={ti} />
                       {" "}{consentText}
                     </label>
                   )}
-                  {form.settings.notify.consent && legalReady() && (
+                  {form.settings.notify.consent && !isRsvp && legalReady() && (
                     <p className="qf-legal">See the <a href="/terms" target="_blank" rel="noopener">texting terms</a> and <a href="/privacy" target="_blank" rel="noopener">privacy policy</a>.</p>
                   )}
                   {notice && <div className="qf-closed" role="status">{notice}</div>}
@@ -334,7 +373,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
             <div className="qf-card">
               {showThanks || done ? thanks : <>{head}{closedMessage ? <div className="qf-closed">{closedMessage}</div> : body}</>}
             </div>
-            <div className="qf-powered">Order form by {businessName} · Powered by QueuedToGo</div>
+            <div className="qf-powered">{isRsvp ? "RSVP" : "Order form"} by {businessName} · Powered by QueuedToGo</div>
           </div>
         </div>
       </div>
@@ -351,7 +390,7 @@ function PageSection({ children, hidden, index, editing, pbLabel }: { children: 
   );
 }
 
-type ArtCtx = { assetBase: string; editing: boolean; selected: string | null; onResize?: (sid: string, widthPx: number) => void };
+export type ArtCtx = { assetBase: string; editing: boolean; selected: string | null; onResize?: (sid: string, widthPx: number) => void };
 
 /** Required colour choice not made: on the question, or on the option the customer picked. */
 function colourMissing(f: FormField, fd: FormData): string | null {
@@ -492,6 +531,8 @@ function Block({ f: raw, editing, error, fs, art }: { f: FormField; editing: boo
           })}
         </div></>);
     }
+    case "rsvp":
+      return wrap("choice", <>{glab}{help}<RsvpChoices f={f} editing={editing} fs={fs} art={art} describedBy={describedBy} /></>);
     case "sizes":
       return wrap("input", <>{glab}{help}
         <div className="qf-sizes" role="group" aria-labelledby={`ql-${f.id}`}>
@@ -503,4 +544,45 @@ function Block({ f: raw, editing, error, fs, art }: { f: FormField; editing: boo
         <input type="file" id={inId} name={f.id} accept="image/*,.pdf" hidden tabIndex={ti} /></>);
   }
   return null;
+}
+
+/** Yes / No / Maybe buttons, styled exactly like choice options (so every Design setting applies), plus the guest count. */
+export function RsvpChoices({ f, editing, fs, art, describedBy, initial, initialParty }: {
+  f: FormField; editing: boolean; fs: (sid: string, kind: string) => string; art: ArtCtx; describedBy?: string;
+  /** The change-RSVP page: the guest's current answer and guest count. */
+  initial?: RsvpStatus; initialParty?: number;
+}) {
+  const ti = editing ? -1 : undefined;
+  const max = Math.max(1, f.config.partyMax ?? 1);
+  return (
+    <>
+      <div className="qf-opts" role="radiogroup" aria-labelledby={`ql-${f.id}`} aria-describedby={describedBy}>
+        {RSVP_KEYS.map((key, i) => {
+          const o = (f.options[i] ?? "").trim();
+          if (!o) return null;
+          const sid = `${f.id}__o${i}`, m = f.config.optMeta?.[i];
+          const oArt = m?.art ? <ArtBlock sid={`${sid}__art`} a={m.art} alt={m.art.alt || o} {...art} /> : null;
+          const text = oArt ? <span className={`qf-opt-c ${m!.art!.pos}`}>{oArt}<span className="qf-opt-t">{o}</span></span> : o;
+          const label = (
+            <label key={key} className={`qf-opt${fs(sid, "option")}`} data-sid={sid} data-kind="option" data-rsvp={key}>
+              <input type="radio" name={f.id} value={key} tabIndex={ti} defaultChecked={initial === key} /><span>{text}</span>
+            </label>
+          );
+          return m?.swatches ? (
+            <div key={key} className="qf-optw">
+              {label}
+              <Swatches sid={`${sid}__sw`} s={{ ...m.swatches, selectable: false }} name={`${sid}__color`} label={`${o}: colours`} editing={editing} fs={fs} />
+            </div>
+          ) : label;
+        })}
+      </div>
+      {max > 1 && (
+        <div className={`qf-party${fs(`${f.id}__party`, "input")}`} data-sid={`${f.id}__party`} data-kind="input">
+          <label className="qf-help" htmlFor={`q-${f.id}-party`}>{f.config.partyLabel}</label>
+          <input className="qf-in" id={`q-${f.id}-party`} type="number" name={`${f.id}__party`} min={1} max={max} step={1} inputMode="numeric" tabIndex={ti}
+            defaultValue={initialParty && initialParty > 0 ? Math.min(initialParty, max) : 1} />
+        </div>
+      )}
+    </>
+  );
 }

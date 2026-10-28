@@ -8,6 +8,7 @@ const SECTIONS = [
   ["submissions", "Submissions"],
   ["board", "Production board"],
   ["event", "Event day"],
+  ["guests", "Guests"],
   ["notifications", "Notifications"],
   ["tracking", "Tracking"],
   ["settings", "Settings"],

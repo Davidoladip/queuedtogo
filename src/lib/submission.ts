@@ -3,14 +3,15 @@
 
 import { isInput, LOCKABLE, type FormField, type FormModel } from "./design/engine";
 import type { SwatchSettings } from "./design/media";
+import { RSVP_KEYS, guestsText, type RsvpStatus } from "./rsvp";
 
 export type AnswerValue = string | string[] | Record<string, number> | { file: string; size: number; type: string; path?: string } | null;
-export type Answer = { label: string; type: string; value: AnswerValue; colour?: string; optionColours?: Record<string, string> };
+export type Answer = { label: string; type: string; value: AnswerValue; colour?: string; optionColours?: Record<string, string>; rsvp?: RsvpStatus; party?: number };
 export type Customer = { name: string | null; email: string | null; phone: string | null; channel: string };
 export type UploadIn = { fieldId: string; file: File };
 
 export type Checked =
-  | { ok: true; answers: Record<string, Answer>; customer: Customer; consent: boolean; title: string; summary: string; uploads: UploadIn[] }
+  | { ok: true; answers: Record<string, Answer>; customer: Customer; consent: boolean; title: string; summary: string; uploads: UploadIn[]; rsvp: { status: RsvpStatus; party: number } | null }
   | { ok: false; errors: Record<string, string>; message: string };
 
 /** Minimal FormData-like interface so this works with FormData and in tests. */
@@ -38,6 +39,7 @@ export function checkSubmission(form: FormModel, fd: Fields): Checked {
   const errors: Record<string, string> = {};
   const answers: Record<string, Answer> = {};
   const uploads: UploadIn[] = [];
+  let rsvp: { status: RsvpStatus; party: number } | null = null;
 
   if (text(fd.get("__hp"))) return { ok: false, errors: {}, message: "We couldn't send your order. Reload the page and try again." };
 
@@ -47,6 +49,7 @@ export function checkSubmission(form: FormModel, fd: Fields): Checked {
     const options = f.options.map((o) => o.trim()).filter(Boolean);
     let value: AnswerValue = null;
     let filled = false;
+    let rsvpPick: { status: RsvpStatus; party: number } | null = null;
 
     if (LOCKABLE.has(f.type) && f.config.locked) {
       // Locked answers always come from the form, never from the browser.
@@ -73,6 +76,25 @@ export function checkSubmission(form: FormModel, fd: Fields): Checked {
         filled = v !== "";
         if (filled && !options.includes(v)) { errors[f.id] = "Choose one of the options."; break; }
         if (filled) value = v;
+        break;
+      }
+      case "rsvp": {
+        // Options are [yes, no, maybe]; the browser sends the key, never the wording.
+        const v = text(fd.get(f.id));
+        filled = v !== "";
+        if (!filled) break;
+        const i = RSVP_KEYS.indexOf(v as RsvpStatus);
+        if (i < 0 || !f.options[i]?.trim()) { errors[f.id] = "Choose one of the answers."; break; }
+        const max = Math.max(1, Math.min(50, f.config.partyMax ?? 1));
+        let party = v === "no" ? 0 : 1;
+        if (v !== "no" && max > 1) {
+          const raw = text(fd.get(`${f.id}__party`));
+          const n = raw === "" ? 1 : Number(raw);
+          if (!Number.isInteger(n) || n < 1 || n > max) { errors[f.id] = `Enter how many people are coming (1 to ${max}).`; break; }
+          party = n;
+        }
+        value = f.options[i].trim();
+        rsvpPick = { status: v as RsvpStatus, party };
         break;
       }
       case "multi": {
@@ -115,6 +137,11 @@ export function checkSubmission(form: FormModel, fd: Fields): Checked {
     if (f.required && !filled) { errors[f.id] = f.type === "sizes" ? "Enter a quantity for at least one size." : "This is required."; continue; }
 
     const answer: Answer = { label, type: f.type, value };
+    if (rsvpPick) {
+      answer.rsvp = rsvpPick.status;
+      answer.party = rsvpPick.party;
+      rsvp ??= rsvpPick;
+    }
     // Colour chosen for the whole question.
     const sw = f.config.swatches;
     if (sw?.selectable) {
@@ -140,6 +167,8 @@ export function checkSubmission(form: FormModel, fd: Fields): Checked {
   }
 
   if (Object.keys(errors).length) return { ok: false, errors, message: "Check the highlighted answers." };
+  const isRsvp = form.settings.mode === "rsvp";
+  if (isRsvp && !rsvp) return { ok: false, errors: {}, message: "This RSVP form isn't set up yet: it needs an RSVP question. Please let the host know." };
 
   const list = form.fields.filter((f) => answers[f.id]);
   const firstOf = (t: string) => list.find((f) => f.type === t && answers[f.id].value);
@@ -150,14 +179,15 @@ export function checkSubmission(form: FormModel, fd: Fields): Checked {
     phone: firstOf("phone") ? String(answers[firstOf("phone")!.id].value) : null,
     channel: form.settings.notify.channel,
   };
-  const consent = form.settings.notify.consent && fd.get("__consent") === "on";
+  // RSVP forms never ask for texting permission.
+  const consent = !isRsvp && form.settings.notify.consent && fd.get("__consent") === "on";
   const who = customer.name || customer.email || customer.phone || "Order";
   const summary = list
-    .filter((f) => ["choice", "multi", "dropdown", "sizes"].includes(f.type) && answers[f.id].value)
+    .filter((f) => ["choice", "multi", "dropdown", "sizes", "rsvp"].includes(f.type) && answers[f.id].value)
     .map((f) => `${answers[f.id].label}: ${formatAnswer(answers[f.id])}`)
     .join(" · ")
     .slice(0, 500);
-  return { ok: true, answers, customer, consent, title: `${form.title} · ${who}`.slice(0, 200), summary, uploads };
+  return { ok: true, answers, customer, consent, title: `${form.title} · ${who}`.slice(0, 200), summary, uploads, rsvp: isRsvp ? rsvp : null };
 }
 
 /** Human-readable answer, used in job summaries and on the Submissions page. */
@@ -171,6 +201,7 @@ export function formatAnswer(a: Answer): string {
   else s = Object.entries(v).map(([k, n]) => `${k} × ${n}`).join(", ");
   if (typeof v === "string" && a.optionColours?.[v]) s = `${v} · ${a.optionColours[v]}`;
   if (a.colour) s += ` · colour ${a.colour}`;
+  if (a.rsvp && a.rsvp !== "no" && (a.party ?? 1) > 1) s += ` · ${guestsText(a.party!)}`;
   return s;
 }
 

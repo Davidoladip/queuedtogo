@@ -472,6 +472,134 @@ reset role;
 select tests.ok((select count(*) from public.messages m join public.jobs j on j.id = m.job_id where j.number = (tests.val('quietOrder')::jsonb ->> 'number')::int and m.kind in ('confirmation', 'team_alert')) = 0, 'with email switched off, no emails are queued');
 select tests.fails($$insert into public.messages (org_id, channel, to_address) values (tests.id('orgA'), 'email', '+15555550100')$$, 'an email message needs an email address');
 
+-- ---------------------------------------------------------------- RSVP mode (Stage 10)
+select tests.login('alice');
+update public.organizations set email_enabled = true where id = tests.id('orgA');
+with x as (insert into public.forms (org_id, title, slug, event_date, settings) values (tests.id('orgA'), 'Launch Party', 'launch-party', current_date + 30,
+  '{"mode":"rsvp","rsvp":{"capacity":5,"waitlist":true,"allowChange":true,"reminder":true}}') returning id) insert into tests.ids select 'formR', id from x;
+insert into public.form_fields (org_id, form_id, position, type, label, options, required) values
+  (tests.id('orgA'), tests.id('formR'), 0, 'rsvp', 'Will you come?', '["Yes","No","Maybe"]', true),
+  (tests.id('orgA'), tests.id('formR'), 1, 'submit', '', '[]', false);
+select tests.ok(public.publish_form(tests.id('formR')) = 1, 'an RSVP form with an RSVP question can be published');
+update public.forms set status = 'live' where id = tests.id('formR');
+reset role;
+insert into tests.vals values ('rver', '1');
+
+create function tests.rsvp(email text, status text, party int, key text default null) returns jsonb language sql as $$
+  select public.submit_rsvp(gen_random_uuid(), tests.id('formR'), 1, '{}', jsonb_build_object('name', split_part(email, '@', 1), 'email', email), status, party, '[]', null, null, key)
+$$;
+grant execute on function tests.rsvp(text, text, int, text) to service_role;
+
+select tests.anon();
+select tests.fails($$select public.submit_rsvp(gen_random_uuid(), tests.id('formR'), 1, '{}', '{}', 'yes', 1, '[]', null, null, null)$$, 'visitors cannot call submit_rsvp directly');
+select tests.fails($$select public.update_rsvp(repeat('a', 64), 'no', 0)$$, 'visitors cannot call update_rsvp directly');
+reset role;
+select tests.login('alice');
+select tests.fails($$select public.submit_rsvp(gen_random_uuid(), tests.id('formR'), 1, '{}', '{}', 'yes', 1, '[]', null, null, null)$$, 'signed-in users cannot call submit_rsvp directly');
+select tests.fails($$select public.queue_rsvp_reminders()$$, 'signed-in users cannot queue reminders');
+reset role;
+
+set role service_role;
+insert into tests.vals values ('g1', tests.rsvp('ava@example.com', 'yes', 2, 'rsvpkey-0000000000001')::text);
+select tests.ok(char_length(tests.val('g1')::jsonb ->> 'token') = 64 and (tests.val('g1')::jsonb ->> 'status') = 'yes' and not (tests.val('g1')::jsonb ->> 'waitlisted')::boolean, 'a guest can say yes and gets a private link');
+select tests.ok((tests.rsvp('ava@example.com', 'yes', 2, 'rsvpkey-0000000000001') ->> 'token') = tests.val('g1')::jsonb ->> 'token', 'a repeated click returns the first reply');
+select tests.fails($$select tests.rsvp('AVA@example.com', 'no', 0)$$, 'the same email address cannot reply twice');
+select tests.fails(format($$select public.submit_rsvp(gen_random_uuid(), %L, %s, '{}', '{"name":"x"}', 'yes', 1, '[]', null, null, null)$$, tests.id('formA'), tests.val('ver')::int), 'order forms do not take RSVPs');
+select tests.fails($$select tests.rsvp('zed@example.com', 'yes', 0)$$, 'a yes needs at least one guest');
+select tests.fails($$select tests.rsvp('zed@example.com', 'later', 1)$$, 'only yes, no and maybe are accepted');
+insert into tests.vals values ('g2', tests.rsvp('ben@example.com', 'yes', 3)::text);
+insert into tests.vals values ('g3', tests.rsvp('cy@example.com', 'yes', 1)::text);
+insert into tests.vals values ('g4', tests.rsvp('di@example.com', 'no', 4)::text);
+insert into tests.vals values ('g5', tests.rsvp('eve@example.com', 'maybe', 2)::text);
+reset role;
+select tests.ok(not (tests.val('g2')::jsonb ->> 'waitlisted')::boolean, 'guests fit while there is room (2 + 3 of 5)');
+select tests.ok((tests.val('g3')::jsonb ->> 'waitlisted')::boolean, 'when the event is full, a new yes goes on the waitlist');
+select tests.ok((tests.val('g4')::jsonb ->> 'party')::int = 0 and not (tests.val('g4')::jsonb ->> 'waitlisted')::boolean, 'a no counts nobody and never waits');
+select tests.ok(not (tests.val('g5')::jsonb ->> 'waitlisted')::boolean, 'a maybe doesn''t take a place');
+select tests.ok(public.rsvp_headcount(tests.id('formR')) = 5, 'the headcount is the confirmed guests and their parties');
+select tests.ok((select count(*) from public.form_submissions where form_id = tests.id('formR')) = 5 and (select count(*) from public.jobs where form_id = tests.id('formR')) = 0, 'RSVPs are stored as submissions but never create production jobs');
+select tests.ok((select count(*) from public.messages where kind = 'rsvp_confirmation' and rsvp_id is not null) = 5, 'every guest with an email gets a confirmation email queued');
+select tests.ok((select consent_updates from public.customers where email = 'ava@example.com') = false, 'replying doesn''t sign anyone up for texts');
+
+set role service_role;
+select tests.ok((public.update_rsvp(tests.val('g2')::jsonb ->> 'token', 'no', 0) ->> 'status') = 'no', 'a guest can cancel from their link');
+reset role;
+select tests.ok(not (select waitlisted from public.rsvps where token = tests.val('g3')::jsonb ->> 'token'), 'a freed place goes to the first guest on the waitlist');
+select tests.ok((select count(*) from public.messages m join public.rsvps r on r.id = m.rsvp_id where r.email = 'cy@example.com' and m.kind = 'rsvp_promoted') = 1, 'the promoted guest gets an email');
+set role service_role;
+select tests.ok((public.update_rsvp(tests.val('g1')::jsonb ->> 'token', 'yes', 4) ->> 'party')::int = 4, 'a confirmed guest can bring more people while there is room');
+select tests.fails(format($$select public.update_rsvp(%L, 'yes', 5)$$, tests.val('g1')::jsonb ->> 'token'), 'a confirmed guest cannot take more places than are free');
+select tests.ok(not (public.update_rsvp(tests.val('g1')::jsonb ->> 'token', 'yes', 4) ->> 'waitlisted')::boolean, 'a confirmed guest who fails to grow keeps their place');
+select tests.fails($$select public.update_rsvp(repeat('b', 64), 'no', 0)$$, 'a made-up link changes nothing');
+select tests.fails($$select public.update_rsvp('short', 'no', 0)$$, 'a malformed link is refused');
+insert into tests.vals values ('g6', tests.rsvp('fay@example.com', 'yes', 1)::text);
+reset role;
+select tests.ok((tests.val('g6')::jsonb ->> 'waitlisted')::boolean, 'the next yes waits when the list is full again');
+
+-- Guest list access
+select tests.login('finn');
+select tests.ok((select count(*) from public.rsvps where form_id = tests.id('formR')) = 6, 'team members can see the guest list');
+select tests.affects(format($$update public.rsvps set checked_in_at = now() where token = %L$$, tests.val('g1')::jsonb ->> 'token'), 1, 'team members can check a guest in at the door');
+select tests.fails(format($$update public.rsvps set status = 'no' where token = %L$$, tests.val('g1')::jsonb ->> 'token'), 'team members cannot change a guest''s reply directly');
+select tests.affects(format($$delete from public.rsvps where token = %L$$, tests.val('g5')::jsonb ->> 'token'), 0, 'members cannot remove guests');
+select tests.fails($$insert into public.rsvps (org_id, form_id, status, party_size) values (tests.id('orgA'), tests.id('formR'), 'yes', 1)$$, 'nobody can add guests except through the form');
+reset role;
+select tests.login('bob');
+select tests.ok((select count(*) from public.rsvps) = 0, 'another business cannot see the guest list');
+select tests.affects($$update public.rsvps set checked_in_at = now()$$, 0, 'another business cannot check guests in');
+reset role;
+select tests.anon();
+select tests.fails($$select count(*) from public.rsvps$$, 'visitors have no access to the guest list at all');
+reset role;
+select tests.login('alice');
+select tests.affects(format($$delete from public.rsvps where token = %L$$, tests.val('g3')::jsonb ->> 'token'), 1, 'an owner can remove a guest');
+reset role;
+select tests.ok(not (select waitlisted from public.rsvps where token = tests.val('g6')::jsonb ->> 'token'), 'removing a confirmed guest lets the next waiting guest in');
+
+-- Limits without a waitlist, deadlines and locked replies
+select tests.login('alice');
+update public.forms set settings = '{"mode":"rsvp","rsvp":{"capacity":5,"waitlist":false}}' where id = tests.id('formR');
+select public.publish_form(tests.id('formR'));
+reset role;
+set role service_role;
+select tests.fails($$select public.submit_rsvp(gen_random_uuid(), tests.id('formR'), 2, '{}', '{"name":"Gus","email":"gus@example.com"}', 'yes', 1, '[]', null, null, null)$$, 'with no waitlist, a full event says so');
+select tests.ok((public.submit_rsvp(gen_random_uuid(), tests.id('formR'), 2, '{}', '{"name":"Hal","email":"hal@example.com"}', 'maybe', 1, '[]', null, null, null) ->> 'status') = 'maybe', 'a full event still accepts a maybe');
+reset role;
+select tests.ok((public.get_public_form('threadtogo', 'launch-party') -> 'rsvp' ->> 'full')::boolean, 'the public form knows the event is full');
+select tests.ok(public.get_public_form('threadtogo', 'launch-party') ->> 'timezone' = 'America/New_York', 'the public form includes the business''s time zone');
+select tests.ok(public.get_public_form('threadtogo', 'food-fest') -> 'rsvp' is null or jsonb_typeof(public.get_public_form('threadtogo', 'food-fest') -> 'rsvp') = 'null', 'order forms have no RSVP state');
+
+select tests.login('alice');
+update public.forms set settings = jsonb_build_object('mode', 'rsvp', 'rsvp', jsonb_build_object('deadline', (current_date - 2)::text, 'allowChange', true)) where id = tests.id('formR');
+select public.publish_form(tests.id('formR'));
+reset role;
+select tests.ok((public.get_public_form('threadtogo', 'launch-party') -> 'rsvp' ->> 'closed')::boolean, 'after the deadline the public form shows RSVPs as closed');
+set role service_role;
+select tests.fails($$select public.submit_rsvp(gen_random_uuid(), tests.id('formR'), 3, '{}', '{"name":"Ivy","email":"ivy@example.com"}', 'yes', 1, '[]', null, null, null)$$, 'no new replies after the deadline');
+select tests.fails(format($$select public.update_rsvp(%L, 'yes', 1)$$, tests.val('g4')::jsonb ->> 'token'), 'after the deadline a no cannot become a yes');
+select tests.ok((public.update_rsvp(tests.val('g1')::jsonb ->> 'token', 'yes', 3) ->> 'party')::int = 3, 'after the deadline a guest can still lower their numbers');
+select tests.ok((public.update_rsvp(tests.val('g1')::jsonb ->> 'token', 'no', 0) ->> 'status') = 'no', 'after the deadline a guest can still cancel');
+reset role;
+select tests.login('alice');
+update public.forms set settings = '{"mode":"rsvp","rsvp":{"allowChange":false}}' where id = tests.id('formR');
+select public.publish_form(tests.id('formR'));
+reset role;
+set role service_role;
+select tests.fails(format($$select public.update_rsvp(%L, 'yes', 1)$$, tests.val('g6')::jsonb ->> 'token'), 'when changes are switched off, the link cannot change the reply');
+reset role;
+
+-- Reminders the day before
+select tests.login('alice');
+update public.forms set event_date = current_date + 1, settings = '{"mode":"rsvp","rsvp":{"reminder":true}}' where id = tests.id('formR');
+select public.publish_form(tests.id('formR'));
+reset role;
+set role service_role;
+select tests.ok((select array_agg(x) from public.queue_rsvp_reminders() x) = array[tests.id('orgA')], 'reminders are queued for businesses with an event tomorrow');
+select tests.ok((select count(*) from public.queue_rsvp_reminders()) = 0, 'reminders are queued only once');
+reset role;
+select tests.ok((select count(*) from public.messages where kind = 'rsvp_reminder') = (select count(*) from public.rsvps where form_id = tests.id('formR') and status in ('yes', 'maybe') and not waitlisted and email is not null), 'every guest coming (or maybe) gets one reminder');
+select tests.ok(not exists (select 1 from public.messages m join public.rsvps r on r.id = m.rsvp_id where m.kind = 'rsvp_reminder' and r.status = 'no'), 'guests who said no get no reminder');
+
 -- ---------------------------------------------------------------- deleting a business (with a job in it)
 select tests.login('bob');
 select tests.affects($$delete from public.organizations where id = tests.id('orgB')$$, 1, 'an owner can delete their business');

@@ -35,7 +35,8 @@ export const draftSchema = z.object({
     .array(fieldSchema)
     .max(200, "A form can have up to 200 blocks.")
     .refine((fs) => fs.filter((f) => f.type === "submit").length === 1, "A form needs exactly one submit button.")
-    .refine((fs) => new Set(fs.map((f) => f.id)).size === fs.length, "Two blocks share an id."),
+    .refine((fs) => new Set(fs.map((f) => f.id)).size === fs.length, "Two blocks share an id.")
+    .refine((fs) => fs.filter((f) => f.type === "rsvp").length <= 1, "A form can have only one RSVP question."),
 });
 
 export type DraftInput = z.input<typeof draftSchema>;

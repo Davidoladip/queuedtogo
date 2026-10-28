@@ -4,6 +4,9 @@
 import { useState } from "react";
 import { BLOCKS, IMG_DEFAULT, LOCKABLE, baseFieldId, blankField, hasChoiceOptions, hasOptions, isInput, newId, srcOf, supportsMedia, type FieldType, type FormField, type FormModel } from "@/lib/design/engine";
 import { artDefaultFor, emptyMeta, type OptionMeta } from "@/lib/design/media";
+import { PARTY_LIMIT, RSVP_DEFAULT_OPTIONS, RSVP_DEFAULT_PARTY_LABEL } from "@/lib/rsvp";
+
+const RSVP_ANSWER_NAMES = ["Yes", "No", "Maybe"];
 import { ArtQuick, ArtUploader, SwatchEditor, newSwatches } from "./media-controls";
 import { processImage } from "@/lib/design/image";
 import { NumberInput, Seg, TextInput, Toggle } from "./controls";
@@ -110,7 +113,7 @@ export function QuestionsPanel({ form, update, selected, setSelected, upload, as
         <label htmlFor="b-add-type" className="b-label">Add a block{openId ? " below the open one" : ""}</label>
         <div className="b-add-row">
           <select id="b-add-type" value={addType} onChange={(e) => setAddType(e.target.value as FieldType)}>
-            {ADDABLE.map((t) => <option key={t} value={t}>{BLOCKS[t].k}  {BLOCKS[t].name}</option>)}
+            {ADDABLE.filter((t) => t !== "rsvp" || !form.fields.some((x) => x.type === "rsvp")).map((t) => <option key={t} value={t}>{BLOCKS[t].k}  {BLOCKS[t].name}</option>)}
           </select>
           <button type="button" className="btn primary" onClick={add}>Add</button>
         </div>
@@ -202,11 +205,21 @@ function FieldEditor({ form, f, patch, update, upload, assetBase, openDesign }: 
             <TextInput label="Placeholder" value={f.placeholder} maxLength={200} onChange={(v) => patch(f.id, (x) => { x.placeholder = v; }, "ph")} />
           )}
           {hasOptions(f.type) && <OptionsEditor f={f} patch={patch} upload={upload} assetBase={assetBase} openDesign={openDesign} />}
+          {f.type === "rsvp" && (
+            <>
+              <NumberInput label="Most people per reply (including the guest)" value={f.config.partyMax ?? 1} min={1} max={PARTY_LIMIT}
+                onChange={(v) => patch(f.id, (x) => { x.config.partyMax = v; }, "pmax")} />
+              {(f.config.partyMax ?? 1) > 1 ? (
+                <TextInput label="Guest count question" value={f.config.partyLabel ?? ""} maxLength={120} placeholder={RSVP_DEFAULT_PARTY_LABEL}
+                  hint="Shown under the answers; hidden when a guest says no." onChange={(v) => patch(f.id, (x) => { x.config.partyLabel = v; }, "plab")} />
+              ) : <p className="muted b-note">Set more than 1 to let guests bring plus-ones.</p>}
+            </>
+          )}
           {(f.type === "choice" || f.type === "multi") && (
             <Seg label="Show options as" value={f.config.display === "list" ? "list" : "buttons"} options={[["buttons", "Buttons"], ["list", "List"]]}
               onChange={(v) => patch(f.id, (x) => { x.config.display = v; })} />
           )}
-          <Toggle label="Required" checked={f.required} onChange={(v) => patch(f.id, (x) => { x.required = v; })} />
+          {f.type !== "rsvp" && <Toggle label="Required" checked={f.required} onChange={(v) => patch(f.id, (x) => { x.required = v; })} />}
           {LOCKABLE.has(f.type) && (
             <>
               <Toggle label="Prefill and lock this answer" hint="Customers see the answer but can't change it, e.g. the event name or a fixed price." checked={f.config.locked === true}
@@ -230,6 +243,7 @@ function OptionsEditor({ f, patch, upload, assetBase, openDesign }: { f: FormFie
   const [bulk, setBulk] = useState(false);
   const [openOpt, setOpenOpt] = useState<number | null>(null);
   const rich = hasChoiceOptions(f.type);
+  const fixed = f.type === "rsvp";
   const noun = f.type === "sizes" ? "size" : "option";
   /** Change the option list and keep each option's artwork, swatches and style attached to it. */
   const edit = (fn: (opts: string[], meta: OptionMeta[]) => void, key?: string) => patch(f.id, (x) => {
@@ -245,8 +259,8 @@ function OptionsEditor({ f, patch, upload, assetBase, openDesign }: { f: FormFie
   return (
     <div className="b-field">
       <div className="b-el-head">
-        <span className="b-label">{f.type === "sizes" ? "Sizes" : "Options"}</span>
-        <button type="button" className="linkbtn" onClick={() => setBulk(!bulk)}>{bulk ? "Edit one by one" : "Paste a list"}</button>
+        <span className="b-label">{f.type === "sizes" ? "Sizes" : fixed ? "Answers" : "Options"}</span>
+        {!fixed && <button type="button" className="linkbtn" onClick={() => setBulk(!bulk)}>{bulk ? "Edit one by one" : "Paste a list"}</button>}
       </div>
       {bulk ? (
         <TextInput label={`${f.type === "sizes" ? "Sizes" : "Options"} (one per line)`} multiline value={f.options.join("\n")}
@@ -265,15 +279,20 @@ function OptionsEditor({ f, patch, upload, assetBase, openDesign }: { f: FormFie
             return (
               <li key={i} className={`b-opt${openOpt === i ? " open" : ""}`}>
                 <div className="b-opt-row">
-                  <input type="text" value={o} maxLength={200} aria-label={`${noun} ${i + 1}`} placeholder={`${noun[0].toUpperCase()}${noun.slice(1)} ${i + 1}`}
+                  {fixed && <span className="b-opt-key">{RSVP_ANSWER_NAMES[i]}</span>}
+                  <input type="text" value={o} maxLength={200} aria-label={fixed ? `Wording for ${RSVP_ANSWER_NAMES[i]}` : `${noun} ${i + 1}`} placeholder={fixed ? (i === 2 ? "Leave empty to hide Maybe" : RSVP_DEFAULT_OPTIONS[i]) : `${noun[0].toUpperCase()}${noun.slice(1)} ${i + 1}`}
                     onChange={(e) => edit((opts) => { opts[i] = e.target.value; }, `opt${i}`)} />
                   {rich && (
                     <button type="button" className={`b-icon${extras ? " on" : ""}`} aria-expanded={openOpt === i} aria-label={`Artwork, colours and style for ${o || `option ${i + 1}`}`} title="Artwork, colours and style"
                       onClick={() => setOpenOpt(openOpt === i ? null : i)}>✦{extras ? <sup>{extras}</sup> : null}</button>
                   )}
-                  <button type="button" className="b-icon" aria-label={`Move ${noun} ${i + 1} up`} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
-                  <button type="button" className="b-icon" aria-label={`Move ${noun} ${i + 1} down`} disabled={i === f.options.length - 1} onClick={() => move(i, 1)}>↓</button>
-                  <button type="button" className="b-icon" aria-label={`Remove ${noun} ${i + 1}`} disabled={f.options.length <= 1} onClick={() => { edit((opts, meta) => { opts.splice(i, 1); meta.splice(i, 1); }); setOpenOpt(null); }}>✕</button>
+                  {!fixed && (
+                    <>
+                      <button type="button" className="b-icon" aria-label={`Move ${noun} ${i + 1} up`} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
+                      <button type="button" className="b-icon" aria-label={`Move ${noun} ${i + 1} down`} disabled={i === f.options.length - 1} onClick={() => move(i, 1)}>↓</button>
+                      <button type="button" className="b-icon" aria-label={`Remove ${noun} ${i + 1}`} disabled={f.options.length <= 1} onClick={() => { edit((opts, meta) => { opts.splice(i, 1); meta.splice(i, 1); }); setOpenOpt(null); }}>✕</button>
+                    </>
+                  )}
                 </div>
                 {rich && openOpt === i && (
                   <div className="b-opt-body form">
@@ -297,7 +316,8 @@ function OptionsEditor({ f, patch, upload, assetBase, openDesign }: { f: FormFie
           })}
         </ol>
       )}
-      {!bulk && (
+      {fixed && <p className="muted b-note">Guests pick one. The answers always mean yes, no and maybe, whatever you call them. Leave Maybe empty to offer only yes and no.</p>}
+      {!bulk && !fixed && (
         <button type="button" className="btn small" style={{ alignSelf: "flex-start" }} disabled={f.options.length >= 100}
           onClick={() => edit((o, m) => { o.push(`${noun[0].toUpperCase()}${noun.slice(1)} ${o.length + 1}`); m.push(emptyMeta()); })}>+ Add {noun}</button>
       )}

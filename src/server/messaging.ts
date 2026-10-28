@@ -5,7 +5,9 @@ import "server-only";
 // because messages are written only by the server; every query is still limited to one business.
 import { adminClient } from "@/lib/supabase/admin";
 import { explainError, renderSms, sendSms, twilioConfig, type TwilioConfig } from "@/lib/sms";
-import { customerEmail, emailConfig, explainEmailError, sendEmail, teamAlertEmail, testEmail, type EmailConfig } from "@/lib/email";
+import { customerEmail, emailConfig, explainEmailError, rsvpEmail, sendEmail, teamAlertEmail, testEmail, type EmailConfig } from "@/lib/email";
+import { formFromPublished } from "@/lib/design/fromDb";
+import { RSVP_KEYS, eventTimes, googleCalendarUrl, rsvpHeadline, whenText, type RsvpStatus } from "@/lib/rsvp";
 
 const MAX_ATTEMPTS = 3;
 const MAX_AGE_MS = 24 * 3600_000;
@@ -16,8 +18,9 @@ type Row = {
   body: string | null; subject: string | null; attempts: number; created_at: string; customer_id: string | null;
   jobs: { id: string; number: number; tracking_token: string; summary: string | null; title: string; forms: { title: string } | null } | null;
   customers: { name: string | null } | null;
-  organizations: { name: string; slug: string; reply_to_email: string | null } | null;
+  organizations: { name: string; slug: string; reply_to_email: string | null; timezone?: string } | null;
   workflow_stages: { name: string } | null;
+  rsvps?: { id: string; token: string; name: string | null; status: RsvpStatus; party_size: number; waitlisted: boolean; form_id: string } | null;
 };
 type Deps = { admin?: Admin | null; cfg?: TwilioConfig | null; email?: EmailConfig | null; fetchImpl?: typeof fetch };
 type Outcome =
@@ -29,7 +32,7 @@ export function siteBase(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
 }
 
-const SELECT = "id, org_id, job_id, kind, channel, to_address, template, body, subject, attempts, created_at, customer_id, jobs(id, number, tracking_token, summary, title, forms(title)), customers(name), organizations(name, slug, reply_to_email), workflow_stages(name)";
+const SELECT = "id, org_id, job_id, kind, channel, to_address, template, body, subject, attempts, created_at, customer_id, jobs(id, number, tracking_token, summary, title, forms(title)), customers(name), organizations(name, slug, reply_to_email, timezone), workflow_stages(name), rsvps(id, token, name, status, party_size, waitlisted, form_id)";
 
 /** Sends this business's queued messages (optionally just one job's, or just some messages). Never throws. */
 export async function dispatchQueued(opts: { orgId: string; jobId?: string; ids?: string[]; limit?: number }, deps?: Deps) {
@@ -54,7 +57,7 @@ export async function dispatchQueued(opts: { orgId: string; jobId?: string; ids?
       ? { kind: "skip", reason: "It was more than a day old, so it wasn't sent." }
       : !m.to_address
         ? { kind: "skip", reason: m.channel === "email" ? "There's no email address." : "The customer has no mobile number." }
-        : m.channel === "email" ? await deliverEmail(m, mail, deps?.fetchImpl) : await deliverSms(m, sms, deps?.fetchImpl);
+        : m.channel === "email" ? await deliverEmail(m, mail, deps?.fetchImpl, admin) : await deliverSms(m, sms, deps?.fetchImpl);
 
     if (out.kind === "skip") {
       tally.skipped++;
@@ -95,7 +98,7 @@ async function deliverSms(m: Row, cfg: TwilioConfig | null | undefined, fetchImp
   return r.ok ? { kind: "sent", providerId: r.sid, body } : { kind: "error", code: r.code, message: r.message, retry: r.retry, body };
 }
 
-async function deliverEmail(m: Row, cfg: EmailConfig | null | undefined, fetchImpl?: typeof fetch): Promise<Outcome> {
+async function deliverEmail(m: Row, cfg: EmailConfig | null | undefined, fetchImpl: typeof fetch | undefined, admin: Admin): Promise<Outcome> {
   if (!cfg) return { kind: "skip", reason: "Email isn't connected yet." };
   const org = m.organizations;
   const job = m.jobs;
@@ -119,6 +122,29 @@ async function deliverEmail(m: Row, cfg: EmailConfig | null | undefined, fetchIm
       kind: m.kind, business: org.name, customerName: m.customers?.name ?? null, orderNumber: job.number, summary: job.summary,
       formTitle: job.forms?.title ?? null, stage: m.workflow_stages?.name ?? null, message, trackingUrl,
       stopUrl: m.kind === "stage_update" ? stopUrl : null, replyTo: org.reply_to_email,
+    });
+  } else if (m.kind === "rsvp_confirmation" || m.kind === "rsvp_reminder" || m.kind === "rsvp_promoted") {
+    const r = m.rsvps;
+    if (!r) return { kind: "skip", reason: "The guest is no longer on the list." };
+    if (m.kind === "rsvp_reminder" && (r.status === "no" || r.waitlisted)) return { kind: "skip", reason: "The guest is no longer coming." };
+    if (m.kind === "rsvp_promoted" && (r.status !== "yes" || r.waitlisted)) return { kind: "skip", reason: "The guest is no longer coming." };
+    const { data: fr } = await admin.from("forms").select("id, slug, published_config").eq("id", r.form_id).maybeSingle();
+    const row = fr as { id: string; slug: string; published_config: Record<string, unknown> | null } | null;
+    if (!row?.published_config) return { kind: "skip", reason: "The RSVP form no longer exists." };
+    const form = formFromPublished(row.id, row.slug, row.published_config);
+    const s = form.settings.rsvp;
+    const tz = org.timezone || "America/New_York";
+    const manageUrl = `${siteBase()}/r/${r.token}`;
+    const times = eventTimes(form.eventDate, s, tz);
+    const field = form.fields.find((f) => f.type === "rsvp");
+    content = rsvpEmail({
+      kind: m.kind, business: org.name, guestName: r.name, eventTitle: form.title, when: whenText(form.eventDate, s), venue: form.venue,
+      status: r.status, waitlisted: r.waitlisted, party: r.party_size, headline: rsvpHeadline(s, r.status, r.waitlisted),
+      answer: field?.options[RSVP_KEYS.indexOf(r.status)]?.trim() || r.status,
+      manageUrl, canChange: s.allowChange,
+      googleUrl: times ? googleCalendarUrl({ uid: r.id, title: form.title, location: form.venue, description: `Your RSVP: ${manageUrl}`, url: manageUrl, times }) : null,
+      icsUrl: times ? `${manageUrl}/calendar.ics` : null,
+      replyTo: org.reply_to_email, accent: { bg: form.design.theme.accent, text: form.design.theme.accentText },
     });
   } else if (m.kind === "test") {
     content = testEmail({ business: org.name, notificationsUrl: `${siteBase()}/w/${org.slug}/notifications` });

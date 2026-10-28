@@ -9,9 +9,12 @@ import { UPLOAD_TYPES, checkSubmission, sniffMatches } from "@/lib/submission";
 import { siteUrl } from "@/lib/urls";
 import type { Json } from "@/types/database";
 import { dispatchQueued } from "@/server/messaging";
+import { eventTimes, googleCalendarUrl, type RsvpStatus } from "@/lib/rsvp";
+import type { RsvpDone } from "@/components/form/FormRenderer";
 
 export type SubmitResult =
-  | { ok: true; number: number; trackingUrl: string }
+  | { ok: true; number: number; trackingUrl: string; rsvp?: undefined }
+  | { ok: true; rsvp: RsvpDone }
   | { ok: false; message: string; errors?: Record<string, string> };
 
 const SLUG = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/;
@@ -24,7 +27,7 @@ export async function submitOrder(orgSlug: string, formSlug: string, fd: FormDat
   const admin = adminClient();
   if (!admin) return { ok: false, message: OFF };
 
-  const { data: org } = await admin.from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
+  const { data: org } = await admin.from("organizations").select("id, timezone").eq("slug", orgSlug).maybeSingle();
   if (!org) return { ok: false, message: "We couldn't find this form." };
   const { data: form, error: fErr } = await admin
     .from("forms")
@@ -71,6 +74,45 @@ export async function submitOrder(orgSlug: string, formSlug: string, fd: FormDat
     const a = answers[u.fieldId];
     const v = a?.value;
     if (a && v && typeof v === "object" && !Array.isArray(v) && "file" in v) a.value = { file: String(v.file), size: Number(v.size), type: String(v.type), path };
+  }
+
+  if (model.settings.mode === "rsvp" && checked.rsvp) {
+    const { data, error } = await admin.rpc("submit_rsvp", {
+      p_submission: submissionId,
+      p_form: form.id,
+      p_version: form.published_version,
+      p_answers: answers as unknown as Json,
+      p_customer: checked.customer as unknown as Json,
+      p_status: checked.rsvp.status,
+      p_party: checked.rsvp.party,
+      p_files: stored as unknown as Json,
+      p_ip_hash: ipHash as string,
+      p_user_agent: (h.get("user-agent") ?? "").slice(0, 400),
+      p_client_key: /^[A-Za-z0-9_-]{16,80}$/.test(clientKey) ? clientKey : (null as unknown as string),
+    });
+    if (error) {
+      await removeFiles(admin, stored);
+      const known: Record<string, string> = {
+        QTG01: "This form isn't taking RSVPs right now.",
+        QTG02: "This form was just updated. Reload the page, check your answers and send it again.",
+      };
+      const shown = ["QTG03", "QTG08", "QTG09", "QTG10"].includes(error.code ?? "") ? error.message : null;
+      return { ok: false, message: known[error.code ?? ""] ?? shown ?? "We couldn't save your RSVP. Please try again." };
+    }
+    const r = data as { token: string; status: RsvpStatus; waitlisted: boolean; party: number; repeat: boolean };
+    if (r.repeat) await removeFiles(admin, stored);
+    else after(() => dispatchQueued({ orgId: form.org_id }));
+    const base = `${await siteUrl()}/r/${r.token}`;
+    const times = eventTimes(model.eventDate, model.settings.rsvp, org.timezone);
+    return {
+      ok: true,
+      rsvp: {
+        status: r.status, waitlisted: r.waitlisted, party: r.party, name: checked.customer.name,
+        manageUrl: model.settings.rsvp.allowChange ? base : null,
+        icsUrl: times ? `${base}/calendar.ics` : null,
+        googleUrl: times ? googleCalendarUrl({ uid: r.token.slice(0, 24), title: model.title, location: model.venue, description: `Your RSVP: ${base}`, url: base, times }) : null,
+      },
+    };
   }
 
   const { data, error } = await admin.rpc("submit_form", {

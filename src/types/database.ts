@@ -500,19 +500,19 @@ export type Database = {
         Row: {
           attempts: number; body: string | null; channel: Database["public"]["Enums"]["notify_channel"]; created_at: string; created_by: string | null;
           customer_id: string | null; error_code: string | null; error_message: string | null; id: string; idempotency_key: string | null;
-          job_id: string | null; kind: string; org_id: string; provider_sid: string | null; sent_at: string | null; skip_reason: string | null;
+          job_id: string | null; kind: string; org_id: string; provider_sid: string | null; rsvp_id: string | null; sent_at: string | null; skip_reason: string | null;
           stage_id: string | null; status: string; subject: string | null; template: string | null; to_address: string | null; updated_at: string;
         };
         Insert: {
           attempts?: number; body?: string | null; channel?: Database["public"]["Enums"]["notify_channel"]; created_at?: string; created_by?: string | null;
           customer_id?: string | null; error_code?: string | null; error_message?: string | null; id?: string; idempotency_key?: string | null;
-          job_id?: string | null; kind?: string; org_id: string; provider_sid?: string | null; sent_at?: string | null; skip_reason?: string | null;
+          job_id?: string | null; kind?: string; org_id: string; provider_sid?: string | null; rsvp_id?: string | null; sent_at?: string | null; skip_reason?: string | null;
           stage_id?: string | null; status?: string; subject?: string | null; template?: string | null; to_address?: string | null; updated_at?: string;
         };
         Update: {
           attempts?: number; body?: string | null; channel?: Database["public"]["Enums"]["notify_channel"]; created_at?: string; created_by?: string | null;
           customer_id?: string | null; error_code?: string | null; error_message?: string | null; id?: string; idempotency_key?: string | null;
-          job_id?: string | null; kind?: string; org_id?: string; provider_sid?: string | null; sent_at?: string | null; skip_reason?: string | null;
+          job_id?: string | null; kind?: string; org_id?: string; provider_sid?: string | null; rsvp_id?: string | null; sent_at?: string | null; skip_reason?: string | null;
           stage_id?: string | null; status?: string; subject?: string | null; template?: string | null; to_address?: string | null; updated_at?: string;
         };
         Relationships: [
@@ -520,6 +520,29 @@ export type Database = {
           { foreignKeyName: "messages_job_id_org_id_fkey"; columns: ["job_id", "org_id"]; isOneToOne: false; referencedRelation: "jobs"; referencedColumns: ["id", "org_id"] },
           { foreignKeyName: "messages_org_id_fkey"; columns: ["org_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
           { foreignKeyName: "messages_stage_id_org_id_fkey"; columns: ["stage_id", "org_id"]; isOneToOne: false; referencedRelation: "workflow_stages"; referencedColumns: ["id", "org_id"] },
+          { foreignKeyName: "messages_rsvp_fk"; columns: ["rsvp_id", "org_id"]; isOneToOne: false; referencedRelation: "rsvps"; referencedColumns: ["id", "org_id"] },
+        ];
+      };
+      rsvps: {
+        Row: {
+          checked_in_at: string | null; created_at: string; customer_id: string | null; email: string | null; form_id: string; id: string; name: string | null;
+          org_id: string; party_size: number; phone: string | null; responded_at: string; status: Database["public"]["Enums"]["rsvp_status"];
+          submission_id: string | null; token: string; updated_at: string; waitlisted: boolean;
+        };
+        Insert: {
+          checked_in_at?: string | null; created_at?: string; customer_id?: string | null; email?: string | null; form_id: string; id?: string; name?: string | null;
+          org_id: string; party_size: number; phone?: string | null; responded_at?: string; status: Database["public"]["Enums"]["rsvp_status"];
+          submission_id?: string | null; token?: string; updated_at?: string; waitlisted?: boolean;
+        };
+        Update: {
+          checked_in_at?: string | null; created_at?: string; customer_id?: string | null; email?: string | null; form_id?: string; id?: string; name?: string | null;
+          org_id?: string; party_size?: number; phone?: string | null; responded_at?: string; status?: Database["public"]["Enums"]["rsvp_status"];
+          submission_id?: string | null; token?: string; updated_at?: string; waitlisted?: boolean;
+        };
+        Relationships: [
+          { foreignKeyName: "rsvps_form_id_org_id_fkey"; columns: ["form_id", "org_id"]; isOneToOne: false; referencedRelation: "forms"; referencedColumns: ["id", "org_id"] },
+          { foreignKeyName: "rsvps_customer_id_org_id_fkey"; columns: ["customer_id", "org_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id", "org_id"] },
+          { foreignKeyName: "rsvps_org_id_fkey"; columns: ["org_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
         ];
       };
       organization_invitations: {
@@ -806,6 +829,15 @@ export type Database = {
         Returns: Json;
       };
       stop_updates: { Args: { p_token: string }; Returns: boolean };
+      submit_rsvp: {
+        Args: {
+          p_submission: string; p_form: string; p_version: number; p_answers: Json; p_customer: Json; p_status: string; p_party: number;
+          p_files: Json; p_ip_hash: string; p_user_agent: string; p_client_key: string;
+        };
+        Returns: Json;
+      };
+      update_rsvp: { Args: { p_token: string; p_status: string; p_party: number }; Returns: Json };
+      queue_rsvp_reminders: { Args: Record<PropertyKey, never>; Returns: string[] };
       reorder_stages: { Args: { p_org: string; p_order: string[] }; Returns: undefined };
       save_form_draft: { Args: { p_data: Json; p_fields: Json; p_form: string }; Returns: string };
       seed_default_stages: { Args: { p_org: string }; Returns: undefined };
@@ -815,6 +847,7 @@ export type Database = {
       form_status: "draft" | "live" | "closed";
       notify_channel: "sms" | "whatsapp" | "email";
       org_role: "owner" | "admin" | "member";
+      rsvp_status: "yes" | "no" | "maybe";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -933,6 +966,7 @@ export const Constants = {
       form_status: ["draft", "live", "closed"],
       notify_channel: ["sms", "whatsapp", "email"],
       org_role: ["owner", "admin", "member"],
+      rsvp_status: ["yes", "no", "maybe"],
     },
   },
 } as const;

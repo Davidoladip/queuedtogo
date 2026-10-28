@@ -122,7 +122,7 @@ export function NotificationsPanel(p: Props) {
                   <div className="qn-log-top">
                     <span className={`pill ${st.tone}`}>{st.text}</span>
                     <span className="qn-chan">{m.channel === "email" ? "Email" : "Text"}</span>
-                    {m.kind === "test" ? <b>Test</b> : m.kind === "team_alert" ? <b>Team alert{m.orderNumber ? ` · QTG-${m.orderNumber}` : ""}</b> : m.jobId ? <Link href={p.jobHref + m.jobId} className="mono">QTG-{m.orderNumber}</Link> : <span className="mono">—</span>}
+                    {m.kind === "test" ? <b>Test</b> : m.kind.startsWith("rsvp_") ? <b>{{ rsvp_confirmation: "RSVP confirmation", rsvp_reminder: "RSVP reminder", rsvp_promoted: "Off the waitlist" }[m.kind] ?? "RSVP"}</b> : m.kind === "team_alert" ? <b>Team alert{m.orderNumber ? ` · QTG-${m.orderNumber}` : ""}</b> : m.jobId ? <Link href={p.jobHref + m.jobId} className="mono">QTG-{m.orderNumber}</Link> : <span className="mono">—</span>}
                     <span>{m.customer ?? ""}</span>
                     <span className="muted">{m.stage ? `· ${m.stage}` : ""}</span>
                     <span className="muted mono" style={{ marginLeft: "auto" }}>{m.to ?? "—"}</span>

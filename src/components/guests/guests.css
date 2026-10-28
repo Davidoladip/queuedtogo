@@ -1,0 +1,48 @@
+/* Guest list and door check-in. Scoped under .qg so nothing leaks into forms or other pages. */
+.qg .qg-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.qg .qg-stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface); display: flex; flex-direction: column; gap: 2px; }
+.qg .qg-stat b { font: 700 24px/1.1 var(--f-display); }
+.qg .qg-stat b small { font-size: 15px; font-weight: 500; color: var(--muted); }
+.qg .qg-stat span { font-size: 12.5px; color: var(--muted); }
+.qg .qg-stat.arrived { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.qg .qg-bar { height: 6px; border-radius: 99px; background: var(--surface-2); margin-top: 10px; overflow: hidden; }
+.qg .qg-bar span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.qg .qg-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 16px; }
+.qg .qg-search { flex: 1 1 240px; min-width: 0; }
+.qg .qg-filter select { width: auto; }
+.qg .qg-note { min-height: 24px; margin: 8px 0; font-size: 14px; }
+.qg .qg-note .ok { color: var(--good); }
+.qg .qg-note .err { color: var(--bad); }
+.qg .qg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.qg .qg-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) auto; gap: 6px 14px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.qg .qg-row.in { border-color: color-mix(in srgb, var(--good) 40%, var(--line)); background: color-mix(in srgb, var(--good-soft) 45%, var(--surface)); }
+.qg .qg-who { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.qg .qg-who b { overflow-wrap: anywhere; }
+.qg .qg-party { font: 600 12px/1 var(--f-mono); padding: 3px 6px; border-radius: 6px; background: var(--surface-2); }
+.qg .qg-meta { color: var(--muted); font-size: 13.5px; overflow-wrap: anywhere; }
+.qg .qg-notes { color: var(--fg); font-size: 13px; margin-top: 2px; }
+.qg .qg-act { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.qg .qg-in { color: var(--good); font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+@media (max-width: 680px) { .qg .qg-row { grid-template-columns: minmax(0, 1fr); } .qg .qg-act { justify-content: flex-start; } }
+
+/* Door mode: large and touch friendly */
+.qg.door .qg-search { font-size: 20px; padding: 14px 16px; border-radius: 12px; flex-basis: 100%; }
+.qg.door .qg-row { padding: 14px 16px; }
+.qg.door .qg-who b { font-size: 18px; }
+.qg.door .qg-act .btn.primary { min-height: 48px; padding-inline: 20px; font-size: 16px; }
+
+/* Printed guest list */
+.qg-print { background: #fff; color: #000; }
+.qg-print table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.qg-print th, .qg-print td { text-align: left; padding: 5px 6px; border-bottom: 1px solid #bbb; vertical-align: top; }
+.qg-print td.box { width: 22px; }
+.qg-print td.box span { display: inline-block; width: 14px; height: 14px; border: 1.5px solid #000; border-radius: 3px; }
+.qg-print td.n { text-align: right; }
+.qg-print h2 { font-size: 18px; margin: 0 0 4px; }
+.qg-print p { margin: 0 0 10px; font-size: 12.5px; }
+@media print {
+  .qg-print tr { break-inside: avoid; }
+}
+@media print {
+  header.top, .no-print { display: none !important; }
+}

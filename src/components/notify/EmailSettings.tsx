@@ -64,7 +64,7 @@ export function EmailSettings(p: Props) {
                 if (!(await run(() => p.setEmailOn(next), next ? "Email is on." : "Email is off. No emails will be sent.", setMsg))) setOn(!next);
               }} />
             <span><b>Send emails for this business</b><br />
-              <small className="muted">An order confirmation to every customer who gives an email address; stage updates to customers who chose email and agreed to updates; and new-order alerts to your team.</small></span>
+              <small className="muted">An order confirmation to every customer who gives an email address; stage updates to customers who chose email and agreed to updates; new-order alerts to your team; and for RSVP forms, guest confirmations and reminders.</small></span>
           </label>
           <form className="qn-reply" onSubmit={(e) => { e.preventDefault(); void run(() => p.saveReplyTo(reply), reply.trim() ? "Customers will see " + reply.trim() + " as your contact." : "Contact address removed.", setMsg); }}>
             <label>

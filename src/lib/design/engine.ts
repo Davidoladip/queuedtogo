@@ -5,6 +5,7 @@
 // produce safe CSS. Images are referenced by storage path only, never by arbitrary URL.
 
 import { alphaMul, bestOn, cc, lum, mix, over, rgbOf, shade } from "./color";
+import { PARTY_LIMIT, RSVP_DEFAULT_OPTIONS, RSVP_DEFAULT_PARTY_LABEL, normalizeRsvp, type RsvpSettings } from "../rsvp";
 import {
   DEFAULT_CONSENT, artCss, artDefaultFor, normalizeArt, normalizeOptionMeta, normalizeSwatches, shadowCss, swatchCss,
   type ArtSettings, type OptionMeta, type SwatchSettings,
@@ -47,6 +48,7 @@ export const BLOCKS = {
   number: { name: "Number", k: "12" },
   choice: { name: "Choice buttons", k: "◉", opts: true },
   multi: { name: "Multi-select", k: "☑", opts: true },
+  rsvp: { name: "RSVP (yes / no / maybe)", k: "✉", opts: true },
   dropdown: { name: "Dropdown", k: "▾", opts: true },
   sizes: { name: "Quantity per size", k: "S/M", opts: true },
   date: { name: "Date", k: "D" },
@@ -102,6 +104,10 @@ export type FieldConfig = {
   swatches?: SwatchSettings | null;
   /** Choice questions: per-option artwork, swatches and styles, in the same order as `options`. */
   optMeta?: OptionMeta[];
+  /** RSVP question: the most people one reply can bring, including the guest (1 = don't ask). */
+  partyMax?: number;
+  /** RSVP question: the guest-count question. */
+  partyLabel?: string;
 };
 export type FormField = {
   id: string;
@@ -113,7 +119,13 @@ export type FormField = {
   options: string[];
   config: FieldConfig;
 };
-export type FormSettings = { notify: { channel: "sms" | "whatsapp" | "email"; consent: boolean; consentText: string } };
+export type FormMode = "order" | "rsvp";
+export type FormSettings = {
+  /** An order form (orders go to the production board) or an RSVP form (replies go to the guest list). */
+  mode: FormMode;
+  notify: { channel: "sms" | "whatsapp" | "email"; consent: boolean; consentText: string };
+  rsvp: RsvpSettings;
+};
 export type FormModel = {
   id: string;
   title: string;
@@ -181,7 +193,10 @@ const fontStack = (k: string, f: FormModel) => {
 
 // ---------------------------------------------------------------- elements and their defaults
 export type El = { sid: string; kind: string; name: string; btn?: string; title?: boolean; intro?: boolean; f?: FormField; part?: string; opt?: number };
-export const hasChoiceOptions = (t: FieldType) => t === "choice" || t === "multi";
+/** Questions shown as option buttons (each option can have its own artwork, colours and style). */
+export const hasChoiceOptions = (t: FieldType) => t === "choice" || t === "multi" || t === "rsvp";
+/** The guest-count box under an RSVP question is shown when one reply can bring more than one person. */
+export const asksParty = (f: FormField) => f.type === "rsvp" && (f.config.partyMax ?? 1) > 1;
 /** Questions that can carry artwork and swatches (not layout blocks). */
 export const supportsMedia = (t: FieldType) => isInput(t);
 
@@ -205,9 +220,10 @@ export function elementsOf(form: FormModel): El[] {
       case "button": L.push({ sid: f.id, kind: "button", btn: "link", name: "Link button: " + nm, f }); break;
       case "image": L.push({ sid: f.id, kind: "image", name: "Artwork: " + ((f.config.img?.alt || f.config.img?.name) || "image").slice(0, 30), f }); break;
       default: {
-        const ch = f.type === "choice" || f.type === "multi";
+        const ch = hasChoiceOptions(f.type);
         L.push({ sid: f.id, kind: ch ? "choice" : "input", name: nm + (ch ? " · options" : " · input box"), f, part: "main" });
         L.push({ sid: f.id + "__label", kind: "label", name: nm + " · label", f, part: "label" });
+        if (asksParty(f)) L.push({ sid: f.id + "__party", kind: "input", name: nm + " · guest count box", f, part: "party" });
         if (ch) f.options.forEach((o, i) => {
           if (!o.trim()) return;
           const on = `${nm} · option “${o.slice(0, 20)}”`;
@@ -248,9 +264,9 @@ export function elDefault(form: FormModel, el: El): Style {
       };
     }
     case "input": {
-      const t = el.f ? el.f.type : "short";
+      const t = el.f ? el.f.type : "short", party = el.part === "party";
       return {
-        ...base, lh: 1.4, ph: mix(txt, card, 0.5), width: "full", w: 100, wUnit: "%", minH: t === "long" ? 96 : 46, pad: pad4(11, 13, 11, 13),
+        ...base, lh: 1.4, ph: mix(txt, card, 0.5), width: party ? "custom" : "full", w: party ? 120 : 100, wUnit: party ? "px" : "%", minH: t === "long" ? 96 : 46, pad: pad4(11, 13, 11, 13),
         bg: bg0(mix(card, txt, 0.05)), border: { style: t === "upload" ? "dashed" : "solid", width: 1.5, color: mix(txt, card, 0.75) }, radius: radiusObj(Math.min(R, 12)),
         st: {
           hover: { border: mix(acc, card, 0.35), bg: "" },
@@ -308,7 +324,7 @@ export function swatchesFor(form: FormModel, sid: string): SwatchSettings | null
   return m[2] != null ? f.config.optMeta?.[Number(m[2])]?.swatches ?? null : f.config.swatches ?? null;
 }
 /** The question a preview element belongs to ("abc__label", "abc__o2__art" → "abc"). */
-export function baseFieldId(sid: string): string { return sid.replace(/__(label|art|sw|o\d+(__art|__sw)?)$/, ""); }
+export function baseFieldId(sid: string): string { return sid.replace(/__(label|party|art|sw|o\d+(__art|__sw)?)$/, ""); }
 
 // ---------------------------------------------------------------- CSS generation
 export function texUrl(id: string, color: unknown, op: unknown, s: unknown): string | null {
@@ -563,7 +579,16 @@ export function normalizeField(raw: unknown): FormField | null {
   const config = { ...obj(f.config) } as FieldConfig;
   if (type === "image") config.img = { ...IMG_DEFAULT, ...obj(config.img) } as FieldConfig["img"];
   if (type === "page") { config.next = String(config.next || "Next"); config.prev = String(config.prev || "Back"); }
-  const options = Array.isArray(f.options) ? f.options.map(String) : [];
+  let options = Array.isArray(f.options) ? f.options.map(String) : [];
+  if (type === "rsvp") {
+    // Always [yes, no, maybe]: yes and no need wording; an empty maybe hides that answer.
+    options = [0, 1, 2].map((i) => (options[i] ?? (i === 2 ? "" : RSVP_DEFAULT_OPTIONS[i])).slice(0, 200));
+    if (!options[0].trim()) options[0] = RSVP_DEFAULT_OPTIONS[0];
+    if (!options[1].trim()) options[1] = RSVP_DEFAULT_OPTIONS[1];
+    config.partyMax = Math.round(num(config.partyMax, 1, PARTY_LIMIT, 1));
+    config.partyLabel = typeof config.partyLabel === "string" && config.partyLabel.trim() ? config.partyLabel.slice(0, 120) : RSVP_DEFAULT_PARTY_LABEL;
+    delete config.display;
+  } else { delete config.partyMax; delete config.partyLabel; }
   if (isInput(type)) {
     const art = normalizeArt(config.art, artDefaultFor("field")), sw = normalizeSwatches(config.swatches);
     if (art) config.art = art; else delete config.art;
@@ -577,7 +602,7 @@ export function normalizeField(raw: unknown): FormField | null {
     label: String(f.label ?? ""),
     help: String(f.help ?? ""),
     placeholder: String(f.placeholder ?? ""),
-    required: f.required === true,
+    required: type === "rsvp" || f.required === true,
     options,
     config,
   };
@@ -602,7 +627,11 @@ export function normalizeFields(raw: unknown): FormField[] {
 export function normalizeSettings(raw: unknown): FormSettings {
   const n = obj(obj(raw).notify);
   const text = typeof n.consentText === "string" && n.consentText.trim() ? n.consentText.slice(0, 300) : DEFAULT_CONSENT;
-  return { notify: { channel: en(n.channel, ["sms", "whatsapp", "email"] as const, "sms"), consent: n.consent !== false, consentText: text } };
+  return {
+    mode: obj(raw).mode === "rsvp" ? "rsvp" : "order",
+    notify: { channel: en(n.channel, ["sms", "whatsapp", "email"] as const, "sms"), consent: n.consent !== false, consentText: text },
+    rsvp: normalizeRsvp(obj(raw).rsvp),
+  };
 }
 
 export function blankField(type: FieldType): FormField {
@@ -615,6 +644,7 @@ export function blankField(type: FieldType): FormField {
     case "number": f.label = "How many?"; break;
     case "choice": case "multi": case "dropdown": f.label = "Pick one"; f.options = ["Option 1", "Option 2"]; if (type === "multi") f.label = "Pick any"; break;
     case "sizes": f.label = "Quantity per size"; f.options = ["S", "M", "L", "XL"]; break;
+    case "rsvp": f.label = "Will you be there?"; f.options = [...RSVP_DEFAULT_OPTIONS]; f.required = true; f.config.partyMax = 4; f.config.partyLabel = RSVP_DEFAULT_PARTY_LABEL; break;
     case "date": f.label = "Date"; break;
     case "upload": f.label = "Upload your design"; break;
     case "button": f.label = "Learn more"; f.config.url = "https://"; break;
@@ -633,6 +663,14 @@ export function starterFields(): FormField[] {
   const item = blankField("choice"); item.label = "What would you like?"; item.options = ["T-shirt", "Hoodie", "Cap"]; item.required = true;
   const notes = blankField("long"); notes.label = "Anything else?";
   return [name, phone, item, notes, blankField("submit")];
+}
+
+/** Starter questions when a form becomes an RSVP form (added only if it has no RSVP question yet). */
+export function rsvpStarterFields(): FormField[] {
+  const rsvp = blankField("rsvp");
+  const name = blankField("short"); name.label = "Your name"; name.required = true;
+  const email = blankField("email"); email.required = true; email.help = "We'll email your confirmation and a link to change your reply.";
+  return [rsvp, name, email];
 }
 
 /** Pages of a form, split at page breaks. Used by the renderer for multi-step forms. */

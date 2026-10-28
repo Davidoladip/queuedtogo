@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { themeFromPalette } from "@/lib/design/color";
 import {
-  FONTS, FONT_STACKS, KIND_PLURAL, LAYOUTS, SHAPES, SHARED_KINDS, artFor, computed, computedQuestionChoice, computedShared, elementsOf, repEl, srcOf, swatchesFor,
+  FONTS, FONT_STACKS, KIND_PLURAL, LAYOUTS, SHAPES, SHARED_KINDS, artFor, asksParty, computed, computedQuestionChoice, computedShared, elementsOf, hasChoiceOptions, repEl, srcOf, swatchesFor,
   type El, type FormModel,
 } from "@/lib/design/engine";
 import { artDefaultFor, type ArtSettings, type SwatchSettings } from "@/lib/design/media";
@@ -133,13 +133,14 @@ export function SecElement() {
   const pf = sc === "el" ? `e.${el.sid}` : `g.${el.kind}`;
   const s = sc === "el" ? computed(form, el) : computedShared(form, el);
   const own = Object.keys(form.design.el[el.sid] || {}).length > 0;
-  const ch = el.f && (el.f.type === "choice" || el.f.type === "multi");
+  const ch = el.f && hasChoiceOptions(el.f.type);
+  const parts: [string, string][] = el.f ? [[el.f.id, ch ? "Options" : "Input box"], [el.f.id + "__label", "Label"], ...(asksParty(el.f) ? [[el.f.id + "__party", "Guest count"] as [string, string]] : [])] : [];
   return (
     <>
       {picker}{head}
       {el.part && el.f && (
         <div className="seg sm" role="group" aria-label="Part to style">
-          {([[el.f.id, ch ? "Options" : "Input box"], [el.f.id + "__label", "Label"]] as [string, string][]).map(([sid, l]) => (
+          {parts.map(([sid, l]) => (
             <button key={sid} type="button" aria-pressed={selected === sid} onClick={() => setSelected(sid)}>{l}</button>
           ))}
         </div>

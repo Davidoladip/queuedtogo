@@ -58,6 +58,7 @@ export function Builder(props: BuilderProps) {
   const [ps, setPs] = useState<PreviewState>({ ctx: "", state: "default" });
   const [brand, setBrandState] = useState<string[]>(props.brand);
   const [previewThanks, setPreviewThanks] = useState(false);
+  const [rsvpPreview, setRsvpPreview] = useState<"yes" | "no" | "maybe" | "wait">("yes");
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
   const notify = useCallback((text: string) => setToast((t) => ({ text, n: (t?.n ?? 0) + 1 })), []);
   useEffect(() => {
@@ -236,7 +237,8 @@ export function Builder(props: BuilderProps) {
             )}
             {tab === "settings" && (
               <SettingsPanel form={form} update={update} orgSlug={orgSlug} siteUrl={siteUrl} status={status} version={version}
-                onStatus={onStatus} pending={pending} canDelete={props.canDelete} orgName={orgName} onPreviewThanks={() => setPreviewThanks(true)} />
+                onStatus={onStatus} pending={pending} canDelete={props.canDelete} orgName={orgName}
+                onPreviewThanks={(k) => { if (k) setRsvpPreview(k); setPreviewThanks(true); }} />
             )}
           </div>
         </section>
@@ -253,6 +255,14 @@ export function Builder(props: BuilderProps) {
               <button type="button" aria-pressed={!previewThanks} onClick={() => setPreviewThanks(false)}>Form</button>
               <button type="button" aria-pressed={previewThanks} onClick={() => setPreviewThanks(true)}>Thank-you screen</button>
             </div>
+            {previewThanks && form.settings.mode === "rsvp" && (
+              <select className="b-prev-pick" aria-label="Reply to preview" value={rsvpPreview} onChange={(e) => setRsvpPreview(e.target.value as typeof rsvpPreview)}>
+                <option value="yes">Guest said yes</option>
+                <option value="maybe">Guest said maybe</option>
+                <option value="no">Guest said no</option>
+                <option value="wait">Guest is on the waitlist</option>
+              </select>
+            )}
             <div className="b-seg sm">
               {(["desktop", "phone"] as const).map((d) => (
                 <button key={d} type="button" aria-pressed={device === d} onClick={() => setDevice(d)}>{d === "desktop" ? "Desktop" : "Phone"}</button>
@@ -262,7 +272,8 @@ export function Builder(props: BuilderProps) {
           <div className={`b-frame ${device}`}>
             <FormRenderer form={form} assetBase={assetBase} mode="edit" businessName={orgName} selected={selected} onSelect={onSelect}
               forced={forced ? { state: forced.state, sid: forced.ctx === "e" ? selected : forced.ctx.startsWith("q:") ? forced.ctx.slice(2) : null, kind: forced.ctx.startsWith("g.") ? forced.ctx.slice(2) : null } : null}
-              onInsertArtwork={(index, file) => void insertArtwork(file, index)} onResizeArt={resizeArt} showThanks={previewThanks} />
+              onInsertArtwork={(index, file) => void insertArtwork(file, index)} onResizeArt={resizeArt} showThanks={previewThanks}
+              previewRsvp={{ status: rsvpPreview === "wait" ? "yes" : rsvpPreview, waitlisted: rsvpPreview === "wait" }} />
           </div>
         </section>
       </div>

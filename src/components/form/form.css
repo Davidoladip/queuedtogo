@@ -122,3 +122,12 @@ span.qf-sw-i{cursor:default}
 .qf-legal { font-size: 12px; opacity: .75; margin: -4px 0 0; }
 .qf-legal a { color: inherit; }
 .qf-vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+
+/* RSVP mode */
+.qf-party{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.qf-party .qf-help{margin:0}
+.qf-field:has(.qf-opt[data-rsvp="no"] input:checked) .qf-party{display:none}
+.qf-when{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:calc(var(--r) * .6);background:color-mix(in srgb,var(--t) 6%,var(--c));font-size:15px}
+.qf-cal{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.qf-cal-ics,.qf-manage,.qf-link-btn{color:inherit;text-decoration:underline;text-underline-offset:3px;font:inherit;font-size:14.5px;background:none;border:0;padding:0;cursor:pointer}
+.qf-rsvp-done[data-rsvp="wait"] .qf-title{opacity:.92}

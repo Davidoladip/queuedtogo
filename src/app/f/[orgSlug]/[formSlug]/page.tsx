@@ -7,7 +7,11 @@ import { assetBaseFor } from "@/lib/design/engine";
 import { formFromPublished } from "@/lib/design/fromDb";
 import { PublicOrderForm } from "./PublicOrderForm";
 
-type PublicForm = { form_id: string; org_name: string; org_slug: string; status: "live" | "closed"; version: number | null; config: Record<string, unknown> | null; title?: string };
+type PublicForm = {
+  form_id: string; org_name: string; org_slug: string; status: "live" | "closed"; version: number | null; config: Record<string, unknown> | null; title?: string;
+  /** RSVP forms only: replies closed (deadline passed) or the event is full with no waitlist. */
+  rsvp?: { closed: boolean; full: boolean } | null;
+};
 
 const SLUG = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/;
 
@@ -33,6 +37,11 @@ export default async function PublicFormPage({ params }: { params: Promise<{ org
   if (!form) notFound();
   // A closed form has no config in the response; show its heading from a minimal model.
   const model = formFromPublished(form.form_id, formSlug, form.config ?? { title: "Order form" });
+  const rsvp = form.rsvp ?? null;
+  const closedMessage = form.status === "closed"
+    ? rsvp ? `${form.org_name} is no longer taking RSVPs through this form.` : `${form.org_name} is no longer taking orders through this form.`
+    : rsvp?.closed ? "RSVPs for this event have closed."
+      : rsvp?.full ? "Sorry, this event is full." : null;
   return (
     <div className="pf-page">
       <PublicOrderForm
@@ -43,7 +52,7 @@ export default async function PublicFormPage({ params }: { params: Promise<{ org
         assetBase={assetBaseFor(env.supabaseUrl)}
         version={form.version ?? undefined}
         orderingOn={Boolean(process.env.SUPABASE_SECRET_KEY)}
-        closedMessage={form.status === "closed" ? `${form.org_name} is no longer taking orders through this form.` : null}
+        closedMessage={closedMessage}
       />
     </div>
   );
