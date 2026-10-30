@@ -40,3 +40,9 @@
 - The builder preview has a Cover / Form / Thank-you switch. Closed forms skip the cover and show the closed message.
 - No database change: the cover lives in the form's settings and design, and appears for guests once the form is published.
 - Tests: `tests/e2e/cover.py` 27 checks; all other suites still pass.
+
+## Update: more fonts
+- 25 new Google fonts: script and handwritten (Great Vibes, Parisienne, Allura, Pinyon Script, Sacramento, Dancing Script, Pacifico, Caveat, Amatic SC), elegant serifs (Cormorant Garamond, Cinzel, Libre Baskerville, DM Serif Display, Lora), display (Abril Fatface, Bebas Neue, Righteous, Lobster) and modern sans (Montserrat, Poppins, Raleway, Josefin Sans, Quicksand, Fredoka).
+- 12 new one-click font styles in Design → Typography: Romantic, Wedding, Classic, Chic, Modern, Minimal, Retro, Poster, Party, Whimsical, Handwritten, Playful.
+- Any element (cover heading, title, labels, buttons, options…) can use any font; the picker is grouped and shows a sample.
+- Forms load only the fonts they use, one stylesheet per family, with `display=swap` (text shows immediately, then switches). Not verified against Google Fonts from the test machine (no internet there); check a published form in a browser.

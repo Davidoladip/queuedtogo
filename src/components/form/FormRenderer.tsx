@@ -14,9 +14,11 @@ import {
   safeUrl,
   srcOf,
   themeVars,
+  usedFontKeys,
   type FormField,
   type FormModel,
 } from "@/lib/design/engine";
+import { googleFontsUrls } from "@/lib/design/fonts";
 import { DEFAULT_THANKS, fillMessage, type ArtSettings, type SwatchSettings } from "@/lib/design/media";
 import { DEFAULT_RSVP_THANKS, RSVP_KEYS, guestsText, rsvpHeadline, whenText, type RsvpStatus } from "@/lib/rsvp";
 
@@ -84,6 +86,8 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   const art = srcOf(form.design.art, assetBase);
   const L = t.layout;
   const css = useMemo(() => designCss(form, assetBase), [form, assetBase]);
+  // Only the fonts this form uses are loaded (a stylesheet link next to the form).
+  const fontLinks = useMemo(() => googleFontsUrls(usedFontKeys(form)), [form]);
   const pages = useMemo(() => pagesOf(form), [form]);
   const multi = pages.length > 1;
   const [page, setPage] = useState(0);
@@ -389,6 +393,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
 
   return (
     <>
+      {fontLinks.map((h) => <link key={h} rel="stylesheet" href={h} />)}
       <style dangerouslySetInnerHTML={{ __html: css + selectCss }} />
       {E && onInsertArtwork && (
         <input ref={fileRef} type="file" hidden accept="image/png,image/jpeg,image/webp,image/svg+xml" aria-hidden="true"

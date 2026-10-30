@@ -6,7 +6,8 @@
 import "../form/form.css";
 import { useMemo, useState, type FormEvent } from "react";
 import { RsvpChoices } from "@/components/form/FormRenderer";
-import { designCss, srcOf, themeVars, type FormModel } from "@/lib/design/engine";
+import { designCss, srcOf, themeVars, usedFontKeys, type FormModel } from "@/lib/design/engine";
+import { googleFontsUrls } from "@/lib/design/fonts";
 import { guestsText, rsvpHeadline, whenText, type RsvpStatus } from "@/lib/rsvp";
 
 export type ManageResult = { ok: true; status: RsvpStatus; party: number; waitlisted: boolean } | { ok: false; error: string };
@@ -60,6 +61,7 @@ export function RsvpManage(p: Props) {
 
   return (
     <>
+      {googleFontsUrls(usedFontKeys(form)).map((h) => <link key={h} rel="stylesheet" href={h} />)}
       <style dangerouslySetInnerHTML={{ __html: css }} />
       <div className={`qf-wrap qf-${form.design.theme.layout === "background" ? "background" : "banner"}${art ? "" : " noart"}`} data-qf={form.id} style={themeVars(form.design.theme) as React.CSSProperties}>
         <div className="qf">

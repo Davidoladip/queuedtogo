@@ -4,11 +4,12 @@
 import { useState } from "react";
 import { alphaMul, cc, contrast, over } from "@/lib/design/color";
 import {
-  FONT_OPTS, IMG_DEFAULT, WEIGHTS, computed, computedShared, obj, repEl, srcOf,
+  FONTS, FONT_OPT_GROUPS, FONT_STACKS, IMG_DEFAULT, WEIGHTS, computed, computedShared, obj, repEl, srcOf,
   type El, type FormField, type FormModel, type Style,
 } from "@/lib/design/engine";
 import { processImage } from "@/lib/design/image";
 import type { ArtSettings, SwatchSettings } from "@/lib/design/media";
+import { googleFontsUrls } from "@/lib/design/fonts";
 import { ArtUploader, SwatchEditor } from "../media-controls";
 import { CBox, CColor, CNum, CRadius, CSel, CSeg, CTex, CTog, CText, Sub } from "./controls";
 import { useDesign } from "./context";
@@ -19,7 +20,7 @@ export function GrpText({ pf, s, ph }: { pf: string; s: Style; ph?: boolean }) {
   return (
     <>
       <div className="cg">
-        <CSel label="Font" path={`${pf}.font`} value={String(s.font)} options={FONT_OPTS} />
+        <FontSelect path={`${pf}.font`} value={String(s.font)} />
         <div className="c">
           <span className="cl">Size</span>
           <div className="ci2">
@@ -425,5 +426,26 @@ export function SwatchStyle({ base, s, onChange, onRemove }: { base: string; s: 
         </div>
       </Sub>
     </>
+  );
+}
+
+/** Font choice grouped by kind, with a sample line in the chosen font. */
+function FontSelect({ path, value }: { path: string; value: string }) {
+  const { apply, form } = useDesign();
+  const preset = FONTS[form.design.theme.font] || FONTS.clean;
+  const key = value === "head" ? preset.head : value === "body" ? preset.body : value;
+  const id = "fs-" + path.replace(/[^a-z0-9]/gi, "-");
+  const links = googleFontsUrls([key]);
+  return (
+    <label className="c" htmlFor={id}>
+      <span className="cl">Font</span>
+      <select id={id} aria-label="Font" value={value} onChange={(e) => apply(path, e.target.value)}>
+        {FONT_OPT_GROUPS.map((g) => (
+          <optgroup key={g.group} label={g.group}>{g.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</optgroup>
+        ))}
+      </select>
+      {links.map((h) => <link key={h} rel="stylesheet" href={h} />)}
+      <span className="font-sample" aria-hidden="true" style={{ fontFamily: FONT_STACKS[key] }}>You&apos;re invited · Order ahead</span>
+    </label>
   );
 }

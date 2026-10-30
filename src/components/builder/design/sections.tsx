@@ -8,6 +8,9 @@ import {
   type El, type FormModel,
 } from "@/lib/design/engine";
 import { artDefaultFor, type ArtSettings, type SwatchSettings } from "@/lib/design/media";
+import { FONT_CATALOG, googleFontsUrls } from "@/lib/design/fonts";
+
+const PRESET_FONT_LINKS = googleFontsUrls(Object.values(FONTS).map((f) => f.head));
 import { ArtUploader } from "../media-controls";
 import { optMeta } from "./paths";
 import { processImage } from "@/lib/design/image";
@@ -272,8 +275,10 @@ export function SecType() {
       <div className="c">
         <span className="cl">Form font style</span>
         <div className="fontpick">
+          {/* Loads every style's heading font so the samples show in their real fonts. */}
+          {PRESET_FONT_LINKS.map((h) => <link key={h} rel="stylesheet" href={h} />)}
           {Object.entries(FONTS).map(([k, f]) => (
-            <button key={k} type="button" aria-pressed={t.font === k} onClick={() => apply("th.font", k)}>
+            <button key={k} type="button" aria-pressed={t.font === k} onClick={() => apply("th.font", k)} title={`${FONT_CATALOG[f.head]?.label} with ${FONT_CATALOG[f.body]?.label}`}>
               <b style={{ fontFamily: FONT_STACKS[f.head], textTransform: f.upper ? "uppercase" : undefined }}>Aa</b><span>{f.label}</span>
             </button>
           ))}

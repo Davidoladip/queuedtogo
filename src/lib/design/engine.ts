@@ -5,6 +5,7 @@
 // produce safe CSS. Images are referenced by storage path only, never by arbitrary URL.
 
 import { alphaMul, bestOn, cc, lum, mix, over, rgbOf, shade } from "./color";
+import { FONT_CATALOG, FONT_GROUPS } from "./fonts";
 import { PARTY_LIMIT, RSVP_DEFAULT_OPTIONS, RSVP_DEFAULT_PARTY_LABEL, normalizeRsvp, type RsvpSettings } from "../rsvp";
 import {
   DEFAULT_CONSENT, artCss, artDefaultFor, normalizeArt, normalizeOptionMeta, normalizeSwatches, shadowCss, swatchCss,
@@ -12,22 +13,26 @@ import {
 } from "./media";
 
 // ---------------------------------------------------------------- constants
-export const FONT_STACKS: Record<string, string> = {
-  plex: "'IBM Plex Sans',system-ui,sans-serif",
-  bricolage: "'Bricolage Grotesque',system-ui,sans-serif",
-  playfair: "'Playfair Display',Georgia,serif",
-  oswald: "'Oswald','Arial Narrow',sans-serif",
-  baloo: "'Baloo 2',system-ui,sans-serif",
-  system: "system-ui,-apple-system,'Segoe UI',Roboto,sans-serif",
-  serif: "Georgia,'Times New Roman',serif",
-  mono: "'IBM Plex Mono',ui-monospace,Menlo,monospace",
-};
+export const FONT_STACKS: Record<string, string> = Object.fromEntries(Object.entries(FONT_CATALOG).map(([k, f]) => [k, f.stack]));
+/** One-click font styles: a heading font and a body font. */
 export const FONTS: Record<string, { label: string; head: string; body: string; upper?: boolean }> = {
   clean: { label: "Clean", head: "plex", body: "plex" },
   bold: { label: "Bold", head: "bricolage", body: "plex" },
   elegant: { label: "Elegant", head: "playfair", body: "plex" },
   sporty: { label: "Sporty", head: "oswald", body: "plex", upper: true },
   friendly: { label: "Friendly", head: "baloo", body: "baloo" },
+  romantic: { label: "Romantic", head: "greatvibes", body: "cormorant" },
+  wedding: { label: "Wedding", head: "pinyon", body: "baskerville" },
+  classic: { label: "Classic", head: "cinzel", body: "cormorant" },
+  chic: { label: "Chic", head: "dmserif", body: "josefin" },
+  modern: { label: "Modern", head: "montserrat", body: "montserrat" },
+  minimal: { label: "Minimal", head: "josefin", body: "raleway", upper: true },
+  retro: { label: "Retro", head: "abril", body: "poppins" },
+  poster: { label: "Poster", head: "bebas", body: "montserrat" },
+  party: { label: "Party", head: "pacifico", body: "poppins" },
+  whimsical: { label: "Whimsical", head: "dancing", body: "quicksand" },
+  handwritten: { label: "Handwritten", head: "caveat", body: "quicksand" },
+  playful: { label: "Playful", head: "lobster", body: "fredoka" },
 };
 export const RADII: Record<string, number> = { square: 2, slight: 6, rounded: 12, pill: 999 };
 export const SHAPES: [string, string][] = [["square", "Square"], ["slight", "Slightly rounded"], ["rounded", "Rounded"], ["pill", "Pill"]];
@@ -712,10 +717,24 @@ export function pagesOf(form: FormModel) {
 }
 
 // ---------------------------------------------------------------- builder helpers
-export const FONT_OPTS: [string, string][] = [
-  ["head", "Form heading font"], ["body", "Form body font"], ["plex", "IBM Plex Sans"], ["bricolage", "Bricolage Grotesque"], ["playfair", "Playfair Display"],
-  ["oswald", "Oswald"], ["baloo", "Baloo 2"], ["system", "System sans-serif"], ["serif", "Georgia (serif)"], ["mono", "Monospace"],
+/** Fonts for one element: the form's heading or body font, or any font by group. */
+export const FONT_OPTS: [string, string][] = [["head", "Form heading font"], ["body", "Form body font"], ...Object.entries(FONT_CATALOG).map(([k, f]) => [k, f.label] as [string, string])];
+export const FONT_OPT_GROUPS: { group: string; options: [string, string][] }[] = [
+  { group: "From the form's font style", options: [["head", "Form heading font"], ["body", "Form body font"]] },
+  ...FONT_GROUPS.map((g) => ({ group: g, options: Object.entries(FONT_CATALOG).filter(([, f]) => f.group === g).map(([k, f]) => [k, f.label] as [string, string]) })),
 ];
+
+/** Every font a form uses (its font style plus any fonts set on elements), so only those are loaded. */
+export function usedFontKeys(form: FormModel): Set<string> {
+  const out = new Set<string>();
+  const preset = FONTS[form.design.theme.font] || FONTS.clean;
+  out.add(preset.head); out.add(preset.body);
+  const add = (st: unknown) => { const f = obj(st).font; if (typeof f === "string" && f in FONT_CATALOG) out.add(f); };
+  Object.values(form.design.shared).forEach(add);
+  Object.values(form.design.el).forEach(add);
+  for (const f of form.fields) f.config.optMeta?.forEach((m) => add(m.style));
+  return out;
+}
 export const WEIGHTS: [number, string][] = [[300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semibold"], [700, "Bold"], [800, "Extra bold"]];
 export const KIND_PLURAL: Record<string, string> = { button: "buttons", input: "input boxes", choice: "option buttons", label: "labels", heading: "headings", text: "text blocks" };
 export const LOCKABLE = new Set<FieldType>(["short", "email", "phone", "number", "date"]);

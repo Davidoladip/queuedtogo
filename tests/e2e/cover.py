@@ -110,6 +110,24 @@ with sync_playwright() as p:
     pg.get_by_label("Show a cover page first").check()
     check("order forms get welcome wording", wait_until(lambda: pg.locator('.b-frame [data-sid="__cbtn"]').inner_text() == "Start your order"))
 
+    # ------------------------------------------------------------ stylish fonts
+    pg.goto(BASE + "/dev/builder?rsvp=1"); pg.wait_for_selector(".b-frame .qf-wrap")
+    pg.get_by_role("tab", name="Design").click()
+    pg.locator(".dsec > summary", has_text="Typography").click()
+    check("there are more font styles to pick from", wait_until(lambda: pg.locator(".fontpick button").count() >= 17))
+    pg.locator(".fontpick button", has_text="Romantic").click()
+    check("a script font style changes the form title", wait_until(lambda: "Great Vibes" in css(pg, '.b-frame [data-sid="__title"]', "fontFamily")))
+    check("the body uses the style's body font", "Cormorant Garamond" in css(pg, ".b-frame .qf-label", "fontFamily"))
+    check("only the fonts in use are requested from Google Fonts", pg.evaluate("[...document.querySelectorAll('link[rel=stylesheet]')].some(l => l.href.includes('Great+Vibes') && !l.href.includes('Bebas'))"))
+    pg.locator('.b-frame [data-sid="__title"]').click()
+    el = pg.locator(".dsec", has_text="Element ID")
+    groups = el.get_by_label("Font", exact=True).locator("optgroup")
+    check("the element font list is grouped (serif, script and more)", groups.count() == 6 and "Script and handwritten" in [groups.nth(i).get_attribute("label") for i in range(groups.count())])
+    el.get_by_label("Font", exact=True).select_option("pinyon")
+    check("one element can use its own stylish font", wait_until(lambda: "Pinyon Script" in css(pg, '.b-frame [data-sid="__title"]', "fontFamily")) and "Pinyon Script" not in css(pg, ".b-frame .qf-label", "fontFamily"))
+    check("the picker shows a sample in the chosen font", "Pinyon Script" in css(pg, ".font-sample", "fontFamily"))
+    pg.screenshot(path=f"{SHOTS}/fonts-builder.png", full_page=True)
+
     check("no browser errors", not errors, errors[:5])
     b.close()
 
