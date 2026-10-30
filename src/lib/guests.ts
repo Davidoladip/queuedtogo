@@ -13,6 +13,8 @@ export type Guest = {
   waitlisted: boolean;
   checkedInAt: string | null;
   respondedAt: string;
+  /** Agreed to texts about this event. */
+  texts?: boolean;
   answers: Record<string, Answer>;
 };
 
@@ -77,10 +79,10 @@ export function guestsCsv(gs: Guest[], timeZone: string): string {
   const questions: string[] = [];
   for (const g of gs) for (const a of Object.values(g.answers ?? {})) if (a?.label && a.type !== "rsvp" && !questions.includes(a.label)) questions.push(a.label);
   const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "");
-  const header = ["Name", "Reply", "People", "Email", "Mobile", "Replied", "Checked in", ...questions];
+  const header = ["Name", "Reply", "People", "Email", "Mobile", "Agreed to texts", "Replied", "Checked in", ...questions];
   const rows = sortGuests(gs).map((g) => {
     const byLabel = new Map(Object.values(g.answers ?? {}).map((a) => [a.label, a]));
-    return [g.name ?? "", replyLabel(g), g.party, g.email ?? "", prettyPhone(g.phone), when(g.respondedAt), when(g.checkedInAt),
+    return [g.name ?? "", replyLabel(g), g.party, g.email ?? "", prettyPhone(g.phone), g.texts ? "Yes" : "No", when(g.respondedAt), when(g.checkedInAt),
       ...questions.map((q) => { const a = byLabel.get(q); return a ? formatAnswer(a) : ""; })];
   });
   return toCsv(header, rows);

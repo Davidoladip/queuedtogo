@@ -12,7 +12,7 @@ export default async function DevBuilderPage({ searchParams }: { searchParams: P
     <main className="page wrap">
       <Builder initial={sp.rsvp === "1" ? sampleRsvpForm() : sampleForm()} orgId="7bb8b915-0b07-453d-90c3-56548f7b836f" orgSlug="demo" orgName="Demo Business"
         assetBase="/dev/assets" siteUrl="http://localhost:3000" status={published ? "live" : "draft"} publishedVersion={published ? 1 : 0}
-        changedSincePublish canDelete={false} demo
+        changedSincePublish canDelete={false} demo rsvpTextsApproved={sp.texts !== "off"}
         brand={["#3346D3", "#E8633A", "#12306B", "#FFC93C"]} canEditBrand otherForms={[{ id: "11111111-1111-4111-8111-111111111111", title: "Northgate Sports Day" }]} />
     </main>
   );

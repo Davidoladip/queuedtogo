@@ -6,7 +6,8 @@ vi.mock("@/lib/supabase/admin", () => ({ adminClient: () => null }));
 import { blankField, elementsOf, normalizeField, normalizeSettings, type FormModel } from "./design/engine";
 import { normalizeDesign } from "./design/engine";
 import { checkSubmission, formatAnswer } from "./submission";
-import { deadlinePassed, eventTimes, googleCalendarUrl, icsFile, localToday, normalizeRsvp, rsvpHeadline, whenText, zonedToUtc } from "./rsvp";
+import { deadlinePassed, eventTimes, googleCalendarUrl, icsFile, localToday, normalizeRsvp, quietHours, rsvpHeadline, rsvpSms, shortWhen, whenText, zonedToUtc } from "./rsvp";
+import { smsSegments } from "./sms-text";
 import { filterGuests, guestTotals, guestsCsv, searchGuests, type Guest } from "./guests";
 import { rsvpEmail } from "./email";
 import { dispatchQueued } from "@/server/messaging";
@@ -139,7 +140,7 @@ describe("guest list", () => {
   });
   it("exports a CSV that spreadsheets can't run as formulas", () => {
     const csv = guestsCsv([g("x", { name: "=HYPERLINK(1)", answers: { n: { label: "Dietary needs", type: "long", value: "Vegan" } } })], "UTC");
-    expect(csv).toContain("Name,Reply,People,Email,Mobile,Replied,Checked in,Dietary needs");
+    expect(csv).toContain("Name,Reply,People,Email,Mobile,Agreed to texts,Replied,Checked in,Dietary needs");
     expect(csv).toContain("'=HYPERLINK(1),Yes,1");
     expect(csv).toContain("Vegan");
   });
@@ -204,5 +205,96 @@ describe("sending queued RSVP emails", () => {
     expect(body.content.html).toContain(`/r/${"a".repeat(64)}`);
     expect(body.content.text).toContain("When: Saturday, November 7 · 6:00 PM – 9:30 PM");
     expect(tables.job_events).toHaveLength(0);
+  });
+});
+
+describe("RSVP texts", () => {
+  const base = { business: "Threadtogo", event: "Launch Party", when: shortWhen("2026-11-07", { start: "18:00" }), venue: "Pier 3", status: "yes" as const, waitlisted: false, party: 2, link: "https://queuedtogo.com/r/" + "a".repeat(64) };
+  it("writes short texts that name the business and end with the opt-out", () => {
+    const yes = rsvpSms({ ...base, kind: "rsvp_confirmation" });
+    expect(yes).toBe(`Threadtogo: You're on the list for Launch Party, Sat, Nov 7, 6:00 PM. Party of 2. Your RSVP: ${base.link} Reply STOP to opt out.`);
+    expect(smsSegments(yes)).toBeLessThanOrEqual(2);
+    expect(rsvpSms({ ...base, kind: "rsvp_confirmation", waitlisted: true })).toContain("you're on the waitlist");
+    expect(rsvpSms({ ...base, kind: "rsvp_confirmation", status: "no", party: 0 })).toBe("Threadtogo: Thanks for letting us know you can't make Launch Party. Reply STOP to opt out.");
+    expect(rsvpSms({ ...base, kind: "rsvp_reminder" })).toContain("Reminder: Launch Party is tomorrow, Sat, Nov 7, 6:00 PM at Pier 3.");
+    expect(rsvpSms({ ...base, kind: "rsvp_promoted" })).toContain("A place opened up");
+    expect(rsvpSms({ ...base, kind: "rsvp_confirmation", event: "Bisi’s “Baby” Day" })).toContain(`Bisi's "Baby" Day`);
+  });
+  it("knows the quiet hours in the business's time zone", () => {
+    expect(quietHours("America/New_York", new Date("2026-11-07T02:00:00Z"))).toBe(true); // 9 PM in New York
+    expect(quietHours("America/New_York", new Date("2026-11-07T15:00:00Z"))).toBe(false); // 10 AM
+    expect(quietHours("America/Los_Angeles", new Date("2026-11-07T15:00:00Z"))).toBe(true); // 7 AM
+  });
+  it("records texting permission only when the RSVP form offers texts and there's a mobile number", () => {
+    const f = rsvpForm();
+    const phone = blankField("phone"); phone.id = "f-phone";
+    f.fields.splice(3, 0, phone);
+    const answers = { "f-name": "Ava", "f-email": "ava@example.com", "f-rsvp": "yes", "f-phone": "(555) 555-0101", __consent: "on" };
+    expect(checkSubmission(f, fd(answers))).toMatchObject({ ok: true, consent: false });
+    f.settings.rsvp.texts = true;
+    expect(checkSubmission(f, fd(answers))).toMatchObject({ ok: true, consent: true });
+    expect(checkSubmission(f, fd({ ...answers, "f-phone": "" }))).toMatchObject({ ok: true, consent: false });
+    expect(checkSubmission(f, fd({ ...answers, __consent: "" }))).toMatchObject({ ok: true, consent: false });
+  });
+});
+
+describe("sending queued RSVP texts", () => {
+  const form = rsvpForm();
+  const published = { title: form.title, event_date: form.eventDate, venue: form.venue, settings: { ...form.settings, rsvp: { ...form.settings.rsvp, texts: true } }, design: form.design, fields: form.fields };
+  function setup(kind: string, consent = true) {
+    const tables: Record<string, Record<string, unknown>[]> = {
+      messages: [{ id: "s1", org_id: "o1", job_id: null, kind, channel: "sms", to_address: "+15555550101", template: null, body: null, subject: null, attempts: 0, status: "queued", created_at: new Date().toISOString(), customer_id: null,
+        rsvps: { id: "r1", token: "b".repeat(64), name: "Ava", status: "yes", party_size: 1, waitlisted: false, form_id: "form1", sms_consent: consent } }],
+      forms: [{ id: "form1", slug: "launch", published_config: published }],
+      job_events: [],
+    };
+    const from = (t: string) => {
+      let op = "select"; let patch: Record<string, unknown> = {};
+      const filters: ((r: Record<string, unknown>) => boolean)[] = [];
+      const b: Record<string, unknown> = {
+        select: () => b, update: (p: Record<string, unknown>) => { op = "update"; patch = p; return b; }, insert: () => b,
+        eq: (k: string, v: unknown) => { filters.push((r) => r[k] === v); return b; }, in: () => b, not: () => b, order: () => b, limit: () => b,
+        maybeSingle: () => Promise.resolve({ data: tables[t].find((r) => filters.every((f) => f(r))) ?? null, error: null }),
+        then: (res: (x: unknown) => unknown) => {
+          const hit = (tables[t] ?? []).filter((r) => filters.every((f) => f(r)));
+          if (op === "update") hit.forEach((r) => Object.assign(r, patch));
+          return Promise.resolve({ data: op === "update" ? hit.map((r) => ({ id: r.id })) : hit.map((r) => ({ ...r, organizations: { name: "Threadtogo", slug: "threadtogo", reply_to_email: null, timezone: "America/New_York" } })), error: null }).then(res);
+        },
+      };
+      return b;
+    };
+    const f = vi.fn(async (_u: string | URL | Request, init?: RequestInit) => { void init; return new Response(JSON.stringify({ sid: "SM" + "c".repeat(32), status: "queued" }), { status: 201 }); });
+    const cfg = { accountSid: "AC" + "a".repeat(32), user: "AC" + "a".repeat(32), pass: "t".repeat(32), authToken: "t".repeat(32), messagingServiceSid: "MG" + "d".repeat(32), from: null };
+    return { tables, admin: { from } as never, f, cfg };
+  }
+  const day = new Date("2026-11-06T16:00:00Z"), night = new Date("2026-11-07T03:30:00Z");
+  it("sends the confirmation text when RSVP texts are switched on", async () => {
+    const { tables, admin, f, cfg } = setup("rsvp_confirmation");
+    const r = await dispatchQueued({ orgId: "o1" }, { admin, cfg, email: null, fetchImpl: f as unknown as typeof fetch, rsvpTexts: true, now: day });
+    expect(r.sent).toBe(1);
+    expect(String(tables.messages[0].body)).toContain("Threadtogo: You're on the list for Launch Party");
+    const sent = new URLSearchParams(String(f.mock.calls[0][1]?.body));
+    expect(sent.get("To")).toBe("+15555550101");
+  });
+  it("sends nothing while RSVP texts aren't approved for QueuedToGo", async () => {
+    const { tables, admin, f, cfg } = setup("rsvp_confirmation");
+    await dispatchQueued({ orgId: "o1" }, { admin, cfg, email: null, fetchImpl: f as unknown as typeof fetch, rsvpTexts: false, now: day });
+    expect(f).not.toHaveBeenCalled();
+    expect(tables.messages[0]).toMatchObject({ status: "skipped", skip_reason: "Texts for RSVPs aren't switched on for QueuedToGo yet." });
+  });
+  it("skips guests who stopped texts after it was queued", async () => {
+    const { tables, admin, f, cfg } = setup("rsvp_reminder", false);
+    await dispatchQueued({ orgId: "o1" }, { admin, cfg, email: null, fetchImpl: f as unknown as typeof fetch, rsvpTexts: true, now: day });
+    expect(f).not.toHaveBeenCalled();
+    expect(tables.messages[0]).toMatchObject({ status: "skipped", skip_reason: "The guest stopped texts." });
+  });
+  it("holds reminder and waitlist texts overnight, but not the confirmation the guest just asked for", async () => {
+    const a = setup("rsvp_promoted");
+    await dispatchQueued({ orgId: "o1" }, { admin: a.admin, cfg: a.cfg, email: null, fetchImpl: a.f as unknown as typeof fetch, rsvpTexts: true, now: night });
+    expect(a.f).not.toHaveBeenCalled();
+    expect(a.tables.messages[0].status).toBe("queued");
+    const b = setup("rsvp_confirmation");
+    await dispatchQueued({ orgId: "o1" }, { admin: b.admin, cfg: b.cfg, email: null, fetchImpl: b.f as unknown as typeof fetch, rsvpTexts: true, now: night });
+    expect(b.f).toHaveBeenCalledTimes(1);
   });
 });

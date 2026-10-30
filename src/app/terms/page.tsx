@@ -3,11 +3,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LEGAL, legalReady } from "@/lib/legal";
 import { LegalPage } from "@/components/legal/LegalPage";
+import { connection } from "next/server";
+import { rsvpTextsApproved } from "@/lib/rsvp-texts";
 
 export const metadata: Metadata = { title: "Texting terms and conditions" };
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  await connection();
   if (!legalReady()) notFound();
+  const rsvp = rsvpTextsApproved();
   const { operator, contactEmail, address, program, updated } = LEGAL;
   return (
     <LegalPage title="Texting terms and conditions" updated={updated}>
@@ -22,15 +26,23 @@ export default function TermsPage() {
         example that it was received, is being made, or is ready to collect. Each message names the business you ordered from and may include
         a link to your order&apos;s tracking page. We don&apos;t send marketing or promotional texts.
       </p>
+      {rsvp && (
+        <p>
+          If you tick the box agreeing to texts when you <b>RSVP to an event</b>, you&apos;ll get texts about <b>that event only</b>: your RSVP
+          confirmation, a reminder the day before, and news if you come off the waitlist. Each message names the business hosting the event
+          and may include a link to view or change your RSVP.
+        </p>
+      )}
 
       <h2>How you agree</h2>
       <p>
         You agree by ticking the &ldquo;Text me updates about this order&rdquo; box on the order form before you place your order. The box
         is never ticked for you, and you don&apos;t have to agree in order to place an order.
+        {rsvp && <> For events, you agree by ticking the &ldquo;Text me about this event&rdquo; box on the RSVP form; you don&apos;t have to agree in order to RSVP.</>}
       </p>
 
       <h2>How often</h2>
-      <p>Message frequency varies with your order. Usually up to 6 messages per order.</p>
+      <p>Message frequency varies with your order. Usually up to 6 messages per order.{rsvp && " For an event RSVP, up to 4 messages per event."}</p>
 
       <h2>Costs</h2>
       <p><b>Message and data rates may apply.</b> Check with your mobile carrier for details.</p>

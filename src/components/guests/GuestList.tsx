@@ -118,6 +118,7 @@ export function GuestList(p: Props) {
                 </div>
                 <div className="qg-meta">
                   {[g.email, prettyPhone(g.phone)].filter(Boolean).join(" · ")}
+                  {g.texts && <span className="qg-texts" title="Agreed to texts about this event"> · texts ✓</span>}
                   {!door && <> · replied {day(g.respondedAt)}</>}
                   {g.notes && <div className="qg-notes">{g.notes}</div>}
                 </div>

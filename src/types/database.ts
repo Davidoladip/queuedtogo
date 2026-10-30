@@ -527,17 +527,17 @@ export type Database = {
         Row: {
           checked_in_at: string | null; created_at: string; customer_id: string | null; email: string | null; form_id: string; id: string; name: string | null;
           org_id: string; party_size: number; phone: string | null; responded_at: string; status: Database["public"]["Enums"]["rsvp_status"];
-          submission_id: string | null; token: string; updated_at: string; waitlisted: boolean;
+          submission_id: string | null; token: string; updated_at: string; waitlisted: boolean; sms_consent: boolean; sms_consent_at: string | null;
         };
         Insert: {
           checked_in_at?: string | null; created_at?: string; customer_id?: string | null; email?: string | null; form_id: string; id?: string; name?: string | null;
           org_id: string; party_size: number; phone?: string | null; responded_at?: string; status: Database["public"]["Enums"]["rsvp_status"];
-          submission_id?: string | null; token?: string; updated_at?: string; waitlisted?: boolean;
+          submission_id?: string | null; token?: string; updated_at?: string; waitlisted?: boolean; sms_consent?: boolean; sms_consent_at?: string | null;
         };
         Update: {
           checked_in_at?: string | null; created_at?: string; customer_id?: string | null; email?: string | null; form_id?: string; id?: string; name?: string | null;
           org_id?: string; party_size?: number; phone?: string | null; responded_at?: string; status?: Database["public"]["Enums"]["rsvp_status"];
-          submission_id?: string | null; token?: string; updated_at?: string; waitlisted?: boolean;
+          submission_id?: string | null; token?: string; updated_at?: string; waitlisted?: boolean; sms_consent?: boolean; sms_consent_at?: string | null;
         };
         Relationships: [
           { foreignKeyName: "rsvps_form_id_org_id_fkey"; columns: ["form_id", "org_id"]; isOneToOne: false; referencedRelation: "forms"; referencedColumns: ["id", "org_id"] },

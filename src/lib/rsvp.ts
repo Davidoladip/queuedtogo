@@ -22,8 +22,15 @@ export type RsvpSettings = {
   end: string;
   /** Email guests who said yes or maybe the day before. */
   reminder: boolean;
+  /** Offer texts (confirmation, reminder, waitlist news) to guests who tick the permission box. */
+  texts: boolean;
+  /** The permission checkbox wording. */
+  consentText: string;
   titles: RsvpTitles;
 };
+
+export const DEFAULT_RSVP_CONSENT = "Text me about this event from {business}: my RSVP confirmation, a reminder the day before and waitlist news. Up to 4 msgs. Msg & data rates may apply. Reply STOP to opt out, HELP for help.";
+export const RSVP_CONSENT_VARS = ["business"] as const;
 
 export const DEFAULT_RSVP_TITLES: RsvpTitles = {
   yes: "You're on the list!",
@@ -54,6 +61,8 @@ export function normalizeRsvp(raw: unknown): RsvpSettings {
     start: isTime(r.start) ? r.start : "",
     end: isTime(r.end) ? r.end : "",
     reminder: r.reminder === true,
+    texts: r.texts === true,
+    consentText: typeof r.consentText === "string" && r.consentText.trim() ? r.consentText.slice(0, 300) : DEFAULT_RSVP_CONSENT,
     titles: { yes: title(t.yes, DEFAULT_RSVP_TITLES.yes), no: title(t.no, DEFAULT_RSVP_TITLES.no), maybe: title(t.maybe, DEFAULT_RSVP_TITLES.maybe), wait: title(t.wait, DEFAULT_RSVP_TITLES.wait) },
   };
 }
@@ -166,3 +175,38 @@ export function localToday(tz: string, now = new Date()): string {
 }
 /** The reply deadline is the end of that day in the business's time zone. */
 export const deadlinePassed = (s: Pick<RsvpSettings, "deadline">, tz: string, now = new Date()) => !!s.deadline && localToday(tz, now) > s.deadline;
+
+// ---------------------------------------------------------------- texts
+
+/** "Sat, Nov 7, 6:00 PM" (short, for texts). */
+export function shortWhen(date: string | null, s: Pick<RsvpSettings, "start">): string {
+  if (!isDate(date)) return "";
+  const day = new Date(date + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+  return s.start ? `${day}, ${to12(s.start)}` : day;
+}
+
+export type RsvpSmsInput = {
+  kind: "rsvp_confirmation" | "rsvp_reminder" | "rsvp_promoted";
+  business: string; event: string; when: string; venue: string;
+  status: RsvpStatus; waitlisted: boolean; party: number; link: string;
+};
+
+/** The text a guest gets. Plain ASCII (one SMS segment is 160 characters), ends with the opt-out line. */
+export function rsvpSms(v: RsvpSmsInput): string {
+  const at = v.when ? `, ${v.when}` : "";
+  let body: string;
+  if (v.kind === "rsvp_reminder") body = `${v.business}: Reminder: ${v.event} is tomorrow${at}${v.venue ? ` at ${v.venue}` : ""}. Can't make it? ${v.link}`;
+  else if (v.kind === "rsvp_promoted") body = `${v.business}: Good news! A place opened up and you're on the list for ${v.event}${at}. ${v.link}`;
+  else if (v.waitlisted) body = `${v.business}: ${v.event} is full, so you're on the waitlist. We'll text you if a place opens up. ${v.link}`;
+  else if (v.status === "yes") body = `${v.business}: You're on the list for ${v.event}${at}.${v.party > 1 ? ` Party of ${v.party}.` : ""} Your RSVP: ${v.link}`;
+  else if (v.status === "maybe") body = `${v.business}: We've noted you as a maybe for ${v.event}${at}. Update your RSVP: ${v.link}`;
+  else body = `${v.business}: Thanks for letting us know you can't make ${v.event}.`;
+  body = body.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\s+/g, " ").trim();
+  return `${body} Reply STOP to opt out.`.slice(0, 640);
+}
+
+/** Texts that aren't a direct reply to the guest (reminders, waitlist news) wait for 8 AM to 9 PM in the business's time zone. */
+export function quietHours(tz: string, now = new Date()): boolean {
+  const h = Number(new Intl.DateTimeFormat("en-US", { timeZone: validZone(tz), hour: "numeric", hourCycle: "h23" }).format(now));
+  return h < 8 || h >= 21;
+}

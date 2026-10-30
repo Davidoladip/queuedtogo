@@ -39,6 +39,8 @@ export type BuilderProps = {
   otherForms: { id: string; title: string }[];
   /** Development harness only: saves stay in memory and nothing is sent to the server. */
   demo?: boolean;
+  /** RSVP texts are available on QueuedToGo. */
+  rsvpTextsApproved?: boolean;
 };
 
 export function Builder(props: BuilderProps) {
@@ -237,7 +239,7 @@ export function Builder(props: BuilderProps) {
             )}
             {tab === "settings" && (
               <SettingsPanel form={form} update={update} orgSlug={orgSlug} siteUrl={siteUrl} status={status} version={version}
-                onStatus={onStatus} pending={pending} canDelete={props.canDelete} orgName={orgName}
+                onStatus={onStatus} pending={pending} canDelete={props.canDelete} orgName={orgName} rsvpTextsApproved={!!props.rsvpTextsApproved}
                 onPreviewThanks={(k) => { if (k) setRsvpPreview(k); setPreviewThanks(true); }} />
             )}
           </div>
@@ -273,7 +275,7 @@ export function Builder(props: BuilderProps) {
             <FormRenderer form={form} assetBase={assetBase} mode="edit" businessName={orgName} selected={selected} onSelect={onSelect}
               forced={forced ? { state: forced.state, sid: forced.ctx === "e" ? selected : forced.ctx.startsWith("q:") ? forced.ctx.slice(2) : null, kind: forced.ctx.startsWith("g.") ? forced.ctx.slice(2) : null } : null}
               onInsertArtwork={(index, file) => void insertArtwork(file, index)} onResizeArt={resizeArt} showThanks={previewThanks}
-              previewRsvp={{ status: rsvpPreview === "wait" ? "yes" : rsvpPreview, waitlisted: rsvpPreview === "wait" }} />
+              previewRsvp={{ status: rsvpPreview === "wait" ? "yes" : rsvpPreview, waitlisted: rsvpPreview === "wait" }} rsvpTexts={!!props.rsvpTextsApproved} />
           </div>
         </section>
       </div>

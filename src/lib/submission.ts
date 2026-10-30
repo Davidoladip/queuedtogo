@@ -179,8 +179,9 @@ export function checkSubmission(form: FormModel, fd: Fields): Checked {
     phone: firstOf("phone") ? String(answers[firstOf("phone")!.id].value) : null,
     channel: form.settings.notify.channel,
   };
-  // RSVP forms never ask for texting permission.
-  const consent = !isRsvp && form.settings.notify.consent && fd.get("__consent") === "on";
+  // Texting permission: order forms ask for order updates; RSVP forms only when they offer texts, and only with a mobile number.
+  const ticked = fd.get("__consent") === "on";
+  const consent = isRsvp ? form.settings.rsvp.texts && ticked && !!customer.phone : form.settings.notify.consent && ticked;
   const who = customer.name || customer.email || customer.phone || "Order";
   const summary = list
     .filter((f) => ["choice", "multi", "dropdown", "sizes", "rsvp"].includes(f.type) && answers[f.id].value)

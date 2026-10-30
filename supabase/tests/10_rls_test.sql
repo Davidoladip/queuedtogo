@@ -600,6 +600,45 @@ reset role;
 select tests.ok((select count(*) from public.messages where kind = 'rsvp_reminder') = (select count(*) from public.rsvps where form_id = tests.id('formR') and status in ('yes', 'maybe') and not waitlisted and email is not null), 'every guest coming (or maybe) gets one reminder');
 select tests.ok(not exists (select 1 from public.messages m join public.rsvps r on r.id = m.rsvp_id where m.kind = 'rsvp_reminder' and r.status = 'no'), 'guests who said no get no reminder');
 
+-- ---------------------------------------------------------------- RSVP texts (Stage 10b)
+select tests.login('alice');
+update public.organizations set texting_enabled = true, email_enabled = true where id = tests.id('orgA');
+update public.forms set event_date = current_date + 1, settings = '{"mode":"rsvp","rsvp":{"texts":true,"reminder":true,"capacity":100,"waitlist":true}}' where id = tests.id('formR');
+insert into tests.vals values ('tver', public.publish_form(tests.id('formR'))::text);
+reset role;
+create function tests.rsvp2(name text, customer jsonb, status text) returns jsonb language sql as $$
+  select public.submit_rsvp(gen_random_uuid(), tests.id('formR'), tests.val('tver')::int, '{}', jsonb_build_object('name', name) || customer, status, 1, '[]', null, null, null)
+$$;
+grant execute on function tests.rsvp2(text, jsonb, text) to service_role;
+set role service_role;
+insert into tests.vals values ('t1', tests.rsvp2('Tia', '{"email":"tia@example.com","phone":"+15555550171","sms_consent":true}', 'yes')::text);
+insert into tests.vals values ('t2', tests.rsvp2('Uma', '{"phone":"+15555550172","sms_consent":false}', 'yes')::text);
+insert into tests.vals values ('t3', tests.rsvp2('Vic', '{"email":"vic@example.com","sms_consent":true}', 'maybe')::text);
+reset role;
+select tests.ok((select sms_consent and sms_consent_at is not null from public.rsvps where token = tests.val('t1')::jsonb ->> 'token'), 'a guest who ticks the box with a mobile number agrees to texts');
+select tests.ok((select count(*) from public.messages m join public.rsvps r on r.id = m.rsvp_id where r.token = tests.val('t1')::jsonb ->> 'token' and m.kind = 'rsvp_confirmation') = 2
+  and exists (select 1 from public.messages m join public.rsvps r on r.id = m.rsvp_id where r.token = tests.val('t1')::jsonb ->> 'token' and m.channel = 'sms' and m.to_address = '+15555550171'), 'a guest who agreed gets the confirmation by text as well as by email');
+select tests.ok(not (select sms_consent from public.rsvps where token = tests.val('t2')::jsonb ->> 'token')
+  and not exists (select 1 from public.messages m join public.rsvps r on r.id = m.rsvp_id where r.token = tests.val('t2')::jsonb ->> 'token' and m.channel = 'sms'), 'no texts without ticking the box');
+select tests.ok(not (select sms_consent from public.rsvps where token = tests.val('t3')::jsonb ->> 'token'), 'ticking the box without a mobile number doesn''t count');
+select tests.fails($$update public.rsvps set sms_consent = true where phone is null$$, 'texting permission always needs a mobile number');
+set role service_role;
+select tests.ok((select count(*) from public.queue_rsvp_reminders()) = 1, 'reminders are queued for the event tomorrow');
+reset role;
+select tests.ok((select count(*) from public.messages m join public.rsvps r on r.id = m.rsvp_id where r.token = tests.val('t1')::jsonb ->> 'token' and m.kind = 'rsvp_reminder') = 2, 'the reminder goes by email and by text to a guest who agreed');
+select tests.ok((select count(*) from public.messages m join public.rsvps r on r.id = m.rsvp_id where r.token = tests.val('t2')::jsonb ->> 'token' and m.kind = 'rsvp_reminder' and m.channel = 'sms') = 0, 'guests who didn''t agree get no reminder text');
+select tests.login('alice');
+update public.forms set settings = '{"mode":"rsvp","rsvp":{"texts":false}}' where id = tests.id('formR');
+insert into tests.vals values ('tver2', public.publish_form(tests.id('formR'))::text);
+reset role;
+set role service_role;
+insert into tests.vals values ('t4', public.submit_rsvp(gen_random_uuid(), tests.id('formR'), tests.val('tver2')::int, '{}', '{"name":"Wes","phone":"+15555550174","sms_consent":true}', 'yes', 1, '[]', null, null, null)::text);
+reset role;
+select tests.ok(not (select sms_consent from public.rsvps where token = tests.val('t4')::jsonb ->> 'token'), 'when the form doesn''t offer texts, a planted "agree" is ignored');
+select tests.login('finn');
+select tests.fails(format($$update public.rsvps set sms_consent = false where token = %L$$, tests.val('t1')::jsonb ->> 'token'), 'team members cannot change a guest''s texting permission');
+reset role;
+
 -- ---------------------------------------------------------------- deleting a business (with a job in it)
 select tests.login('bob');
 select tests.affects($$delete from public.organizations where id = tests.id('orgB')$$, 1, 'an owner can delete their business');

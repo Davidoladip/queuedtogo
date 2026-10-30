@@ -47,6 +47,8 @@ type Props = {
   version?: number;
   /** Edit mode, RSVP forms: which reply the thank-you preview shows. */
   previewRsvp?: { status: RsvpStatus; waitlisted: boolean };
+  /** RSVP forms: false hides the texting checkbox (texts for RSVPs aren't available yet). */
+  rsvpTexts?: boolean;
   /** Live mode: sends the order. Without it, the form explains that ordering isn't switched on. */
   onSubmitOrder?: (fd: FormData) => Promise<OrderResult>;
 };
@@ -73,7 +75,7 @@ const PHONE = (v: string) => {
 };
 const isLocked = (f: FormField) => LOCKABLE.has(f.type) && f.config.locked === true;
 
-export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp }: Props) {
+export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp, rsvpTexts }: Props) {
   const E = mode === "edit";
   const isRsvp = form.settings.mode === "rsvp";
   const t = form.design.theme;
@@ -239,7 +241,11 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   const head = hasArt && !artAsTitle
     ? <div className={`qf-head qf-head-${ha!.pos}`}><ArtBlock sid="__hart" a={ha!} alt={ha!.alt || `${form.title} artwork`} {...artProps} />{headText}</div>
     : <div className="qf-head">{headText}</div>;
-  const consentText = fillMessage(form.settings.notify.consentText, { channel: CHANNELS[form.settings.notify.channel], business: businessName });
+  // RSVP forms ask for texting permission only when they offer texts (and texts are available on QueuedToGo).
+  const askConsent = isRsvp ? form.settings.rsvp.texts && rsvpTexts !== false : form.settings.notify.consent;
+  const consentText = isRsvp
+    ? fillMessage(form.settings.rsvp.consentText, { business: businessName })
+    : fillMessage(form.settings.notify.consentText, { channel: CHANNELS[form.settings.notify.channel], business: businessName });
   const orderDone = done && "number" in done ? done : null;
   const orderNo = orderDone ? `QTG-${orderDone.number}` : "QTG-1001";
   const rsvpDone: RsvpDone | null = done && "rsvp" in done ? done.rsvp
@@ -311,14 +317,14 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
             if (f.type === "submit") {
               return blk(idx, (
                 <>
-                  {form.settings.notify.consent && !isRsvp && (
+                  {askConsent && (
                     <label className="qf-check">
                       {/* Never pre-ticked: consent to texts must be the customer's own choice (carrier rules). */}
                       <input type="checkbox" name="__consent" tabIndex={ti} />
                       {" "}{consentText}
                     </label>
                   )}
-                  {form.settings.notify.consent && !isRsvp && legalReady() && (
+                  {askConsent && legalReady() && (
                     <p className="qf-legal">See the <a href="/terms" target="_blank" rel="noopener">texting terms</a> and <a href="/privacy" target="_blank" rel="noopener">privacy policy</a>.</p>
                   )}
                   {notice && <div className="qf-closed" role="status">{notice}</div>}

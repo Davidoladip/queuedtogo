@@ -2,7 +2,8 @@ import { timingSafeEqual } from "node:crypto";
 import { adminClient } from "@/lib/supabase/admin";
 import { dispatchQueued } from "@/server/messaging";
 
-// Daily (see vercel.json): queues and sends the day-before reminder emails for RSVP events.
+// Daily (see vercel.json): queues and sends the day-before RSVP reminders (emails and texts), and sends
+// RSVP texts that were held back overnight.
 // Vercel calls this with "Authorization: Bearer <CRON_SECRET>"; anything else is refused.
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -21,7 +22,10 @@ export async function GET(req: Request) {
   if (!admin) return Response.json({ error: "Server not configured" }, { status: 503 });
   const { data, error } = await admin.rpc("queue_rsvp_reminders");
   if (error) return Response.json({ error: "Couldn't queue reminders" }, { status: 500 });
-  const orgs = [...new Set((data as unknown as string[] | null) ?? [])];
+  // Also businesses with RSVP texts that were held back overnight (quiet hours) and are still fresh.
+  const since = new Date(Date.now() - 23 * 3600_000).toISOString();
+  const { data: held } = await admin.from("messages").select("org_id").eq("status", "queued").in("kind", ["rsvp_reminder", "rsvp_promoted"]).gte("created_at", since).limit(1000);
+  const orgs = [...new Set([...((data as unknown as string[] | null) ?? []), ...(held ?? []).map((h) => h.org_id)])];
   let sent = 0, failed = 0, skipped = 0;
   for (const orgId of orgs) {
     // Send in batches until this business's queue is empty (each call sends up to 50).

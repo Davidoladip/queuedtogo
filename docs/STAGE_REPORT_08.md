@@ -7,7 +7,7 @@
 - **Guest settings.** Start / end time, guest limit (counts people including plus-ones; maybes don't count), waitlist when full, reply-by date (end of that day in the business's time zone), "guests can change or cancel", reminder the day before.
 - **Guests' side.** Thank-you screen with the event time and place, Add to Google Calendar and an .ics file (Apple / Outlook), and a private link (`/r/<token>`) to change or cancel. After the deadline guests can still cancel or bring fewer people.
 - **Waitlist.** When a place frees up (a cancellation, fewer guests, or an owner removing a guest), the first waiting guest who fits gets it and an email. New replies never jump the waitlist.
-- **Emails** (when email is on in Notifications and the guest gave an address): confirmation, "you're off the waitlist", and the day-before reminder (daily job at 14:17 UTC = 10:17 AM Eastern). Buttons use the form's accent colour.
+- **Emails** (when email is on in Notifications and the guest gave an address): confirmation, "you're off the waitlist", and the day-before reminder (daily job at 18:17 UTC = 2:17 PM Eastern). Buttons use the form's accent colour.
 - **Guests page.** Totals (coming against the limit, maybe, can't come, waitlist, checked in), search by name, email or last 4 phone digits, filters, door check-in mode (large, touch friendly, refreshes every 20 s), printable door list, CSV (owners and admins).
 
 ## Security
@@ -24,3 +24,11 @@
 
 ## Not yet tested live
 - A real RSVP on queuedtogo.com end to end (needs an RSVP form published by you), the confirmation email arriving, and the daily reminder job running on Vercel.
+
+## Update: texts for RSVP forms
+- Settings → *Guest emails and texts* → **Offer texts to guests**. This adds an unticked permission checkbox (editable wording, default mentions STOP/HELP and "up to 4 msgs") and, if the form has none, an optional *Mobile number* question.
+- Guests who tick the box **and** give a mobile number get their confirmation, the day-before reminder and "you're off the waitlist" by text (in addition to email). Permission is stored on the reply (`rsvps.sms_consent`, `sms_consent_at`), separate from order-update permission. Texting must also be on in Notifications.
+- STOP clears RSVP texting permission for that number everywhere (START restores it). Each text is re-checked against permission just before sending.
+- Reminder and waitlist texts are held between 9 PM and 8 AM in the business's time zone; the daily job (moved to 18:17 UTC) sends anything held.
+- **Platform switch:** nothing changes for guests until `RSVP_TEXTS=on` is set in Vercel. That should only happen after the Twilio campaign ("QueuedToGo Order Updates") is updated to cover event RSVP texts. Once it is on, /terms also describes RSVP texts.
+- Tests: database 245, unit 110, RSVP browser 83 (all other suites unchanged and passing).

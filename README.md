@@ -53,6 +53,7 @@ The smoke and prototype tests use Python with Playwright: `pip install playwrigh
 | `TWILIO_API_KEY_SID` / `TWILIO_API_KEY_SECRET` | Server only, optional: an API key (`SK…`) used for sending instead of the Auth Token | **Yes** (the secret). |
 | `EMAIL_FROM` | Server only: the email sender, on a domain verified in Twilio Email, e.g. `QueuedToGo <updates@queuedtogo.com>`. Emails use the Twilio settings above. | No. |
 | `CRON_SECRET` | Server only: lets Vercel's daily job (`vercel.json`) send RSVP reminder emails. Any long random string; mark it Sensitive. | No. Without it, reminders aren't sent. |
+| `RSVP_TEXTS` | Server only: set to `on` once the Twilio texting campaign covers event RSVP texts. Until then RSVP forms show no texting checkbox and no RSVP texts are sent (order texts are unaffected). | No. |
 
 `.env.local` is ignored by Git. `.env.example` lists every variable without secrets.
 

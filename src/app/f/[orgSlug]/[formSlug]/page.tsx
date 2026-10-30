@@ -6,6 +6,7 @@ import { env } from "@/lib/env";
 import { assetBaseFor } from "@/lib/design/engine";
 import { formFromPublished } from "@/lib/design/fromDb";
 import { PublicOrderForm } from "./PublicOrderForm";
+import { rsvpTextsApproved } from "@/lib/rsvp-texts";
 
 type PublicForm = {
   form_id: string; org_name: string; org_slug: string; status: "live" | "closed"; version: number | null; config: Record<string, unknown> | null; title?: string;
@@ -53,6 +54,7 @@ export default async function PublicFormPage({ params }: { params: Promise<{ org
         version={form.version ?? undefined}
         orderingOn={Boolean(process.env.SUPABASE_SECRET_KEY)}
         closedMessage={closedMessage}
+        rsvpTexts={rsvpTextsApproved()}
       />
     </div>
   );

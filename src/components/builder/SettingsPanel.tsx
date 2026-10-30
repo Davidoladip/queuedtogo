@@ -3,7 +3,7 @@
 import { CopyField } from "@/components/ui/CopyField";
 import { FormQr } from "./FormQr";
 import { CHANNELS, blankField, type FormModel } from "@/lib/design/engine";
-import { DEFAULT_RSVP_THANKS, DEFAULT_RSVP_TITLES, RSVP_SUBMIT_LABEL, RSVP_THANKS_VARS, type RsvpTitles } from "@/lib/rsvp";
+import { DEFAULT_RSVP_CONSENT, DEFAULT_RSVP_THANKS, DEFAULT_RSVP_TITLES, RSVP_CONSENT_VARS, RSVP_SUBMIT_LABEL, RSVP_THANKS_VARS, type RsvpTitles } from "@/lib/rsvp";
 import { CONSENT_VARS, DEFAULT_CONSENT, DEFAULT_THANKS, THANKS_VARS, fillMessage, unknownPlaceholders } from "@/lib/design/media";
 import { deleteForm } from "@/server/actions/forms";
 import { Seg, Select, TextInput, Toggle } from "./controls";
@@ -14,7 +14,21 @@ type Props = {
   onStatus: (s: Status) => void; pending: boolean; canDelete: boolean; orgName: string;
   /** Show the thank-you screen in the preview (for RSVP forms, optionally for one kind of reply). */
   onPreviewThanks: (reply?: "yes" | "no" | "maybe" | "wait") => void;
+  /** RSVP texts are available on QueuedToGo (the texting campaign covers them). */
+  rsvpTextsApproved: boolean;
 };
+
+/** Offering texts needs a mobile number question; add an optional one if the form has none. */
+function offerTexts(d: FormModel, on: boolean) {
+  d.settings.rsvp.texts = on;
+  if (on && !d.fields.some((f) => f.type === "phone")) {
+    const p = blankField("phone");
+    p.label = "Mobile number";
+    p.help = "Only if you'd like texts about this event.";
+    const at = d.fields.findIndex((f) => f.type === "submit");
+    d.fields.splice(at < 0 ? d.fields.length : at, 0, p);
+  }
+}
 
 /** Turns a form into an RSVP form: adds the RSVP question (and name and email, if missing) and RSVP wording. */
 function makeRsvp(d: FormModel) {
@@ -60,7 +74,7 @@ function MessageEditor({ label, value, fallback, vars, sample, onChange, hint, m
   );
 }
 
-export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version, onStatus, pending, canDelete, orgName, onPreviewThanks }: Props) {
+export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version, onStatus, pending, canDelete, orgName, onPreviewThanks, rsvpTextsApproved }: Props) {
   const channel = CHANNELS[form.settings.notify.channel];
   const consent = form.settings.notify.consentText;
   const slugOk = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/.test(form.slug);
@@ -167,8 +181,22 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
 
       {isRsvp ? (
         <section className="b-card form">
-          <h3>Guest emails</h3>
-          <p className="muted b-note">Guests who give an email address get a confirmation{r.reminder ? ", a reminder the day before" : ""}{r.capacity != null && r.waitlist ? " and an email if they come off the waitlist" : ""}. Email is switched on, and the contact address set, on the Notifications page. RSVP forms never send texts.</p>
+          <h3>Guest emails and texts</h3>
+          <p className="muted b-note">Guests who give an email address get a confirmation{r.reminder ? ", a reminder the day before" : ""}{r.capacity != null && r.waitlist ? " and an email if they come off the waitlist" : ""}. Email is switched on, and the contact address set, on the Notifications page.</p>
+          <Toggle label="Offer texts to guests" checked={r.texts} onChange={(v) => update((d) => offerTexts(d, v))}
+            hint="Adds a permission checkbox (never ticked for them). Guests who tick it and give a mobile number get the same messages by text. Texting must also be on in Notifications." />
+          {r.texts && !rsvpTextsApproved && (
+            <span className="b-warn" role="status">Texts for RSVPs aren&apos;t switched on for QueuedToGo yet, so guests won&apos;t see the checkbox and no texts are sent. They start once QueuedToGo&apos;s texting registration covers event RSVPs.</span>
+          )}
+          {r.texts && (
+            <>
+              <MessageEditor label="Permission checkbox text" value={r.consentText} fallback={DEFAULT_RSVP_CONSENT} vars={RSVP_CONSENT_VARS} maxLength={300}
+                sample={{ business: orgName }} hint="Shown next to the checkbox above the RSVP button."
+                onChange={(v) => update((d) => { d.settings.rsvp.consentText = v; }, { coalesce: "rconsent" })} />
+              {!/\bstop\b/i.test(r.consentText) && <span className="b-warn">US texting rules expect you to say how to opt out, for example “Reply STOP to opt out.”</span>}
+              {!form.fields.some((f) => f.type === "phone") && <span className="b-warn" role="alert">Add a mobile number question in Questions, or guests can&apos;t get texts.</span>}
+            </>
+          )}
         </section>
       ) : (
       <section className="b-card form">

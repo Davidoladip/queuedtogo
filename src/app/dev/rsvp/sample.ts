@@ -23,7 +23,7 @@ export function sampleRsvpForm(): FormModel {
 }
 
 export const sampleGuests = (): Guest[] => [
-  { id: "b0000000-0000-4000-8000-000000000001", name: "Ava Stone", email: "ava@example.com", phone: "+15555550101", status: "yes", party: 3, waitlisted: false, checkedInAt: null, respondedAt: "2026-10-20T15:00:00Z", answers: { d: { label: "Dietary needs", type: "long", value: "One vegan" } } },
+  { id: "b0000000-0000-4000-8000-000000000001", name: "Ava Stone", email: "ava@example.com", phone: "+15555550101", status: "yes", party: 3, waitlisted: false, checkedInAt: null, respondedAt: "2026-10-20T15:00:00Z", texts: true, answers: { d: { label: "Dietary needs", type: "long", value: "One vegan" } } },
   { id: "b0000000-0000-4000-8000-000000000002", name: "Ben Ortiz", email: "ben@example.com", phone: null, status: "yes", party: 1, waitlisted: false, checkedInAt: "2026-11-07T23:05:00Z", respondedAt: "2026-10-21T15:00:00Z", answers: {} },
   { id: "b0000000-0000-4000-8000-000000000003", name: "Cy Park", email: "cy@example.com", phone: "+15555550142", status: "maybe", party: 2, waitlisted: false, checkedInAt: null, respondedAt: "2026-10-22T15:00:00Z", answers: {} },
   { id: "b0000000-0000-4000-8000-000000000004", name: "Dee Lane", email: "dee@example.com", phone: null, status: "no", party: 0, waitlisted: false, checkedInAt: null, respondedAt: "2026-10-23T15:00:00Z", answers: {} },

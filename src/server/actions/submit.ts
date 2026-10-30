@@ -9,6 +9,7 @@ import { UPLOAD_TYPES, checkSubmission, sniffMatches } from "@/lib/submission";
 import { siteUrl } from "@/lib/urls";
 import type { Json } from "@/types/database";
 import { dispatchQueued } from "@/server/messaging";
+import { rsvpTextsApproved } from "@/lib/rsvp-texts";
 import { eventTimes, googleCalendarUrl, type RsvpStatus } from "@/lib/rsvp";
 import type { RsvpDone } from "@/components/form/FormRenderer";
 
@@ -82,7 +83,8 @@ export async function submitOrder(orgSlug: string, formSlug: string, fd: FormDat
       p_form: form.id,
       p_version: form.published_version,
       p_answers: answers as unknown as Json,
-      p_customer: checked.customer as unknown as Json,
+      // Texting permission is recorded only while RSVP texts are approved for QueuedToGo.
+      p_customer: { ...checked.customer, sms_consent: checked.consent && rsvpTextsApproved() } as unknown as Json,
       p_status: checked.rsvp.status,
       p_party: checked.rsvp.party,
       p_files: stored as unknown as Json,

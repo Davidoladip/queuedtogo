@@ -7,7 +7,9 @@ import { adminClient } from "@/lib/supabase/admin";
 import { explainError, renderSms, sendSms, twilioConfig, type TwilioConfig } from "@/lib/sms";
 import { customerEmail, emailConfig, explainEmailError, rsvpEmail, sendEmail, teamAlertEmail, testEmail, type EmailConfig } from "@/lib/email";
 import { formFromPublished } from "@/lib/design/fromDb";
-import { RSVP_KEYS, eventTimes, googleCalendarUrl, rsvpHeadline, whenText, type RsvpStatus } from "@/lib/rsvp";
+import { RSVP_KEYS, eventTimes, googleCalendarUrl, quietHours, rsvpHeadline, rsvpSms, shortWhen, whenText, type RsvpStatus } from "@/lib/rsvp";
+import { rsvpTextsApproved } from "@/lib/rsvp-texts";
+import type { FormModel } from "@/lib/design/engine";
 
 const MAX_ATTEMPTS = 3;
 const MAX_AGE_MS = 24 * 3600_000;
@@ -20,9 +22,10 @@ type Row = {
   customers: { name: string | null } | null;
   organizations: { name: string; slug: string; reply_to_email: string | null; timezone?: string } | null;
   workflow_stages: { name: string } | null;
-  rsvps?: { id: string; token: string; name: string | null; status: RsvpStatus; party_size: number; waitlisted: boolean; form_id: string } | null;
+  rsvps?: { id: string; token: string; name: string | null; status: RsvpStatus; party_size: number; waitlisted: boolean; form_id: string; sms_consent?: boolean } | null;
 };
-type Deps = { admin?: Admin | null; cfg?: TwilioConfig | null; email?: EmailConfig | null; fetchImpl?: typeof fetch };
+type Deps = { admin?: Admin | null; cfg?: TwilioConfig | null; email?: EmailConfig | null; fetchImpl?: typeof fetch; rsvpTexts?: boolean; now?: Date };
+const RSVP_KINDS = new Set(["rsvp_confirmation", "rsvp_reminder", "rsvp_promoted"]);
 type Outcome =
   | { kind: "sent"; providerId: string; body: string; subject?: string }
   | { kind: "skip"; reason: string }
@@ -32,7 +35,7 @@ export function siteBase(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
 }
 
-const SELECT = "id, org_id, job_id, kind, channel, to_address, template, body, subject, attempts, created_at, customer_id, jobs(id, number, tracking_token, summary, title, forms(title)), customers(name), organizations(name, slug, reply_to_email, timezone), workflow_stages(name), rsvps(id, token, name, status, party_size, waitlisted, form_id)";
+const SELECT = "id, org_id, job_id, kind, channel, to_address, template, body, subject, attempts, created_at, customer_id, jobs(id, number, tracking_token, summary, title, forms(title)), customers(name), organizations(name, slug, reply_to_email, timezone), workflow_stages(name), rsvps(id, token, name, status, party_size, waitlisted, form_id, sms_consent)";
 
 /** Sends this business's queued messages (optionally just one job's, or just some messages). Never throws. */
 export async function dispatchQueued(opts: { orgId: string; jobId?: string; ids?: string[]; limit?: number }, deps?: Deps) {
@@ -47,7 +50,10 @@ export async function dispatchQueued(opts: { orgId: string; jobId?: string; ids?
   const { data, error } = await q;
   if (error || !data) return tally;
 
+  const rsvpTexts = deps && "rsvpTexts" in deps ? !!deps.rsvpTexts : rsvpTextsApproved();
   for (const m of data as unknown as Row[]) {
+    // Reminder and waitlist texts wait for daytime (8 AM to 9 PM, business time); the daily job sends them later.
+    if (m.channel === "sms" && (m.kind === "rsvp_reminder" || m.kind === "rsvp_promoted") && quietHours(m.organizations?.timezone || "America/New_York", deps?.now)) continue;
     // Claim it: only one sender can move a message from queued to sending.
     const { data: claimed } = await admin.from("messages").update({ status: "sending", attempts: m.attempts + 1 })
       .eq("id", m.id).eq("status", "queued").select("id");
@@ -57,7 +63,9 @@ export async function dispatchQueued(opts: { orgId: string; jobId?: string; ids?
       ? { kind: "skip", reason: "It was more than a day old, so it wasn't sent." }
       : !m.to_address
         ? { kind: "skip", reason: m.channel === "email" ? "There's no email address." : "The customer has no mobile number." }
-        : m.channel === "email" ? await deliverEmail(m, mail, deps?.fetchImpl, admin) : await deliverSms(m, sms, deps?.fetchImpl);
+        : m.channel === "email" ? await deliverEmail(m, mail, deps?.fetchImpl, admin)
+          : RSVP_KINDS.has(m.kind) ? await deliverRsvpSms(m, sms, deps?.fetchImpl, admin, rsvpTexts)
+            : await deliverSms(m, sms, deps?.fetchImpl);
 
     if (out.kind === "skip") {
       tally.skipped++;
@@ -98,6 +106,34 @@ async function deliverSms(m: Row, cfg: TwilioConfig | null | undefined, fetchImp
   return r.ok ? { kind: "sent", providerId: r.sid, body } : { kind: "error", code: r.code, message: r.message, retry: r.retry, body };
 }
 
+type RsvpCtx = { r: NonNullable<Row["rsvps"]>; form: FormModel; tz: string; manageUrl: string };
+/** The guest's reply and the published RSVP form it belongs to, for RSVP emails and texts. */
+async function rsvpContext(m: Row, admin: Admin): Promise<RsvpCtx | { skip: string }> {
+  const r = m.rsvps;
+  if (!r) return { skip: "The guest is no longer on the list." };
+  if (m.kind === "rsvp_reminder" && (r.status === "no" || r.waitlisted)) return { skip: "The guest is no longer coming." };
+  if (m.kind === "rsvp_promoted" && (r.status !== "yes" || r.waitlisted)) return { skip: "The guest is no longer coming." };
+  const { data: fr } = await admin.from("forms").select("id, slug, published_config").eq("id", r.form_id).maybeSingle();
+  const row = fr as { id: string; slug: string; published_config: Record<string, unknown> | null } | null;
+  if (!row?.published_config) return { skip: "The RSVP form no longer exists." };
+  return { r, form: formFromPublished(row.id, row.slug, row.published_config), tz: m.organizations?.timezone || "America/New_York", manageUrl: `${siteBase()}/r/${r.token}` };
+}
+
+async function deliverRsvpSms(m: Row, cfg: TwilioConfig | null | undefined, fetchImpl: typeof fetch | undefined, admin: Admin, approved: boolean): Promise<Outcome> {
+  if (!approved) return { kind: "skip", reason: "Texts for RSVPs aren't switched on for QueuedToGo yet." };
+  if (!cfg) return { kind: "skip", reason: "Texting isn't connected to Twilio yet." };
+  if (!m.organizations) return { kind: "skip", reason: "The business no longer exists." };
+  const c = await rsvpContext(m, admin);
+  if ("skip" in c) return { kind: "skip", reason: c.skip };
+  if (!c.r.sms_consent) return { kind: "skip", reason: "The guest stopped texts." };
+  const body = rsvpSms({
+    kind: m.kind as "rsvp_confirmation", business: m.organizations.name, event: c.form.title, when: shortWhen(c.form.eventDate, c.form.settings.rsvp), venue: c.form.venue,
+    status: c.r.status, waitlisted: c.r.waitlisted, party: c.r.party_size, link: c.manageUrl,
+  });
+  const r = await sendSms(cfg, m.to_address!, body, `${siteBase()}/api/twilio/status`, fetchImpl);
+  return r.ok ? { kind: "sent", providerId: r.sid, body } : { kind: "error", code: r.code, message: r.message, retry: r.retry, body };
+}
+
 async function deliverEmail(m: Row, cfg: EmailConfig | null | undefined, fetchImpl: typeof fetch | undefined, admin: Admin): Promise<Outcome> {
   if (!cfg) return { kind: "skip", reason: "Email isn't connected yet." };
   const org = m.organizations;
@@ -124,17 +160,10 @@ async function deliverEmail(m: Row, cfg: EmailConfig | null | undefined, fetchIm
       stopUrl: m.kind === "stage_update" ? stopUrl : null, replyTo: org.reply_to_email,
     });
   } else if (m.kind === "rsvp_confirmation" || m.kind === "rsvp_reminder" || m.kind === "rsvp_promoted") {
-    const r = m.rsvps;
-    if (!r) return { kind: "skip", reason: "The guest is no longer on the list." };
-    if (m.kind === "rsvp_reminder" && (r.status === "no" || r.waitlisted)) return { kind: "skip", reason: "The guest is no longer coming." };
-    if (m.kind === "rsvp_promoted" && (r.status !== "yes" || r.waitlisted)) return { kind: "skip", reason: "The guest is no longer coming." };
-    const { data: fr } = await admin.from("forms").select("id, slug, published_config").eq("id", r.form_id).maybeSingle();
-    const row = fr as { id: string; slug: string; published_config: Record<string, unknown> | null } | null;
-    if (!row?.published_config) return { kind: "skip", reason: "The RSVP form no longer exists." };
-    const form = formFromPublished(row.id, row.slug, row.published_config);
+    const c = await rsvpContext(m, admin);
+    if ("skip" in c) return { kind: "skip", reason: c.skip };
+    const { r, form, tz, manageUrl } = c;
     const s = form.settings.rsvp;
-    const tz = org.timezone || "America/New_York";
-    const manageUrl = `${siteBase()}/r/${r.token}`;
     const times = eventTimes(form.eventDate, s, tz);
     const field = form.fields.find((f) => f.type === "rsvp");
     content = rsvpEmail({
@@ -164,8 +193,10 @@ async function deliverEmail(m: Row, cfg: EmailConfig | null | undefined, fetchIm
 /** STOP: this number gets no more texts from any business on QueuedToGo (it's one shared sender). */
 export async function optOut(admin: Admin, phone: string) {
   await admin.from("customers").update({ consent_updates: false }).eq("phone", phone).eq("consent_updates", true);
+  await admin.from("rsvps").update({ sms_consent: false }).eq("phone", phone).eq("sms_consent", true);
 }
 /** START: customers with this number who had agreed before get updates again. */
 export async function optBackIn(admin: Admin, phone: string) {
   await admin.from("customers").update({ consent_updates: true }).eq("phone", phone).eq("consent_updates", false).not("consent_at", "is", null);
+  await admin.from("rsvps").update({ sms_consent: true }).eq("phone", phone).eq("sms_consent", false).not("sms_consent_at", "is", null);
 }

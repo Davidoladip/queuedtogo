@@ -10,6 +10,7 @@ import { cc } from "@/lib/design/color";
 const DEFAULT_BRAND = ["#3346D3", "#E8633A", "#12306B", "#FFC93C"];
 import { formFromRows } from "@/lib/design/fromDb";
 import { Builder } from "@/components/builder/Builder";
+import { rsvpTextsApproved } from "@/lib/rsvp-texts";
 
 export const metadata: Metadata = { title: "Form builder" };
 
@@ -49,6 +50,7 @@ export default async function FormBuilderPage({ params }: { params: Promise<{ or
       siteUrl={await siteUrl()}
       status={row.status}
       publishedVersion={row.published_version}
+      rsvpTextsApproved={rsvpTextsApproved()}
       changedSincePublish={changed}
       canDelete={canManage(org.role)}
       brand={brand}
