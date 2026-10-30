@@ -45,8 +45,9 @@ export const ART_DEFAULT: ArtSettings = {
   bw: 0, bc: "#000000", br: 8, op: 100, bg: "", shadow: SHADOW_DEFAULT, pos: "above",
 };
 /** Starting points that suit each place an artwork block can appear. */
-export const artDefaultFor = (where: "head" | "field" | "option"): ArtSettings =>
-  where === "head" ? { ...ART_DEFAULT, w: 120, pos: "above", align: "center" }
+export const artDefaultFor = (where: "head" | "field" | "option" | "cover"): ArtSettings =>
+  where === "cover" ? { ...ART_DEFAULT, w: 100, wUnit: "%", pos: "above", align: "center", br: 12, mar: { t: 0, r: 0, b: 16, l: 0 } }
+  : where === "head" ? { ...ART_DEFAULT, w: 120, pos: "above", align: "center" }
     : where === "option" ? { ...ART_DEFAULT, w: 72, pos: "above", align: "center", mar: { t: 0, r: 0, b: 6, l: 0 } }
       : { ...ART_DEFAULT, w: 160, wUnit: "px", pos: "above", align: "left" };
 

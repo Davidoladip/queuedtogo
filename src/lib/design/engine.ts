@@ -88,6 +88,8 @@ export type Design = {
   adv: { progress: boolean; disableUntilValid: boolean };
   /** Logo, illustration or banner shown with the form heading. */
   headArt: ArtSettings | null;
+  /** Artwork on the cover page (for example the invitation card). */
+  coverArt: ArtSettings | null;
 };
 export type FieldConfig = {
   display?: "list" | "buttons";
@@ -125,7 +127,14 @@ export type FormSettings = {
   mode: FormMode;
   notify: { channel: "sms" | "whatsapp" | "email"; consent: boolean; consentText: string };
   rsvp: RsvpSettings;
+  /** An opening page shown before the form, with a button that opens it (for example an invitation). */
+  cover: CoverSettings;
 };
+export type CoverSettings = { on: boolean; heading: string; text: string; button: string };
+export const COVER_VARS = ["business", "form_title", "date"] as const;
+export const coverDefaults = (mode: FormMode): Omit<CoverSettings, "on"> => mode === "rsvp"
+  ? { heading: "You're invited!", text: "Join us for {form_title}.", button: "Accept your invitation" }
+  : { heading: "Welcome!", text: "Order ahead for {form_title}.", button: "Start your order" };
 export type FormModel = {
   id: string;
   title: string;
@@ -192,7 +201,7 @@ const fontStack = (k: string, f: FormModel) => {
 };
 
 // ---------------------------------------------------------------- elements and their defaults
-export type El = { sid: string; kind: string; name: string; btn?: string; title?: boolean; intro?: boolean; f?: FormField; part?: string; opt?: number };
+export type El = { sid: string; kind: string; name: string; btn?: string; title?: boolean; intro?: boolean; cover?: boolean; f?: FormField; part?: string; opt?: number };
 /** Questions shown as option buttons (each option can have its own artwork, colours and style). */
 export const hasChoiceOptions = (t: FieldType) => t === "choice" || t === "multi" || t === "rsvp";
 /** The guest-count box under an RSVP question is shown when one reply can bring more than one person. */
@@ -206,6 +215,14 @@ export function elementsOf(form: FormModel): El[] {
     { sid: "__intro", kind: "text", name: "Intro text", intro: true },
   ];
   let pages = 0;
+  if (form.settings.cover.on) {
+    if (form.design.coverArt) L.push({ sid: "__cart", kind: "art", name: "Cover page · artwork", cover: true });
+    L.push(
+      { sid: "__ctitle", kind: "heading", name: "Cover page · heading", title: true, cover: true },
+      { sid: "__ctext", kind: "text", name: "Cover page · message", cover: true },
+      { sid: "__cbtn", kind: "button", btn: "cover", name: "Cover page · button", cover: true },
+    );
+  }
   if (form.design.headArt) L.push({ sid: "__hart", kind: "art", name: "Heading artwork" });
   for (const f of form.fields) {
     const nm = (f.label || BLOCKS[f.type].name).slice(0, 34);
@@ -246,13 +263,13 @@ export function elDefault(form: FormModel, el: El): Style {
   const bg0 = (c: string) => ({ type: "solid", color: c, opacity: 100, color2: mix(acc, txt, 0.35), angle: 135, gtype: "linear", tex: "dots", texColor: bestOn(acc), texOp: 25, texScale: 14, img: null, imgSize: "cover", imgScale: 100, pos: "center", repeat: "no-repeat" });
   switch (el.kind) {
     case "button": {
-      const filled = el.btn === "submit" || el.btn === "next", prev = el.btn === "prev";
+      const filled = el.btn === "submit" || el.btn === "next" || el.btn === "cover", prev = el.btn === "prev";
       const bg = bg0(acc);
       if (!filled) bg.opacity = 0;
       return {
         ...base, font: filled ? "head" : "body", size: filled ? 16 : 15, weight: filled ? 700 : 600, color: filled ? T.accentText : txt, align: "center",
         transform: filled && up ? "uppercase" : "none", spacing: filled ? 0.01 : 0, lh: 1.2, width: "auto", w: 240, wUnit: "px", minH: filled ? 50 : 44,
-        pad: filled ? pad4(14, 26, 14, 26) : pad4(10, 18, 10, 18), place: "left", bg,
+        pad: filled ? pad4(14, 26, 14, 26) : pad4(10, 18, 10, 18), place: el.cover ? "center" : "left", bg,
         border: { style: filled ? "none" : "solid", width: 2, color: prev ? mix(txt, card, 0.7) : acc }, radius: radiusObj(R),
         st: {
           hover: { color: "", bg: filled ? shade(acc, 0.1) : alphaMul(acc, 0.14), border: "" },
@@ -289,9 +306,9 @@ export function elDefault(form: FormModel, el: El): Style {
     case "label": return { ...base, weight: 600, lh: 1.4 };
     case "heading":
       return el.title
-        ? { ...base, font: "head", size: 40, weight: 700, transform: up ? "uppercase" : "none", spacing: -0.01, lh: 1.08 }
+        ? { ...base, align: el.cover ? "center" : "left", font: "head", size: el.cover ? 44 : 40, weight: 700, transform: up ? "uppercase" : "none", spacing: -0.01, lh: 1.08 }
         : { ...base, font: "head", size: 21, weight: 700, transform: up ? "uppercase" : "none", lh: 1.2, mar: { t: 6, b: 0 } };
-    case "text": return { ...base, color: mix(txt, card, 0.15) };
+    case "text": return { ...base, align: el.cover ? "center" : "left", size: el.cover ? 17 : 15, color: mix(txt, card, 0.15) };
     case "divider": return { mar: { t: 0, b: 0 }, border: { style: "solid", width: 1.5, color: mix(txt, card, 0.82) } };
   }
   return base;
@@ -310,6 +327,7 @@ export function computedQuestionChoice(form: FormModel, el: El): Style {
 /** Artwork settings for an artwork element id. */
 export function artFor(form: FormModel, sid: string): ArtSettings | null {
   if (sid === "__hart") return form.design.headArt;
+  if (sid === "__cart") return form.design.coverArt;
   const m = sid.match(/^(.+?)(?:__o(\d+))?__art$/);
   if (!m) return null;
   const f = form.fields.find((x) => x.id === m[1]);
@@ -569,6 +587,7 @@ export function normalizeDesign(raw: unknown): Design {
     card: { tex: "none", texColor: theme.text, texOp: 6, texScale: 14, ...obj(d.card) },
     adv: { progress: obj(d.adv).progress !== false, disableUntilValid: obj(d.adv).disableUntilValid === true },
     headArt: normalizeArt(d.headArt, artDefaultFor("head")),
+    coverArt: normalizeArt(d.coverArt, artDefaultFor("cover")),
   };
 }
 
@@ -627,8 +646,12 @@ export function normalizeFields(raw: unknown): FormField[] {
 export function normalizeSettings(raw: unknown): FormSettings {
   const n = obj(obj(raw).notify);
   const text = typeof n.consentText === "string" && n.consentText.trim() ? n.consentText.slice(0, 300) : DEFAULT_CONSENT;
+  const mode: FormMode = obj(raw).mode === "rsvp" ? "rsvp" : "order";
+  const c = obj(obj(raw).cover), cd = coverDefaults(mode);
+  const txt = (v: unknown, max: number, d: string) => (typeof v === "string" && v.trim() ? v.slice(0, max) : d);
   return {
-    mode: obj(raw).mode === "rsvp" ? "rsvp" : "order",
+    mode,
+    cover: { on: c.on === true, heading: txt(c.heading, 120, cd.heading), text: typeof c.text === "string" ? c.text.slice(0, 1000) : cd.text, button: txt(c.button, 60, cd.button) },
     notify: { channel: en(n.channel, ["sms", "whatsapp", "email"] as const, "sms"), consent: n.consent !== false, consentText: text },
     rsvp: normalizeRsvp(obj(raw).rsvp),
   };

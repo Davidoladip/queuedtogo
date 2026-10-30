@@ -8,6 +8,7 @@
 //   img.<fieldId>.w            an artwork block's image settings
 //   ev.submitLabel             form-level text
 //   ha.w                       heading artwork
+//   ca.w                       cover page artwork
 //   fa.<fieldId>.w / fs.<fieldId>.size          a question's artwork / colour swatches
 //   o.<fieldId>.<n>.bg.color                    one option's own style
 //   oa.<fieldId>.<n>.w / os.<fieldId>.<n>.gap   one option's artwork / swatches
@@ -108,6 +109,9 @@ function applyOne(d: FormModel, path: string, v: unknown) {
       return;
     case "ha":
       if (d.design.headArt && rest.length) setIn(d.design.headArt as unknown as Record<string, any>, rest, v);
+      return;
+    case "ca":
+      if (d.design.coverArt && rest.length) setIn(d.design.coverArt as unknown as Record<string, any>, rest, v);
       return;
     case "fa": case "fs": {
       const [fid, ...keys] = rest;

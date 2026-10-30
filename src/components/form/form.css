@@ -131,3 +131,15 @@ span.qf-sw-i{cursor:default}
 .qf-cal{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
 .qf-cal-ics,.qf-manage,.qf-link-btn{color:inherit;text-decoration:underline;text-underline-offset:3px;font:inherit;font-size:14.5px;background:none;border:0;padding:0;cursor:pointer}
 .qf-rsvp-done[data-rsvp="wait"] .qf-title{opacity:.92}
+
+/* Cover page (an opening page with a button that opens the form) */
+.qf-cover{display:flex;flex-direction:column;gap:4px}
+.qf-cover .qf-cover-t{display:flex;flex-direction:column;gap:12px}
+.qf-cover .qf-eyebrow{text-align:center}
+.qf-cover .qf-cover-p{white-space:pre-line}
+.qf-cover .qf-cover-act{margin-top:10px}
+.qf-cover .qf-media-t .qf-eyebrow{text-align:inherit}
+.qf-head-t:focus{outline:none}
+.qf-opened{animation:qf-open .45s ease-out}
+@keyframes qf-open{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.qf-opened{animation:none}}

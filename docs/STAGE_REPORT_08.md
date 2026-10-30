@@ -32,3 +32,11 @@
 - Reminder and waitlist texts are held between 9 PM and 8 AM in the business's time zone; the daily job (moved to 18:17 UTC) sends anything held.
 - **Platform switch:** nothing changes for guests until `RSVP_TEXTS=on` is set in Vercel. That should only happen after the Twilio campaign ("QueuedToGo Order Updates") is updated to cover event RSVP texts. Once it is on, /terms also describes RSVP texts.
 - Tests: database 245, unit 110, RSVP browser 83 (all other suites unchanged and passing).
+
+## Update: cover page
+- Settings → **Cover page** → *Show a cover page first*. Visitors opening the form link see an opening page (artwork, the event date and place, a heading, a message, and one button). Pressing the button opens the form on the same link; focus moves to the form for keyboard and screen-reader users.
+- RSVP forms default to "You're invited!" / "Accept your invitation"; order forms to "Welcome!" / "Start your order". The message keeps line breaks and supports `{business}`, `{form_title}` and `{date}`.
+- Styling: the cover heading, message, button and artwork are their own elements in Design (colours, fonts, sizes, spacing, button states). The artwork can sit above, below, beside the words, or replace the heading (for a ready-made invitation card).
+- The builder preview has a Cover / Form / Thank-you switch. Closed forms skip the cover and show the closed message.
+- No database change: the cover lives in the form's settings and design, and appears for guests once the form is published.
+- Tests: `tests/e2e/cover.py` 27 checks; all other suites still pass.

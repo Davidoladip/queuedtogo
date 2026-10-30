@@ -2,12 +2,14 @@
 
 import { CopyField } from "@/components/ui/CopyField";
 import { FormQr } from "./FormQr";
-import { CHANNELS, blankField, type FormModel } from "@/lib/design/engine";
+import { CHANNELS, COVER_VARS, blankField, coverDefaults, type FormModel } from "@/lib/design/engine";
+import { artDefaultFor } from "@/lib/design/media";
+import { ArtQuick, ArtUploader } from "./media-controls";
 import { DEFAULT_RSVP_CONSENT, DEFAULT_RSVP_THANKS, DEFAULT_RSVP_TITLES, RSVP_CONSENT_VARS, RSVP_SUBMIT_LABEL, RSVP_THANKS_VARS, type RsvpTitles } from "@/lib/rsvp";
 import { CONSENT_VARS, DEFAULT_CONSENT, DEFAULT_THANKS, THANKS_VARS, fillMessage, unknownPlaceholders } from "@/lib/design/media";
 import { deleteForm } from "@/server/actions/forms";
 import { Seg, Select, TextInput, Toggle } from "./controls";
-import type { Status, Update } from "./Builder";
+import type { Status, Update, Upload } from "./Builder";
 
 type Props = {
   form: FormModel; update: Update; orgSlug: string; siteUrl: string; status: Status; version: number;
@@ -16,6 +18,12 @@ type Props = {
   onPreviewThanks: (reply?: "yes" | "no" | "maybe" | "wait") => void;
   /** RSVP texts are available on QueuedToGo (the texting campaign covers them). */
   rsvpTextsApproved: boolean;
+  upload: Upload;
+  assetBase: string;
+  /** Show the cover page in the preview. */
+  onPreviewCover: () => void;
+  /** Open an element's styles in the Design tab. */
+  openDesign: (sid: string) => void;
 };
 
 /** Offering texts needs a mobile number question; add an optional one if the form has none. */
@@ -31,8 +39,14 @@ function offerTexts(d: FormModel, on: boolean) {
 }
 
 /** Turns a form into an RSVP form: adds the RSVP question (and name and email, if missing) and RSVP wording. */
+/** Cover wording that is still the default follows the form type. */
+function swapCoverDefaults(d: FormModel, from: "order" | "rsvp") {
+  const a = coverDefaults(from), b = coverDefaults(d.settings.mode);
+  for (const k of ["heading", "text", "button"] as const) if (d.settings.cover[k] === a[k]) d.settings.cover[k] = b[k];
+}
 function makeRsvp(d: FormModel) {
   d.settings.mode = "rsvp";
+  swapCoverDefaults(d, "order");
   if (!d.fields.some((f) => f.type === "rsvp")) {
     const add = [];
     if (!d.fields.some((f) => f.type === "short")) { const n = blankField("short"); n.label = "Your name"; n.required = true; add.push(n); }
@@ -46,6 +60,7 @@ function makeRsvp(d: FormModel) {
 }
 function makeOrder(d: FormModel) {
   d.settings.mode = "order";
+  swapCoverDefaults(d, "rsvp");
   if (d.submitLabel === RSVP_SUBMIT_LABEL) d.submitLabel = "Submit";
   if (d.thanks.trim() === DEFAULT_RSVP_THANKS) d.thanks = "";
 }
@@ -74,7 +89,7 @@ function MessageEditor({ label, value, fallback, vars, sample, onChange, hint, m
   );
 }
 
-export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version, onStatus, pending, canDelete, orgName, onPreviewThanks, rsvpTextsApproved }: Props) {
+export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version, onStatus, pending, canDelete, orgName, onPreviewThanks, rsvpTextsApproved, upload, assetBase, onPreviewCover, openDesign }: Props) {
   const channel = CHANNELS[form.settings.notify.channel];
   const consent = form.settings.notify.consentText;
   const slugOk = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/.test(form.slug);
@@ -94,6 +109,33 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
         </p>
         {isRsvp && !hasRsvpQ && <span className="b-warn" role="alert">This RSVP form has no RSVP question. Add one in Questions (“RSVP (yes / no / maybe)”).</span>}
         {!isRsvp && hasRsvpQ && <span className="b-note muted">The RSVP question stays on the form as an ordinary question. Remove it in Questions if you don&apos;t need it.</span>}
+      </section>
+
+      <section className="b-card form" id="cover">
+        <h3>Cover page</h3>
+        <Toggle label="Show a cover page first" checked={form.settings.cover.on}
+          onChange={(v) => { update((d) => { d.settings.cover.on = v; }); if (v) onPreviewCover(); }}
+          hint={isRsvp ? "Guests open your link to an invitation, then press its button to RSVP. Same link, no extra page to share." : "Customers see a welcome page first, then press its button to open the order form. Same link."} />
+        {form.settings.cover.on && (
+          <>
+            <TextInput label="Cover heading" value={form.settings.cover.heading} maxLength={120} onChange={(v) => update((d) => { d.settings.cover.heading = v; }, { coalesce: "cvh" })} />
+            <TextInput label="Cover message" multiline value={form.settings.cover.text} maxLength={1000}
+              hint={<>Optional. Line breaks are kept. You can use {COVER_VARS.map((v, i) => <span key={v}>{i ? ", " : ""}<code>{`{${v}}`}</code></span>)}.</>}
+              onChange={(v) => update((d) => { d.settings.cover.text = v; }, { coalesce: "cvt" })} />
+            <TextInput label="Button text" value={form.settings.cover.button} maxLength={60} onChange={(v) => update((d) => { d.settings.cover.button = v; }, { coalesce: "cvb" })} />
+            <span className="b-label">Cover artwork (for example your invitation card)</span>
+            <ArtUploader art={form.design.coverArt} assetBase={assetBase} upload={upload} label="cover artwork"
+              onUploaded={(path, name) => update((d) => { d.design.coverArt = { ...(d.design.coverArt ?? artDefaultFor("cover")), src: { path }, name }; })}
+              onRemove={() => update((d) => { d.design.coverArt = null; })} />
+            {form.design.coverArt && (
+              <ArtQuick asTitle art={form.design.coverArt} set={(k, v) => update((d) => { if (d.design.coverArt) (d.design.coverArt as Record<string, unknown>)[k] = v; }, { coalesce: "cart:" + k })} />
+            )}
+            <div className="b-row-actions">
+              <button type="button" className="btn small" onClick={onPreviewCover}>Show the cover in the preview</button>
+              <button type="button" className="linkbtn" onClick={() => openDesign("__ctitle")}>Style the cover in Design →</button>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="b-card form">

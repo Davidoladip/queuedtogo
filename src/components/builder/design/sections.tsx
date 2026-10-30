@@ -168,6 +168,7 @@ export function SecElement() {
 /** Path prefix for an artwork or swatch element id. */
 function mediaBase(sid: string): { base: string; fid: string | null; n: number | null } | null {
   if (sid === "__hart") return { base: "ha", fid: null, n: null };
+  if (sid === "__cart") return { base: "ca", fid: null, n: null };
   const m = sid.match(/^(.+?)(?:__o(\d+))?__(art|sw)$/);
   if (!m) return null;
   const n = m[2] != null ? Number(m[2]) : null;
@@ -180,6 +181,7 @@ function ArtElement({ sid }: { sid: string }) {
   const a = artFor(form, sid), mb = mediaBase(sid);
   if (!a || !mb) return null;
   const setArt = (fn: (cur: ArtSettings | null) => ArtSettings | null) => update((d) => {
+    if (mb.base === "ca") { d.design.coverArt = fn(d.design.coverArt); return; }
     if (!mb.fid) { d.design.headArt = fn(d.design.headArt); return; }
     const f = d.fields.find((x) => x.id === mb.fid);
     if (!f) return;

@@ -13,6 +13,7 @@ export default async function DevRsvpPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const form = sampleRsvpForm();
   if (sp.nomaybe === "1") form.fields[2].options[2] = "";
+  if (sp.cover === "1") form.settings.cover = { ...form.settings.cover, on: true, text: "Join us for {form_title}.\nFood, music and the new collection." };
   if (sp.texts === "1") {
     form.settings.rsvp.texts = true;
     const phone = blankField("phone"); phone.id = "a0000000-0000-4000-8000-000000000006"; phone.label = "Mobile number";

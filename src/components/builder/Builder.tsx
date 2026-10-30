@@ -59,7 +59,11 @@ export function Builder(props: BuilderProps) {
   const [pending, startTransition] = useTransition();
   const [ps, setPs] = useState<PreviewState>({ ctx: "", state: "default" });
   const [brand, setBrandState] = useState<string[]>(props.brand);
-  const [previewThanks, setPreviewThanks] = useState(false);
+  const [previewThanks, setPreviewThanksState] = useState(false);
+  const [previewCover, setPreviewCoverState] = useState(false);
+  const setPreviewThanks = (v: boolean) => { setPreviewThanksState(v); if (v) setPreviewCoverState(false); };
+  const setPreviewCover = (v: boolean) => { setPreviewCoverState(v); if (v) setPreviewThanksState(false); };
+  const coverOn = form.settings.cover.on;
   const [rsvpPreview, setRsvpPreview] = useState<"yes" | "no" | "maybe" | "wait">("yes");
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
   const notify = useCallback((text: string) => setToast((t) => ({ text, n: (t?.n ?? 0) + 1 })), []);
@@ -176,7 +180,8 @@ export function Builder(props: BuilderProps) {
   function onSelect(sid: string) {
     setSelected(sid);
     setPs({ ctx: "", state: "default" });
-    if (tab === "settings") setTab("questions");
+    // Cover page parts are edited in Settings, so stay there.
+    if (tab === "settings" && !sid.startsWith("__c")) setTab("questions");
   }
   function pickTab(k: Tab) {
     setTab(k);
@@ -190,7 +195,7 @@ export function Builder(props: BuilderProps) {
   /** Drag-to-resize from the preview: artwork width in px. */
   const resizeArt = useCallback((sid: string, px: number) => {
     const m = sid.match(/^(.+?)(?:__o(\d+))?__art$/);
-    const base = sid === "__hart" ? "ha" : m ? (m[2] != null ? `oa.${m[1]}.${m[2]}` : `fa.${m[1]}`) : null;
+    const base = sid === "__hart" ? "ha" : sid === "__cart" ? "ca" : m ? (m[2] != null ? `oa.${m[1]}.${m[2]}` : `fa.${m[1]}`) : null;
     if (!base) return;
     update((d) => { applyPath(d, `${base}.wUnit`, "px"); applyPath(d, `${base}.w`, px); }, { coalesce: "rsz:" + sid });
   }, [update]);
@@ -240,6 +245,7 @@ export function Builder(props: BuilderProps) {
             {tab === "settings" && (
               <SettingsPanel form={form} update={update} orgSlug={orgSlug} siteUrl={siteUrl} status={status} version={version}
                 onStatus={onStatus} pending={pending} canDelete={props.canDelete} orgName={orgName} rsvpTextsApproved={!!props.rsvpTextsApproved}
+                upload={upload} assetBase={assetBase} openDesign={openDesign} onPreviewCover={() => setPreviewCover(true)}
                 onPreviewThanks={(k) => { if (k) setRsvpPreview(k); setPreviewThanks(true); }} />
             )}
           </div>
@@ -254,7 +260,8 @@ export function Builder(props: BuilderProps) {
               </span>
             )}
             <div className="b-seg sm" role="group" aria-label="Preview screen">
-              <button type="button" aria-pressed={!previewThanks} onClick={() => setPreviewThanks(false)}>Form</button>
+              {coverOn && <button type="button" aria-pressed={previewCover && !previewThanks} onClick={() => setPreviewCover(true)}>Cover</button>}
+              <button type="button" aria-pressed={!previewThanks && !(coverOn && previewCover)} onClick={() => { setPreviewThanks(false); setPreviewCover(false); }}>Form</button>
               <button type="button" aria-pressed={previewThanks} onClick={() => setPreviewThanks(true)}>Thank-you screen</button>
             </div>
             {previewThanks && form.settings.mode === "rsvp" && (
@@ -274,7 +281,7 @@ export function Builder(props: BuilderProps) {
           <div className={`b-frame ${device}`}>
             <FormRenderer form={form} assetBase={assetBase} mode="edit" businessName={orgName} selected={selected} onSelect={onSelect}
               forced={forced ? { state: forced.state, sid: forced.ctx === "e" ? selected : forced.ctx.startsWith("q:") ? forced.ctx.slice(2) : null, kind: forced.ctx.startsWith("g.") ? forced.ctx.slice(2) : null } : null}
-              onInsertArtwork={(index, file) => void insertArtwork(file, index)} onResizeArt={resizeArt} showThanks={previewThanks}
+              onInsertArtwork={(index, file) => void insertArtwork(file, index)} onResizeArt={resizeArt} showThanks={previewThanks} showCover={coverOn && previewCover}
               previewRsvp={{ status: rsvpPreview === "wait" ? "yes" : rsvpPreview, waitlisted: rsvpPreview === "wait" }} rsvpTexts={!!props.rsvpTextsApproved} />
           </div>
         </section>

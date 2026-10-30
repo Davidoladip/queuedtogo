@@ -49,6 +49,8 @@ type Props = {
   previewRsvp?: { status: RsvpStatus; waitlisted: boolean };
   /** RSVP forms: false hides the texting checkbox (texts for RSVPs aren't available yet). */
   rsvpTexts?: boolean;
+  /** Edit mode: show the cover page in the preview. */
+  showCover?: boolean;
   /** Live mode: sends the order. Without it, the form explains that ordering isn't switched on. */
   onSubmitOrder?: (fd: FormData) => Promise<OrderResult>;
 };
@@ -75,7 +77,7 @@ const PHONE = (v: string) => {
 };
 const isLocked = (f: FormField) => LOCKABLE.has(f.type) && f.config.locked === true;
 
-export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp, rsvpTexts }: Props) {
+export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp, rsvpTexts, showCover }: Props) {
   const E = mode === "edit";
   const isRsvp = form.settings.mode === "rsvp";
   const t = form.design.theme;
@@ -93,6 +95,17 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   const [done, setDone] = useState<Done | null>(null);
   const [clientKey, setClientKey] = useState(newClientKey);
   const [formKey, setFormKey] = useState(0);
+  // Cover page: shown first (live mode) until the visitor presses its button.
+  const cover = form.settings.cover;
+  const [opened, setOpened] = useState(false);
+  const titleRef = useRef<HTMLDivElement>(null);
+  const coverShown = cover.on && (E ? !!showCover : !opened && !closedMessage);
+  function openForm() {
+    setOpened(true);
+    window.scrollTo?.({ top: 0, behavior: "smooth" });
+    // Move keyboard and screen-reader focus to the form that just opened.
+    requestAnimationFrame(() => titleRef.current?.focus());
+  }
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const insertAt = useRef(0);
@@ -222,7 +235,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   const hasArt = Boolean(ha && srcOf(ha.src, assetBase));
   const artAsTitle = hasArt && ha!.pos === "title";
   const headText = (
-    <div className="qf-head-t">
+    <div className="qf-head-t" ref={titleRef} tabIndex={-1}>
       {(form.eventDate || form.venue) && (
         <div className="qf-eyebrow">{fmtDay(form.eventDate)}{form.eventDate && form.venue ? " · " : ""}{form.venue}</div>
       )}
@@ -246,6 +259,30 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   const consentText = isRsvp
     ? fillMessage(form.settings.rsvp.consentText, { business: businessName })
     : fillMessage(form.settings.notify.consentText, { channel: CHANNELS[form.settings.notify.channel], business: businessName });
+  const ca = form.design.coverArt;
+  const caSrc = Boolean(ca && srcOf(ca.src, assetBase));
+  const coverVars = { business: businessName, form_title: form.title, date: fmtDay(form.eventDate) };
+  const coverArtEl = caSrc ? <ArtBlock sid="__cart" a={ca!} alt={ca!.alt || (ca!.pos === "title" ? cover.heading : `${form.title} invitation`)} {...artProps} /> : null;
+  const coverWords = (
+    <div className="qf-cover-t">
+      {(form.eventDate || form.venue) && <div className="qf-eyebrow">{fmtDay(form.eventDate)}{form.eventDate && form.venue ? " · " : ""}{form.venue}</div>}
+      {caSrc && ca!.pos === "title"
+        ? <h2 className="qf-title qf-vh">{fillMessage(cover.heading, coverVars)}</h2>
+        : <h2 className={`qf-title${fs("__ctitle", "heading")}`} data-sid="__ctitle" data-kind="heading">{fillMessage(cover.heading, coverVars)}</h2>}
+      {cover.text.trim() && <p className={`qf-intro qf-cover-p${fs("__ctext", "text")}`} data-sid="__ctext" data-kind="text">{fillMessage(cover.text, coverVars)}</p>}
+      <div className="qf-nav qf-cover-act">
+        <button type="button" className={`qf-btn qf-cover-btn${fs("__cbtn", "button")}`} data-sid="__cbtn" data-kind="button" onClick={E ? undefined : openForm} tabIndex={E ? -1 : undefined}>{cover.button}</button>
+      </div>
+    </div>
+  );
+  const coverPage = (
+    <section className={`qf-cover${caSrc ? ` qf-cover-${ca!.pos}` : ""}`} aria-label={fillMessage(cover.heading, coverVars)}>
+      {caSrc && (ca!.pos === "left" || ca!.pos === "right")
+        ? <div className={`qf-media qf-media-${ca!.pos}`}>{coverArtEl}<div className="qf-media-t">{coverWords}</div></div>
+        : caSrc && ca!.pos === "below" ? <>{coverWords}{coverArtEl}</>
+          : <>{coverArtEl}{coverWords}</>}
+    </section>
+  );
   const orderDone = done && "number" in done ? done : null;
   const orderNo = orderDone ? `QTG-${orderDone.number}` : "QTG-1001";
   const rsvpDone: RsvpDone | null = done && "rsvp" in done ? done.rsvp
@@ -377,7 +414,8 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
           {art && L === "background" && <div className="qf-bg"><img src={art} alt="" /></div>}
           <div className="qf-main">
             <div className="qf-card">
-              {showThanks || done ? thanks : <>{head}{closedMessage ? <div className="qf-closed">{closedMessage}</div> : body}</>}
+              {showThanks || done ? thanks : coverShown ? coverPage
+                : <div className={cover.on && opened ? "qf-opened" : undefined}>{head}{closedMessage ? <div className="qf-closed">{closedMessage}</div> : body}</div>}
             </div>
             <div className="qf-powered">{isRsvp ? "RSVP" : "Order form"} by {businessName} · Powered by QueuedToGo</div>
           </div>
