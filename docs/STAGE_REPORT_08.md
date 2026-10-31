@@ -52,3 +52,10 @@
 - **Luxury invitation** look (one click, undoable): ivory card, rich gold and black, Cinzel + Cormorant fonts with a Pinyon Script cover heading in gold foil, double gold frame, sparkle, gold gradient buttons, gold-edged inputs and options, the cover artwork as a large centred emblem, and the "unveil" opening. Adds a "Luxury" font style.
 - "Play the opening" replays the effect in the builder preview. Visitors who turn motion off get no animation (static sparkle, no shimmer, form opens straight away).
 - Tests: cover.py 48 checks (including reduced motion); all other suites pass.
+
+## Update: envelope opening
+- Settings → Cover page → Finish → **Start in a sealed envelope**. Guests first see an envelope with a lined flap and a round seal (your emblem, initials, or plain), optional writing on the front, and a line underneath ("Tap the seal to open"). Tapping the seal breaks it, the flap lifts, the invitation card slides up out of the envelope and the envelope falls away; the card then becomes the normal cover with its Accept button (keyboard focus moves to it).
+- Envelope colour and liner/seal colour can be chosen, or left empty to follow the form and button colours.
+- The Luxury invitation look now includes an ivory envelope with a gold liner and seal (emblem when there is cover artwork).
+- Builder preview: Envelope / Cover / Form / Thank-you switch; "Play the opening" plays envelope → card → reveal of the form.
+- Reduced motion: the seal opens straight to the card. Tests: cover.py 61 checks; all other suites pass.

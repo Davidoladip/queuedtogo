@@ -61,9 +61,12 @@ export function Builder(props: BuilderProps) {
   const [brand, setBrandState] = useState<string[]>(props.brand);
   const [previewThanks, setPreviewThanksState] = useState(false);
   const [previewCover, setPreviewCoverState] = useState(false);
-  const setPreviewThanks = (v: boolean) => { setPreviewThanksState(v); if (v) setPreviewCoverState(false); };
-  const setPreviewCover = (v: boolean) => { setPreviewCoverState(v); if (v) setPreviewThanksState(false); };
+  const [previewEnvelope, setPreviewEnvelopeState] = useState(false);
+  const setPreviewThanks = (v: boolean) => { setPreviewThanksState(v); if (v) { setPreviewCoverState(false); setPreviewEnvelopeState(false); } };
+  const setPreviewCover = (v: boolean) => { setPreviewCoverState(v); if (v) { setPreviewThanksState(false); setPreviewEnvelopeState(false); } };
+  const setPreviewEnvelope = (v: boolean) => { setPreviewEnvelopeState(v); if (v) { setPreviewThanksState(false); setPreviewCoverState(false); } };
   const coverOn = form.settings.cover.on;
+  const envOn = coverOn && form.settings.cover.envelope.on;
   const [openSignal, setOpenSignal] = useState(0);
   const [rsvpPreview, setRsvpPreview] = useState<"yes" | "no" | "maybe" | "wait">("yes");
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
@@ -247,7 +250,8 @@ export function Builder(props: BuilderProps) {
               <SettingsPanel form={form} update={update} orgSlug={orgSlug} siteUrl={siteUrl} status={status} version={version}
                 onStatus={onStatus} pending={pending} canDelete={props.canDelete} orgName={orgName} rsvpTextsApproved={!!props.rsvpTextsApproved}
                 upload={upload} assetBase={assetBase} openDesign={openDesign} onPreviewCover={() => setPreviewCover(true)}
-                onPlayOpening={() => { setPreviewCover(true); window.setTimeout(() => setOpenSignal((n) => n + 1), 350); }}
+                onPreviewEnvelope={() => setPreviewEnvelope(true)}
+                onPlayOpening={() => { if (envOn) setPreviewEnvelope(true); else setPreviewCover(true); window.setTimeout(() => setOpenSignal((n) => n + 1), 350); }}
                 onPreviewThanks={(k) => { if (k) setRsvpPreview(k); setPreviewThanks(true); }} />
             )}
           </div>
@@ -262,8 +266,9 @@ export function Builder(props: BuilderProps) {
               </span>
             )}
             <div className="b-seg sm" role="group" aria-label="Preview screen">
+              {envOn && <button type="button" aria-pressed={previewEnvelope} onClick={() => setPreviewEnvelope(true)}>Envelope</button>}
               {coverOn && <button type="button" aria-pressed={previewCover && !previewThanks} onClick={() => setPreviewCover(true)}>Cover</button>}
-              <button type="button" aria-pressed={!previewThanks && !(coverOn && previewCover)} onClick={() => { setPreviewThanks(false); setPreviewCover(false); }}>Form</button>
+              <button type="button" aria-pressed={!previewThanks && !(coverOn && previewCover) && !(envOn && previewEnvelope)} onClick={() => { setPreviewThanks(false); setPreviewCover(false); setPreviewEnvelope(false); }}>Form</button>
               <button type="button" aria-pressed={previewThanks} onClick={() => setPreviewThanks(true)}>Thank-you screen</button>
             </div>
             {previewThanks && form.settings.mode === "rsvp" && (
@@ -283,8 +288,8 @@ export function Builder(props: BuilderProps) {
           <div className={`b-frame ${device}`}>
             <FormRenderer form={form} assetBase={assetBase} mode="edit" businessName={orgName} selected={selected} onSelect={onSelect}
               forced={forced ? { state: forced.state, sid: forced.ctx === "e" ? selected : forced.ctx.startsWith("q:") ? forced.ctx.slice(2) : null, kind: forced.ctx.startsWith("g.") ? forced.ctx.slice(2) : null } : null}
-              onInsertArtwork={(index, file) => void insertArtwork(file, index)} onResizeArt={resizeArt} showThanks={previewThanks} showCover={coverOn && previewCover}
-              openSignal={openSignal} onOpenPlayed={() => setPreviewCover(false)}
+              onInsertArtwork={(index, file) => void insertArtwork(file, index)} onResizeArt={resizeArt} showThanks={previewThanks} showCover={coverOn && previewCover} showEnvelope={envOn && previewEnvelope}
+              openSignal={openSignal} onOpenPlayed={() => { setPreviewCover(false); setPreviewEnvelope(false); }}
               previewRsvp={{ status: rsvpPreview === "wait" ? "yes" : rsvpPreview, waitlisted: rsvpPreview === "wait" }} rsvpTexts={!!props.rsvpTextsApproved} />
           </div>
         </section>

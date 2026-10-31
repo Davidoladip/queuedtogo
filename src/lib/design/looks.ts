@@ -15,13 +15,16 @@ const btn = (font: string, bg1: string, bg2: string, text: string, edge: string)
 export const LOOKS = {
   luxury: {
     label: "Luxury invitation",
-    description: "Ivory card, rich gold and black, elegant serif and script lettering, a fine double gold frame, subtle sparkle, and a card that parts to reveal the form.",
+    description: "A sealed ivory envelope with a gold liner and seal; the invitation slides out on a black page. Ivory card, rich gold, elegant serif and script lettering, a double gold frame, subtle sparkle, and a card that parts to reveal the form.",
     apply(d: FormModel) {
       const gold = "#B8913A", goldLight = "#E6CC85", goldDeep = "#8C6A1F", ink = "#141210", ivory = "#FBF7EE";
       d.design.theme = { ...d.design.theme, page: ink, card: ivory, text: "#26211B", accent: gold, accentText: ink, radius: "slight", font: "luxury", layout: d.design.art ? d.design.theme.layout : "banner" };
       d.design.page = { ...d.design.page, tex: "dots", texColor: gold, texOp: 10, texScale: 26 };
       d.design.card = { ...d.design.card, tex: "none" };
-      d.settings.cover = { ...d.settings.cover, effect: "unveil", sparkle: true, frame: "double", foil: true };
+      d.settings.cover = {
+        ...d.settings.cover, effect: "unveil", sparkle: true, frame: "double", foil: true,
+        envelope: { ...d.settings.cover.envelope, on: true, color: "#F1E8D4", liner: gold, seal: d.design.coverArt ? "emblem" : "initials" },
+      };
       const el = d.design.el;
       el.__ctitle = { ...el.__ctitle, font: "pinyon", size: 58, weight: 400, transform: "none", spacing: 0, lh: 1.15, color: gold, align: "center", mar: { t: 6, b: 0 } };
       el.__ctext = { ...el.__ctext, font: "cormorant", size: 21, weight: 500, lh: 1.6, spacing: 0.02, color: "#3A332A", align: "center" };

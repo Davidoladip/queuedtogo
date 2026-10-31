@@ -146,7 +146,25 @@ export type CoverSettings = {
   frame: "none" | "line" | "double";
   /** Metallic foil effect (from the accent colour) on the cover heading. */
   foil: boolean;
+  /** Start in a sealed envelope: guests tap the seal and the invitation slides out. */
+  envelope: EnvelopeSettings;
 };
+export type EnvelopeSettings = {
+  on: boolean;
+  /** Envelope and liner colours; empty means "from the form's colours". */
+  color: string;
+  liner: string;
+  /** What's on the seal: the cover artwork, initials, or nothing. */
+  seal: "emblem" | "initials" | "plain";
+  initials: string;
+  /** Writing on the front, for example "For our honoured guest". */
+  front: string;
+  /** The line under the envelope, for example "Tap the seal to open". */
+  prompt: string;
+};
+export const SEALS = ["emblem", "initials", "plain"] as const;
+/** Initials from a title: "Dr. Funmi's Golden Experience" → "DFG". */
+export const initialsOf = (t: string) => t.split(/\s+/).filter((w) => /^[A-Za-z]/.test(w) && !/^(the|of|and|a|an|for|to|at|in|on)$/i.test(w)).map((w) => w[0].toUpperCase()).join("").slice(0, 3);
 export const COVER_EFFECTS = ["none", "fade", "unveil"] as const;
 export const COVER_FRAMES = ["none", "line", "double"] as const;
 export const COVER_VARS = ["business", "form_title", "date"] as const;
@@ -211,7 +229,7 @@ export const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-"
 
 const radiusObj = (v: number) => ({ linked: true, all: v, tl: v, tr: v, br: v, bl: v });
 const pad4 = (t: number, r: number, b: number, l: number) => ({ t, r, b, l });
-const fontStack = (k: string, f: FormModel) => {
+export const fontStack = (k: string, f: FormModel) => {
   const fs = FONTS[f.design.theme.font] || FONTS.clean;
   if (k === "head") k = fs.head;
   else if (k === "body") k = fs.body;
@@ -553,7 +571,7 @@ export function designCss(form: FormModel, assetBase: string): string {
   let out = "";
   const pt = texLayer(form.design.page), ct = texLayer(form.design.card);
   if (pt) out += `${W}{${pt}}`;
-  if (ct) out += `${W} .qf-card,${W} .qf-cover-door{${ct}}`;
+  if (ct) out += `${W} .qf-card,${W} .qf-cover-door,${W} .qf-env-card{${ct}}`;
   for (const el of elementsOf(form)) {
     // Options without their own overrides inherit the question's option CSS, so skip them.
     if (el.part === "opt" && !Object.keys(el.f?.config.optMeta?.[el.opt ?? -1]?.style ?? {}).length) continue;
@@ -672,9 +690,20 @@ export function normalizeSettings(raw: unknown): FormSettings {
     cover: {
       on: c.on === true, heading: txt(c.heading, 120, cd.heading), text: typeof c.text === "string" ? c.text.slice(0, 1000) : cd.text, button: txt(c.button, 60, cd.button),
       effect: en(c.effect, COVER_EFFECTS, "fade"), sparkle: c.sparkle === true, frame: en(c.frame, COVER_FRAMES, "none"), foil: c.foil === true,
+      envelope: normalizeEnvelope(c.envelope),
     },
     notify: { channel: en(n.channel, ["sms", "whatsapp", "email"] as const, "sms"), consent: n.consent !== false, consentText: text },
     rsvp: normalizeRsvp(obj(raw).rsvp),
+  };
+}
+
+function normalizeEnvelope(raw: unknown): EnvelopeSettings {
+  const e = obj(raw);
+  return {
+    on: e.on === true, color: cc(e.color) || "", liner: cc(e.liner) || "", seal: en(e.seal, SEALS, "emblem"),
+    initials: typeof e.initials === "string" ? e.initials.replace(/[^\p{L}\p{N}&.]/gu, "").slice(0, 3) : "",
+    front: typeof e.front === "string" ? e.front.slice(0, 80) : "",
+    prompt: typeof e.prompt === "string" && e.prompt.trim() ? e.prompt.slice(0, 60) : "Tap the seal to open",
   };
 }
 

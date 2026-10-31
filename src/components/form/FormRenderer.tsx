@@ -15,6 +15,10 @@ import {
   srcOf,
   themeVars,
   usedFontKeys,
+  computed,
+  fontStack,
+  initialsOf,
+  type EnvelopeSettings,
   type FormField,
   type FormModel,
 } from "@/lib/design/engine";
@@ -53,6 +57,8 @@ type Props = {
   rsvpTexts?: boolean;
   /** Edit mode: show the cover page in the preview. */
   showCover?: boolean;
+  /** Edit mode: show the sealed envelope in the preview. */
+  showEnvelope?: boolean;
   /** Edit mode: change this number to play the cover's opening in the preview. */
   openSignal?: number;
   /** Edit mode: called when the opening starts, so the preview can switch to the form underneath. */
@@ -83,7 +89,7 @@ const PHONE = (v: string) => {
 };
 const isLocked = (f: FormField) => LOCKABLE.has(f.type) && f.config.locked === true;
 
-export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp, rsvpTexts, showCover, openSignal, onOpenPlayed }: Props) {
+export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp, rsvpTexts, showCover, showEnvelope, openSignal, onOpenPlayed }: Props) {
   const E = mode === "edit";
   const isRsvp = form.settings.mode === "rsvp";
   const t = form.design.theme;
@@ -107,7 +113,19 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   const cover = form.settings.cover;
   const [opened, setOpened] = useState(false);
   const titleRef = useRef<HTMLDivElement>(null);
-  const coverShown = cover.on && (E ? !!showCover : !opened && !closedMessage);
+  // Envelope: sealed → opening (flap lifts, card slides out, envelope falls away) → the cover card.
+  const env = cover.envelope;
+  const [envStage, setEnvStage] = useState<"sealed" | "opening" | "open">("sealed");
+  // Edit mode: "Play the opening" walks through the screens on its own, ignoring the preview switch.
+  const [play, setPlay] = useState<null | "env" | "cover">(null);
+  const envShown = cover.on && env.on && (E ? play === "env" || (!play && !!showEnvelope) : envStage !== "open" && !closedMessage);
+  const coverShown = !envShown && cover.on && (E ? play === "cover" || (!play && !!showCover) : !opened && !closedMessage);
+  const ENV_MS = 2500;
+  function openEnvelope(then?: () => void) {
+    if (reduceMotion()) { setEnvStage("open"); then?.(); return; }
+    setEnvStage("opening");
+    window.setTimeout(() => { setEnvStage("open"); then?.(); }, ENV_MS);
+  }
   const cardRef = useRef<HTMLDivElement>(null);
   // "Unveil": for a moment, two halves of the cover sit over the form and part down the middle.
   const [doors, setDoors] = useState<number | null>(null);
@@ -128,6 +146,17 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   useEffect(() => {
     if (!E || !openSignal || openSignal === lastSignal.current) return;
     lastSignal.current = openSignal;
+    if (cover.on && env.on && !reduceMotion()) {
+      // Envelope → card (a moment to read it) → the form.
+      window.setTimeout(() => {
+        setPlay("env"); setEnvStage("opening");
+        window.setTimeout(() => {
+          setPlay("cover"); setEnvStage("sealed");
+          window.setTimeout(() => { playUnveil(); setPlay(null); onOpenPlayed?.(); }, 1600);
+        }, ENV_MS);
+      }, 0);
+      return;
+    }
     playUnveil();
     onOpenPlayed?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only replay when the builder asks
@@ -312,6 +341,15 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   );
   const coverCls = `qf-cover${caSrc ? ` qf-cover-${ca!.pos}` : ""}${cover.frame !== "none" ? ` qf-cover-frame qf-cover-frame-${cover.frame}` : ""}${cover.foil ? " qf-cover-foil" : ""}`;
   const coverPage = <section className={coverCls} aria-label={fillMessage(cover.heading, coverVars)}>{coverInner}</section>;
+  const envSeal = env.seal === "emblem" && caSrc ? <img src={srcOf(ca!.src, assetBase)!} alt="" />
+    : env.seal === "plain" ? null : <span>{env.initials || initialsOf(form.title)}</span>;
+  const envFrontFont = fontStack(String(computed(form, { sid: "__ctitle", kind: "heading", name: "", title: true, cover: true }).font), form);
+  const envelope = envShown && (
+    <Envelope label={fillMessage(cover.heading, coverVars)} stage={E && play !== "env" ? "sealed" : envStage} env={env} seal={envSeal} frontFont={envFrontFont} editing={E}
+      onOpen={() => openEnvelope(() => requestAnimationFrame(() => document.querySelector<HTMLElement>(`.qf-wrap[data-qf="${form.id}"] .qf-cover-btn`)?.focus()))}>
+      <div className="qf-env-card">{coverPage}</div>
+    </Envelope>
+  );
   const doorsEl = doors != null && (
     <div className="qf-doors" style={{ height: doors }} aria-hidden="true" inert>
       <div className="qf-cover-door l"><div className={coverCls}>{coverInner}</div></div>
@@ -449,11 +487,11 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
           {art && L !== "background" && <div className="qf-art"><img src={art} alt={`${form.title} artwork`} /></div>}
           {art && L === "background" && <div className="qf-bg"><img src={art} alt="" /></div>}
           <div className="qf-main">
-            <div className={`qf-card${doors != null ? " qf-card-opening" : ""}`} ref={cardRef} style={doors != null ? { minHeight: doors } : undefined}>
+            {envelope || <div className={`qf-card${doors != null ? " qf-card-opening" : ""}${!E && env.on && envStage === "open" && coverShown ? " qf-env-arrived" : ""}`} ref={cardRef} style={doors != null ? { minHeight: doors } : undefined}>
               {showThanks || done ? thanks : coverShown ? coverPage
                 : <div className={cover.on && (opened || doors != null) && cover.effect !== "none" ? `qf-opened${cover.effect === "unveil" ? " qf-opened-unveil" : ""}` : undefined}>{head}{closedMessage ? <div className="qf-closed">{closedMessage}</div> : body}</div>}
               {doorsEl}
-            </div>
+            </div>}
             <div className="qf-powered">{isRsvp ? "RSVP" : "Order form"} by {businessName} · Powered by QueuedToGo</div>
           </div>
         </div>
@@ -680,5 +718,43 @@ function Sparkles() {
         <span key={i} className="qf-spark" style={{ left: `${x}%`, top: `${y}%`, width: size, height: size, animationDelay: `${delay}s` }} />
       ))}
     </span>
+  );
+}
+
+/**
+ * A sealed envelope holding the invitation card. Tapping the seal lifts the flap, the card slides up
+ * out of the envelope, and the envelope falls away; then the real cover card takes its place.
+ */
+function Envelope({ label, stage, env, seal, frontFont, editing, onOpen, children }: {
+  label: string; stage: "sealed" | "opening" | "open"; env: EnvelopeSettings; seal: ReactNode; frontFont: string; editing: boolean; onOpen: () => void; children: ReactNode;
+}) {
+  const scene = useRef<HTMLDivElement>(null);
+  const [vars, setVars] = useState<Record<string, string>>({});
+  // Measure once the opening starts: how far the card travels, and how much it grows to the full card width.
+  useEffect(() => {
+    if (stage !== "opening" || !scene.current) return;
+    const sc = scene.current, group = sc.querySelector<HTMLElement>(".qf-env"), card = sc.querySelector<HTMLElement>(".qf-env-card"), slot = sc.querySelector<HTMLElement>(".qf-env-slot");
+    if (!group || !card || !slot) return;
+    const top = slot.getBoundingClientRect().top - sc.getBoundingClientRect().top;
+    setVars({ "--qa": `${Math.round(top)}px`, "--qb": `${Math.round(group.offsetHeight + 40)}px`, "--qg": String(Math.max(1, sc.offsetWidth / card.offsetWidth).toFixed(3)) });
+  }, [stage]);
+  const style = { ...(env.color ? { "--env": env.color } : {}), ...(env.liner ? { "--liner": env.liner } : {}), ...vars } as React.CSSProperties;
+  return (
+    <div ref={scene} className={`qf-env-scene ${stage}`} style={style}>
+      <h2 className="qf-vh">{label}</h2>
+      <div className="qf-env">
+        <div className="qf-env-back"><div className="qf-env-liner" /></div>
+        <div className="qf-env-slot" aria-hidden="true" inert><div className="qf-env-mover">{children}</div></div>
+        <div className="qf-env-front">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0 L50 54 L100 0 M0 100 L41 60 M100 100 L59 60" /></svg>
+          {env.front && <div className="qf-env-addr" style={{ fontFamily: frontFont }}>{env.front}</div>}
+        </div>
+        <div className="qf-env-flap"><div className="qf-env-flap-out"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0 L50 100 L100 0" /></svg></div><div className="qf-env-flap-in" /></div>
+        <button type="button" className="qf-env-seal" onClick={editing ? undefined : onOpen} tabIndex={editing ? -1 : undefined} aria-label={env.prompt || "Open your invitation"} disabled={stage !== "sealed"}>
+          <span className="qf-env-wax">{seal}</span>
+        </button>
+      </div>
+      {env.prompt && <p className="qf-env-prompt" aria-hidden="true">{env.prompt}</p>}
+    </div>
   );
 }

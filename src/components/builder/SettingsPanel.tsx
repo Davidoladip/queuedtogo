@@ -2,14 +2,14 @@
 
 import { CopyField } from "@/components/ui/CopyField";
 import { FormQr } from "./FormQr";
-import { CHANNELS, COVER_VARS, blankField, coverDefaults, type FormModel } from "@/lib/design/engine";
+import { CHANNELS, COVER_VARS, blankField, coverDefaults, initialsOf, type FormModel } from "@/lib/design/engine";
 import { artDefaultFor } from "@/lib/design/media";
 import { LOOKS } from "@/lib/design/looks";
 import { ArtQuick, ArtUploader } from "./media-controls";
 import { DEFAULT_RSVP_CONSENT, DEFAULT_RSVP_THANKS, DEFAULT_RSVP_TITLES, RSVP_CONSENT_VARS, RSVP_SUBMIT_LABEL, RSVP_THANKS_VARS, type RsvpTitles } from "@/lib/rsvp";
 import { CONSENT_VARS, DEFAULT_CONSENT, DEFAULT_THANKS, THANKS_VARS, fillMessage, unknownPlaceholders } from "@/lib/design/media";
 import { deleteForm } from "@/server/actions/forms";
-import { Seg, Select, TextInput, Toggle } from "./controls";
+import { ColorInput, Seg, Select, TextInput, Toggle } from "./controls";
 import type { Status, Update, Upload } from "./Builder";
 
 type Props = {
@@ -27,6 +27,8 @@ type Props = {
   openDesign: (sid: string) => void;
   /** Play the cover's opening in the preview. */
   onPlayOpening: () => void;
+  /** Show the sealed envelope in the preview. */
+  onPreviewEnvelope: () => void;
 };
 
 /** Offering texts needs a mobile number question; add an optional one if the form has none. */
@@ -92,7 +94,7 @@ function MessageEditor({ label, value, fallback, vars, sample, onChange, hint, m
   );
 }
 
-export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version, onStatus, pending, canDelete, orgName, onPreviewThanks, rsvpTextsApproved, upload, assetBase, onPreviewCover, openDesign, onPlayOpening }: Props) {
+export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version, onStatus, pending, canDelete, orgName, onPreviewThanks, rsvpTextsApproved, upload, assetBase, onPreviewCover, openDesign, onPlayOpening, onPreviewEnvelope }: Props) {
   const channel = CHANNELS[form.settings.notify.channel];
   const consent = form.settings.notify.consentText;
   const slugOk = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/.test(form.slug);
@@ -141,11 +143,33 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
               onChange={(v) => update((d) => { d.settings.cover.frame = v; })} />
             <Toggle label="Gold foil heading" checked={form.settings.cover.foil} onChange={(v) => update((d) => { d.settings.cover.foil = v; })}
               hint="A soft metallic shine on the heading, made from your button colour (Design → Global theme → Buttons)." />
+            <Toggle label="Start in a sealed envelope" checked={form.settings.cover.envelope.on}
+              onChange={(v) => { update((d) => { d.settings.cover.envelope.on = v; }); if (v) onPreviewEnvelope(); }}
+              hint="Guests first see a sealed envelope. They tap the seal, the flap lifts and your invitation slides out." />
+            {form.settings.cover.envelope.on && (
+              <div className="b-env form">
+                <ColorInput label="Envelope colour" allowEmpty value={form.settings.cover.envelope.color} onChange={(v) => update((d) => { d.settings.cover.envelope.color = v; }, { coalesce: "envc" })} />
+                <ColorInput label="Liner and seal colour" allowEmpty value={form.settings.cover.envelope.liner} onChange={(v) => update((d) => { d.settings.cover.envelope.liner = v; }, { coalesce: "envl" })} />
+                <span className="b-note muted">Leave a colour empty to use your form colour (envelope) and button colour (liner and seal).</span>
+                <Seg label="On the seal" value={form.settings.cover.envelope.seal}
+                  options={[["emblem", form.design.coverArt ? "Your emblem" : "Emblem (add cover artwork)"], ["initials", "Initials"], ["plain", "Plain"]]}
+                  onChange={(v) => update((d) => { d.settings.cover.envelope.seal = v; })} />
+                {form.settings.cover.envelope.seal === "initials" && (
+                  <TextInput label="Initials" value={form.settings.cover.envelope.initials} maxLength={3} placeholder={initialsOf(form.title)}
+                    onChange={(v) => update((d) => { d.settings.cover.envelope.initials = v; }, { coalesce: "envi" })} />
+                )}
+                <TextInput label="Writing on the envelope" value={form.settings.cover.envelope.front} maxLength={80} placeholder="e.g. For our honoured guest"
+                  hint="Optional. Written in the cover heading's font." onChange={(v) => update((d) => { d.settings.cover.envelope.front = v; }, { coalesce: "envf" })} />
+                <TextInput label="Line under the envelope" value={form.settings.cover.envelope.prompt} maxLength={60}
+                  onChange={(v) => update((d) => { d.settings.cover.envelope.prompt = v; }, { coalesce: "envp" })} />
+                <button type="button" className="btn small" style={{ alignSelf: "flex-start" }} onClick={onPreviewEnvelope}>Show the envelope in the preview</button>
+              </div>
+            )}
             <Toggle label="Subtle sparkle" checked={form.settings.cover.sparkle} onChange={(v) => update((d) => { d.settings.cover.sparkle = v; })}
               hint="A few small twinkles around the edges, in your button colour. Still for visitors who turn motion off." />
             <div className="b-row-actions">
               <button type="button" className="btn small" onClick={onPreviewCover}>Show the cover in the preview</button>
-              {form.settings.cover.effect !== "none" && <button type="button" className="btn small" onClick={onPlayOpening}>Play the opening</button>}
+              {(form.settings.cover.effect !== "none" || form.settings.cover.envelope.on) && <button type="button" className="btn small" onClick={onPlayOpening}>Play the opening</button>}
               <button type="button" className="linkbtn" onClick={() => openDesign("__ctitle")}>Style the cover in Design →</button>
             </div>
             <div className="b-look">

@@ -110,3 +110,4 @@ details.b-card[open] > summary { margin-bottom: 10px; }
 .b-look b { font-family: 'Cinzel', Georgia, serif; letter-spacing: .06em; }
 .b-look .muted { color: #5B5040; font-size: 13px; }
 .b-look .btn { align-self: flex-start; }
+.b-env { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border-left: 3px solid #D9C79A; background: var(--surface-2); border-radius: 8px; }
