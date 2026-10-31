@@ -4,6 +4,7 @@ import { CopyField } from "@/components/ui/CopyField";
 import { FormQr } from "./FormQr";
 import { CHANNELS, COVER_VARS, blankField, coverDefaults, type FormModel } from "@/lib/design/engine";
 import { artDefaultFor } from "@/lib/design/media";
+import { LOOKS } from "@/lib/design/looks";
 import { ArtQuick, ArtUploader } from "./media-controls";
 import { DEFAULT_RSVP_CONSENT, DEFAULT_RSVP_THANKS, DEFAULT_RSVP_TITLES, RSVP_CONSENT_VARS, RSVP_SUBMIT_LABEL, RSVP_THANKS_VARS, type RsvpTitles } from "@/lib/rsvp";
 import { CONSENT_VARS, DEFAULT_CONSENT, DEFAULT_THANKS, THANKS_VARS, fillMessage, unknownPlaceholders } from "@/lib/design/media";
@@ -24,6 +25,8 @@ type Props = {
   onPreviewCover: () => void;
   /** Open an element's styles in the Design tab. */
   openDesign: (sid: string) => void;
+  /** Play the cover's opening in the preview. */
+  onPlayOpening: () => void;
 };
 
 /** Offering texts needs a mobile number question; add an optional one if the form has none. */
@@ -89,7 +92,7 @@ function MessageEditor({ label, value, fallback, vars, sample, onChange, hint, m
   );
 }
 
-export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version, onStatus, pending, canDelete, orgName, onPreviewThanks, rsvpTextsApproved, upload, assetBase, onPreviewCover, openDesign }: Props) {
+export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version, onStatus, pending, canDelete, orgName, onPreviewThanks, rsvpTextsApproved, upload, assetBase, onPreviewCover, openDesign, onPlayOpening }: Props) {
   const channel = CHANNELS[form.settings.notify.channel];
   const consent = form.settings.notify.consentText;
   const slugOk = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/.test(form.slug);
@@ -130,9 +133,26 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
             {form.design.coverArt && (
               <ArtQuick asTitle art={form.design.coverArt} set={(k, v) => update((d) => { if (d.design.coverArt) (d.design.coverArt as Record<string, unknown>)[k] = v; }, { coalesce: "cart:" + k })} />
             )}
+            <span className="b-label">Finish</span>
+            <Seg label="When the button is pressed" value={form.settings.cover.effect}
+              options={[["fade", "Form fades in"], ["unveil", "Card parts to reveal it"], ["none", "No effect"]]}
+              onChange={(v) => update((d) => { d.settings.cover.effect = v; })} />
+            <Seg label="Frame" value={form.settings.cover.frame} options={[["none", "None"], ["line", "Fine line"], ["double", "Double line"]]}
+              onChange={(v) => update((d) => { d.settings.cover.frame = v; })} />
+            <Toggle label="Gold foil heading" checked={form.settings.cover.foil} onChange={(v) => update((d) => { d.settings.cover.foil = v; })}
+              hint="A soft metallic shine on the heading, made from your button colour (Design → Global theme → Buttons)." />
+            <Toggle label="Subtle sparkle" checked={form.settings.cover.sparkle} onChange={(v) => update((d) => { d.settings.cover.sparkle = v; })}
+              hint="A few small twinkles around the edges, in your button colour. Still for visitors who turn motion off." />
             <div className="b-row-actions">
               <button type="button" className="btn small" onClick={onPreviewCover}>Show the cover in the preview</button>
+              {form.settings.cover.effect !== "none" && <button type="button" className="btn small" onClick={onPlayOpening}>Play the opening</button>}
               <button type="button" className="linkbtn" onClick={() => openDesign("__ctitle")}>Style the cover in Design →</button>
+            </div>
+            <div className="b-look">
+              <b>{LOOKS.luxury.label}</b>
+              <span className="muted">{LOOKS.luxury.description}{form.design.coverArt ? " Your cover artwork becomes the emblem at the top." : ""}</span>
+              <button type="button" className="btn small" onClick={() => { update((d) => LOOKS.luxury.apply(d)); onPreviewCover(); }}>Apply this look</button>
+              <small className="muted">Changes colours, fonts and button styles across the form. Use Undo at the top to go back.</small>
             </div>
           </>
         )}

@@ -3,7 +3,7 @@
 import { legalReady } from "@/lib/legal";
 import "./form.css";
 
-import { useMemo, useRef, useState, type DragEvent, type FormEvent, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import {
   CHANNELS,
   IMG_DEFAULT,
@@ -53,6 +53,10 @@ type Props = {
   rsvpTexts?: boolean;
   /** Edit mode: show the cover page in the preview. */
   showCover?: boolean;
+  /** Edit mode: change this number to play the cover's opening in the preview. */
+  openSignal?: number;
+  /** Edit mode: called when the opening starts, so the preview can switch to the form underneath. */
+  onOpenPlayed?: () => void;
   /** Live mode: sends the order. Without it, the form explains that ordering isn't switched on. */
   onSubmitOrder?: (fd: FormData) => Promise<OrderResult>;
 };
@@ -79,7 +83,7 @@ const PHONE = (v: string) => {
 };
 const isLocked = (f: FormField) => LOCKABLE.has(f.type) && f.config.locked === true;
 
-export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp, rsvpTexts, showCover }: Props) {
+export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp, rsvpTexts, showCover, openSignal, onOpenPlayed }: Props) {
   const E = mode === "edit";
   const isRsvp = form.settings.mode === "rsvp";
   const t = form.design.theme;
@@ -104,12 +108,30 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   const [opened, setOpened] = useState(false);
   const titleRef = useRef<HTMLDivElement>(null);
   const coverShown = cover.on && (E ? !!showCover : !opened && !closedMessage);
+  const cardRef = useRef<HTMLDivElement>(null);
+  // "Unveil": for a moment, two halves of the cover sit over the form and part down the middle.
+  const [doors, setDoors] = useState<number | null>(null);
+  const reduceMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  function playUnveil() {
+    if (cover.effect !== "unveil" || reduceMotion()) return;
+    setDoors(cardRef.current?.offsetHeight ?? 0);
+    window.setTimeout(() => setDoors(null), 1300);
+  }
   function openForm() {
+    playUnveil();
     setOpened(true);
     window.scrollTo?.({ top: 0, behavior: "smooth" });
     // Move keyboard and screen-reader focus to the form that just opened.
     requestAnimationFrame(() => titleRef.current?.focus());
   }
+  const lastSignal = useRef(openSignal ?? 0);
+  useEffect(() => {
+    if (!E || !openSignal || openSignal === lastSignal.current) return;
+    lastSignal.current = openSignal;
+    playUnveil();
+    onOpenPlayed?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only replay when the builder asks
+  }, [openSignal]);
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const insertAt = useRef(0);
@@ -279,13 +301,22 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
       </div>
     </div>
   );
-  const coverPage = (
-    <section className={`qf-cover${caSrc ? ` qf-cover-${ca!.pos}` : ""}`} aria-label={fillMessage(cover.heading, coverVars)}>
+  const coverInner = (
+    <>
+      {cover.sparkle && <Sparkles />}
       {caSrc && (ca!.pos === "left" || ca!.pos === "right")
         ? <div className={`qf-media qf-media-${ca!.pos}`}>{coverArtEl}<div className="qf-media-t">{coverWords}</div></div>
         : caSrc && ca!.pos === "below" ? <>{coverWords}{coverArtEl}</>
           : <>{coverArtEl}{coverWords}</>}
-    </section>
+    </>
+  );
+  const coverCls = `qf-cover${caSrc ? ` qf-cover-${ca!.pos}` : ""}${cover.frame !== "none" ? ` qf-cover-frame qf-cover-frame-${cover.frame}` : ""}${cover.foil ? " qf-cover-foil" : ""}`;
+  const coverPage = <section className={coverCls} aria-label={fillMessage(cover.heading, coverVars)}>{coverInner}</section>;
+  const doorsEl = doors != null && (
+    <div className="qf-doors" style={{ height: doors }} aria-hidden="true" inert>
+      <div className="qf-cover-door l"><div className={coverCls}>{coverInner}</div></div>
+      <div className="qf-cover-door r"><div className={coverCls}>{coverInner}</div></div>
+    </div>
   );
   const orderDone = done && "number" in done ? done : null;
   const orderNo = orderDone ? `QTG-${orderDone.number}` : "QTG-1001";
@@ -418,9 +449,10 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
           {art && L !== "background" && <div className="qf-art"><img src={art} alt={`${form.title} artwork`} /></div>}
           {art && L === "background" && <div className="qf-bg"><img src={art} alt="" /></div>}
           <div className="qf-main">
-            <div className="qf-card">
+            <div className={`qf-card${doors != null ? " qf-card-opening" : ""}`} ref={cardRef} style={doors != null ? { minHeight: doors } : undefined}>
               {showThanks || done ? thanks : coverShown ? coverPage
-                : <div className={cover.on && opened ? "qf-opened" : undefined}>{head}{closedMessage ? <div className="qf-closed">{closedMessage}</div> : body}</div>}
+                : <div className={cover.on && (opened || doors != null) && cover.effect !== "none" ? `qf-opened${cover.effect === "unveil" ? " qf-opened-unveil" : ""}` : undefined}>{head}{closedMessage ? <div className="qf-closed">{closedMessage}</div> : body}</div>}
+              {doorsEl}
             </div>
             <div className="qf-powered">{isRsvp ? "RSVP" : "Order form"} by {businessName} · Powered by QueuedToGo</div>
           </div>
@@ -633,5 +665,20 @@ export function RsvpChoices({ f, editing, fs, art, describedBy, initial, initial
         </div>
       )}
     </>
+  );
+}
+
+/** A few small four-point twinkles in the accent colour, placed around the edges of the cover. */
+const SPARKS: [number, number, number, number][] = [
+  [6, 8, 10, 0], [18, 3, 7, 1.6], [84, 6, 12, 0.8], [94, 14, 7, 2.4], [3, 34, 8, 3.1], [96, 40, 9, 1.2], [8, 62, 7, 2.0],
+  [92, 66, 11, 0.4], [14, 90, 9, 2.8], [30, 96, 6, 1.0], [70, 95, 8, 3.4], [88, 88, 7, 1.8], [50, 2, 6, 2.6], [60, 98, 6, 0.2],
+];
+function Sparkles() {
+  return (
+    <span className="qf-sparkles" aria-hidden="true">
+      {SPARKS.map(([x, y, size, delay], i) => (
+        <span key={i} className="qf-spark" style={{ left: `${x}%`, top: `${y}%`, width: size, height: size, animationDelay: `${delay}s` }} />
+      ))}
+    </span>
   );
 }

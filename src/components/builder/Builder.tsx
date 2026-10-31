@@ -64,6 +64,7 @@ export function Builder(props: BuilderProps) {
   const setPreviewThanks = (v: boolean) => { setPreviewThanksState(v); if (v) setPreviewCoverState(false); };
   const setPreviewCover = (v: boolean) => { setPreviewCoverState(v); if (v) setPreviewThanksState(false); };
   const coverOn = form.settings.cover.on;
+  const [openSignal, setOpenSignal] = useState(0);
   const [rsvpPreview, setRsvpPreview] = useState<"yes" | "no" | "maybe" | "wait">("yes");
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
   const notify = useCallback((text: string) => setToast((t) => ({ text, n: (t?.n ?? 0) + 1 })), []);
@@ -246,6 +247,7 @@ export function Builder(props: BuilderProps) {
               <SettingsPanel form={form} update={update} orgSlug={orgSlug} siteUrl={siteUrl} status={status} version={version}
                 onStatus={onStatus} pending={pending} canDelete={props.canDelete} orgName={orgName} rsvpTextsApproved={!!props.rsvpTextsApproved}
                 upload={upload} assetBase={assetBase} openDesign={openDesign} onPreviewCover={() => setPreviewCover(true)}
+                onPlayOpening={() => { setPreviewCover(true); window.setTimeout(() => setOpenSignal((n) => n + 1), 350); }}
                 onPreviewThanks={(k) => { if (k) setRsvpPreview(k); setPreviewThanks(true); }} />
             )}
           </div>
@@ -282,6 +284,7 @@ export function Builder(props: BuilderProps) {
             <FormRenderer form={form} assetBase={assetBase} mode="edit" businessName={orgName} selected={selected} onSelect={onSelect}
               forced={forced ? { state: forced.state, sid: forced.ctx === "e" ? selected : forced.ctx.startsWith("q:") ? forced.ctx.slice(2) : null, kind: forced.ctx.startsWith("g.") ? forced.ctx.slice(2) : null } : null}
               onInsertArtwork={(index, file) => void insertArtwork(file, index)} onResizeArt={resizeArt} showThanks={previewThanks} showCover={coverOn && previewCover}
+              openSignal={openSignal} onOpenPlayed={() => setPreviewCover(false)}
               previewRsvp={{ status: rsvpPreview === "wait" ? "yes" : rsvpPreview, waitlisted: rsvpPreview === "wait" }} rsvpTexts={!!props.rsvpTextsApproved} />
           </div>
         </section>

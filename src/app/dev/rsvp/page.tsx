@@ -2,6 +2,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { harnessEnabled } from "../sample";
 import { blankField } from "@/lib/design/engine";
+import { LOOKS } from "@/lib/design/looks";
 import { sampleRsvpForm } from "./sample";
 import { DemoRsvpForm } from "./DemoRsvpForm";
 import { FormRenderer } from "@/components/form/FormRenderer";
@@ -13,7 +14,8 @@ export default async function DevRsvpPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const form = sampleRsvpForm();
   if (sp.nomaybe === "1") form.fields[2].options[2] = "";
-  if (sp.cover === "1") form.settings.cover = { ...form.settings.cover, on: true, text: "Join us for {form_title}.\nFood, music and the new collection." };
+  if (sp.cover === "1" || sp.cover === "lux") form.settings.cover = { ...form.settings.cover, on: true, text: "Join us for {form_title}.\nFood, music and the new collection." };
+  if (sp.cover === "lux") LOOKS.luxury.apply(form);
   if (sp.texts === "1") {
     form.settings.rsvp.texts = true;
     const phone = blankField("phone"); phone.id = "a0000000-0000-4000-8000-000000000006"; phone.label = "Mobile number";

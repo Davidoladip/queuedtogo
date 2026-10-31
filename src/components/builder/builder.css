@@ -106,3 +106,7 @@ details.b-card[open] > summary { margin-bottom: 10px; }
 .b-qr-img { width: 132px; height: 132px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px; flex: none; }
 .b-qr-img svg { width: 100%; height: 100%; display: block; }
 .b-qr-btns { display: flex; flex-direction: column; gap: 6px; }
+.b-look { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 10px; border: 1px solid #D9C79A; background: linear-gradient(135deg, #FBF7EE, #F3E7C6); color: #26211B; }
+.b-look b { font-family: 'Cinzel', Georgia, serif; letter-spacing: .06em; }
+.b-look .muted { color: #5B5040; font-size: 13px; }
+.b-look .btn { align-self: flex-start; }

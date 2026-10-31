@@ -46,3 +46,9 @@
 - 12 new one-click font styles in Design → Typography: Romantic, Wedding, Classic, Chic, Modern, Minimal, Retro, Poster, Party, Whimsical, Handwritten, Playful.
 - Any element (cover heading, title, labels, buttons, options…) can use any font; the picker is grouped and shows a sample.
 - Forms load only the fonts they use, one stylesheet per family, with `display=swap` (text shows immediately, then switches). Not verified against Google Fonts from the test machine (no internet there); check a published form in a browser.
+
+## Update: luxury invitation finish
+- Settings → Cover page → **Finish**: opening effect (form fades in / card parts to reveal it / none), frame (fine line / double line), gold foil heading, subtle sparkle. All colours come from the form's button (accent) colour.
+- **Luxury invitation** look (one click, undoable): ivory card, rich gold and black, Cinzel + Cormorant fonts with a Pinyon Script cover heading in gold foil, double gold frame, sparkle, gold gradient buttons, gold-edged inputs and options, the cover artwork as a large centred emblem, and the "unveil" opening. Adds a "Luxury" font style.
+- "Play the opening" replays the effect in the builder preview. Visitors who turn motion off get no animation (static sparkle, no shimmer, form opens straight away).
+- Tests: cover.py 48 checks (including reduced motion); all other suites pass.

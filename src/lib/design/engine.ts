@@ -33,6 +33,7 @@ export const FONTS: Record<string, { label: string; head: string; body: string; 
   whimsical: { label: "Whimsical", head: "dancing", body: "quicksand" },
   handwritten: { label: "Handwritten", head: "caveat", body: "quicksand" },
   playful: { label: "Playful", head: "lobster", body: "fredoka" },
+  luxury: { label: "Luxury", head: "cinzel", body: "cormorant" },
 };
 export const RADII: Record<string, number> = { square: 2, slight: 6, rounded: 12, pill: 999 };
 export const SHAPES: [string, string][] = [["square", "Square"], ["slight", "Slightly rounded"], ["rounded", "Rounded"], ["pill", "Pill"]];
@@ -135,9 +136,21 @@ export type FormSettings = {
   /** An opening page shown before the form, with a button that opens it (for example an invitation). */
   cover: CoverSettings;
 };
-export type CoverSettings = { on: boolean; heading: string; text: string; button: string };
+export type CoverSettings = {
+  on: boolean; heading: string; text: string; button: string;
+  /** How the form appears when the button is pressed: fade in, or the card parts down the middle. */
+  effect: "none" | "fade" | "unveil";
+  /** A few small twinkles in the accent colour. */
+  sparkle: boolean;
+  /** A fine frame inside the card, in the accent colour. */
+  frame: "none" | "line" | "double";
+  /** Metallic foil effect (from the accent colour) on the cover heading. */
+  foil: boolean;
+};
+export const COVER_EFFECTS = ["none", "fade", "unveil"] as const;
+export const COVER_FRAMES = ["none", "line", "double"] as const;
 export const COVER_VARS = ["business", "form_title", "date"] as const;
-export const coverDefaults = (mode: FormMode): Omit<CoverSettings, "on"> => mode === "rsvp"
+export const coverDefaults = (mode: FormMode): Pick<CoverSettings, "heading" | "text" | "button"> => mode === "rsvp"
   ? { heading: "You're invited!", text: "Join us for {form_title}.", button: "Accept your invitation" }
   : { heading: "Welcome!", text: "Order ahead for {form_title}.", button: "Start your order" };
 export type FormModel = {
@@ -540,7 +553,7 @@ export function designCss(form: FormModel, assetBase: string): string {
   let out = "";
   const pt = texLayer(form.design.page), ct = texLayer(form.design.card);
   if (pt) out += `${W}{${pt}}`;
-  if (ct) out += `${W} .qf-card{${ct}}`;
+  if (ct) out += `${W} .qf-card,${W} .qf-cover-door{${ct}}`;
   for (const el of elementsOf(form)) {
     // Options without their own overrides inherit the question's option CSS, so skip them.
     if (el.part === "opt" && !Object.keys(el.f?.config.optMeta?.[el.opt ?? -1]?.style ?? {}).length) continue;
@@ -656,7 +669,10 @@ export function normalizeSettings(raw: unknown): FormSettings {
   const txt = (v: unknown, max: number, d: string) => (typeof v === "string" && v.trim() ? v.slice(0, max) : d);
   return {
     mode,
-    cover: { on: c.on === true, heading: txt(c.heading, 120, cd.heading), text: typeof c.text === "string" ? c.text.slice(0, 1000) : cd.text, button: txt(c.button, 60, cd.button) },
+    cover: {
+      on: c.on === true, heading: txt(c.heading, 120, cd.heading), text: typeof c.text === "string" ? c.text.slice(0, 1000) : cd.text, button: txt(c.button, 60, cd.button),
+      effect: en(c.effect, COVER_EFFECTS, "fade"), sparkle: c.sparkle === true, frame: en(c.frame, COVER_FRAMES, "none"), foil: c.foil === true,
+    },
     notify: { channel: en(n.channel, ["sms", "whatsapp", "email"] as const, "sms"), consent: n.consent !== false, consentText: text },
     rsvp: normalizeRsvp(obj(raw).rsvp),
   };

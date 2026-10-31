@@ -141,5 +141,31 @@ span.qf-sw-i{cursor:default}
 .qf-cover .qf-media-t .qf-eyebrow{text-align:inherit}
 .qf-head-t:focus{outline:none}
 .qf-opened{animation:qf-open .45s ease-out}
+.qf-opened.qf-opened-unveil{animation:qf-open .9s ease-out .25s both}
 @keyframes qf-open{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.qf-opened{animation:none}}
+
+/* Cover finishes: frame, gold foil heading, sparkle, and the "unveil" opening */
+.qf-cover{position:relative}
+.qf-cover-frame{padding:clamp(26px,7cqi,48px) clamp(18px,6cqi,40px)}
+.qf-cover-frame::before{content:"";position:absolute;inset:clamp(4px,1.6cqi,10px);border:1px solid color-mix(in srgb,var(--a) 85%,transparent);border-radius:max(0px,calc(min(var(--r),20px) - 8px));pointer-events:none}
+.qf-cover-frame-double::before{border:4px double color-mix(in srgb,var(--a) 90%,transparent)}
+.qf-cover-frame .qf-cover-t{gap:18px}
+.qf-cover-foil [data-sid="__ctitle"]{background-image:linear-gradient(105deg,color-mix(in srgb,var(--a) 70%,#000) 0%,color-mix(in srgb,var(--a) 45%,#fff) 30%,var(--a) 50%,color-mix(in srgb,var(--a) 40%,#fff) 70%,color-mix(in srgb,var(--a) 75%,#000) 100%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:qf-foil 9s ease-in-out infinite alternate}
+@keyframes qf-foil{from{background-position:0% 50%}to{background-position:100% 50%}}
+.qf-sparkles{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:inherit}
+.qf-spark{position:absolute;transform:translate(-50%,-50%) scale(.4);background:radial-gradient(circle,color-mix(in srgb,var(--a) 30%,#fff) 0%,var(--a) 60%);clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);opacity:0;animation:qf-twinkle 4.2s ease-in-out infinite}
+@keyframes qf-twinkle{0%,100%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(0)}45%{opacity:.85;transform:translate(-50%,-50%) scale(1) rotate(20deg)}60%{opacity:.3}}
+.qf-card-opening{position:relative;overflow:hidden}
+.qf-doors{position:absolute;top:0;left:0;right:0;z-index:2;perspective:1400px;pointer-events:none;padding:inherit;border-radius:inherit}
+.qf-cover-door{position:absolute;inset:0;padding:inherit;background-color:var(--c);border-radius:inherit;backface-visibility:hidden;animation:qf-door-l 1.2s cubic-bezier(.55,.05,.35,1) forwards}
+.qf-cover-door.l{clip-path:inset(0 50% 0 0);transform-origin:left center;box-shadow:inset -1px 0 0 color-mix(in srgb,var(--a) 70%,transparent)}
+.qf-cover-door.r{clip-path:inset(0 0 0 50%);transform-origin:right center;animation-name:qf-door-r;box-shadow:inset 1px 0 0 color-mix(in srgb,var(--a) 70%,transparent)}
+@keyframes qf-door-l{0%,12%{transform:rotateY(0)}100%{transform:rotateY(-105deg)}}
+@keyframes qf-door-r{0%,12%{transform:rotateY(0)}100%{transform:rotateY(105deg)}}
+@media (prefers-reduced-motion:reduce){
+  .qf-spark{animation:none;opacity:.45;transform:translate(-50%,-50%)}
+  .qf-cover-foil [data-sid="__ctitle"]{animation:none}
+  .qf-doors{display:none}
+  .qf-opened.qf-opened-unveil{animation:none}
+}
