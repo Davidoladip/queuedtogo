@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMyWorkspaces, getUser } from "@/lib/auth";
-import { Logo } from "@/components/ui/Logo";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { Notice } from "@/components/ui/Notice";
 import { Landing } from "@/components/home/Landing";
 import type { Metadata } from "next";
@@ -20,9 +20,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     if (!workspaces.length) redirect("/onboarding");
     if (workspaces.length === 1 && !sp.left && !sp.deleted && !sp.password) redirect(`/w/${workspaces[0].slug}`);
     return (
-      <div className="auth-shell wrap">
-        <div className="auth-card">
-          <Logo />
+      <AuthShell>
           {sp.password && <Notice tone="success">Your password is updated.</Notice>}
           {sp.left && <Notice tone="success">You left the business.</Notice>}
           {sp.deleted && <Notice tone="success">The business was deleted.</Notice>}
@@ -36,8 +34,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
             ))}
           </div>
           <Link href="/onboarding" className="btn ghost">+ Create another business</Link>
-        </div>
-      </div>
+      </AuthShell>
     );
   }
 

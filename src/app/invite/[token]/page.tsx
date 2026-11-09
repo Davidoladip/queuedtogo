@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { Logo } from "@/components/ui/Logo";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { Notice } from "@/components/ui/Notice";
 import { AcceptInvite } from "./AcceptInvite";
 
@@ -17,9 +17,11 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   if (!user) {
     body = (
       <>
-        <h1>You&apos;ve been invited</h1>
-        <p className="muted">Sign in or create an account with the email address the invitation was sent to.</p>
-        <div className="row">
+        <div>
+          <h1>You&apos;ve been invited</h1>
+          <p className="au-lede">Sign in, or create an account, with the email address the invitation was sent to. Then you&apos;ll come straight back here to join.</p>
+        </div>
+        <div className="form">
           <Link className="btn primary block" href={`/signup?next=${encodeURIComponent(here)}`}>Create an account</Link>
           <Link className="btn block" href={`/login?next=${encodeURIComponent(here)}`}>Sign in</Link>
         </div>
@@ -41,19 +43,16 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     else
       body = (
         <>
-          <h1>Join {inv.org_name}</h1>
-          <p className="muted">You&apos;ll join as {inv.role === "admin" ? "an admin" : "a member"}.</p>
+          <div>
+            <h1>Join {inv.org_name}</h1>
+            <p className="au-lede">You&apos;ll join as {inv.role === "admin" ? "an admin" : "a member"}.</p>
+          </div>
           <AcceptInvite token={token} orgName={inv.org_name} />
         </>
       );
   }
 
   return (
-    <div className="auth-shell wrap">
-      <main className="auth-card">
-        <Logo />
-        {body}
-      </main>
-    </div>
+    <AuthShell panel="invite">{body}</AuthShell>
   );
 }

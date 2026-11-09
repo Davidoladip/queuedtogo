@@ -1,12 +1,4 @@
-import { Logo } from "@/components/ui/Logo";
-
+/** Each page in this group wraps itself in AuthShell (so it can choose its own side panel). */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="auth-shell wrap">
-      <main className="auth-card">
-        <Logo />
-        {children}
-      </main>
-    </div>
-  );
+  return children;
 }

@@ -41,7 +41,26 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
 
   return {
     message: `We sent a confirmation link to ${parsed.data.email}. Open it to finish creating your account.`,
+    values: { email: parsed.data.email, next },
   };
+}
+
+/**
+ * Sends the sign-up confirmation email again. Never says whether the address has an account;
+ * Supabase limits how often emails can be sent.
+ */
+export async function resendConfirmation(_prev: FormState, fd: FormData): Promise<FormState> {
+  const parsed = forgotSchema.safeParse({ email: fd.get("email") });
+  if (!parsed.success) return { error: "Enter a valid email address." };
+  const next = safeNext(fd.get("next"), "/onboarding");
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: parsed.data.email,
+    options: { emailRedirectTo: `${await siteUrl()}/auth/confirm?next=${encodeURIComponent(next)}` },
+  });
+  if (error && (isNetworkError(error) || error.code?.startsWith("over_"))) return { error: authErrorMessage(error) };
+  return { message: `If ${parsed.data.email} is waiting to be confirmed, a new link is on its way.` };
 }
 
 export async function requestPasswordReset(_prev: FormState, fd: FormData): Promise<FormState> {

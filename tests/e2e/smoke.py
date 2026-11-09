@@ -48,7 +48,7 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errors.append(str(e)))
 
     pg.goto(BASE + "/"); 
-    check("landing page offers sign-up and sign-in", pg.get_by_role("link", name="Create an account").count() == 1 and pg.get_by_role("link", name="Sign in").count() == 1)
+    check("landing page offers sign-up and sign-in", pg.get_by_role("link", name="Start free").first.get_attribute("href") == "/signup" and pg.get_by_role("link", name="Sign in").first.get_attribute("href") == "/login")
 
     pg.goto(BASE + "/login?next=//evil.example/steal")
     check("open redirects are blocked", pg.locator('input[name="next"]').input_value() == "/")

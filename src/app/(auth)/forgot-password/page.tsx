@@ -7,17 +7,21 @@ import { initialState } from "@/lib/validation/form-state";
 import { Field } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 export default function ForgotPasswordPage() {
   const [state, action] = useActionState(requestPasswordReset, initialState);
   return (
-    <>
+    <AuthShell panel="reset">
       <div>
         <h1>Reset your password</h1>
-        <p className="muted">We&apos;ll email you a link to choose a new one.</p>
+        <p className="au-lede">Enter your email and we&apos;ll send you a link to choose a new one.</p>
       </div>
       {state.message ? (
-        <Notice tone="success">{state.message}</Notice>
+        <div className="au-sent" role="status">
+          <Notice tone="success">{state.message}</Notice>
+          <ul className="au-tips"><li>Not there in a minute? Check your spam or promotions folder.</li></ul>
+        </div>
       ) : (
         <form action={action} className="form" noValidate>
           {state.error && <Notice tone="error">{state.error}</Notice>}
@@ -25,8 +29,7 @@ export default function ForgotPasswordPage() {
           <SubmitButton className="btn primary block" pendingText="Sending…">Send reset link</SubmitButton>
         </form>
       )}
-      <div className="ticket-edge" />
-      <p className="auth-foot"><Link href="/login">Back to sign in</Link></p>
-    </>
+      <p className="au-switch">Remembered it? <Link href="/login">Back to sign in</Link></p>
+    </AuthShell>
   );
 }
