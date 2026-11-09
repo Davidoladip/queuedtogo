@@ -15,7 +15,7 @@
     "db:types": "supabase gen types typescript --linked --schema public > src/types/database.ts",
     "db:types:local": "supabase gen types typescript --db-url \"$DATABASE_URL\" --schema public > src/types/database.ts",
     "test:unit": "vitest run",
-    "test:builder": "python3 tests/e2e/builder.py && python3 tests/e2e/customize.py && python3 tests/e2e/orders.py && python3 tests/e2e/board.py && python3 tests/e2e/notify.py && python3 tests/e2e/eventday.py && python3 tests/e2e/rsvp.py && python3 tests/e2e/cover.py"
+    "test:builder": "python3 tests/e2e/builder.py && python3 tests/e2e/customize.py && python3 tests/e2e/orders.py && python3 tests/e2e/board.py && python3 tests/e2e/notify.py && python3 tests/e2e/eventday.py && python3 tests/e2e/rsvp.py && python3 tests/e2e/cover.py && python3 tests/e2e/billing.py"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -25,6 +25,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",
+    "stripe": "^23.1.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

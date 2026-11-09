@@ -7,6 +7,24 @@ export type Database = {
   };
   public: {
     Tables: {
+      billing_config: {
+        Row: {
+          enforce: boolean
+          id: boolean
+          updated_at: string
+        }
+        Insert: {
+          enforce?: boolean
+          id?: boolean
+          updated_at?: string
+        }
+        Update: {
+          enforce?: boolean
+          id?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           consent_at: string | null;
@@ -55,6 +73,69 @@ export type Database = {
           },
         ];
       };
+      event_passes: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          form_id: string
+          guest_limit: number | null
+          id: string
+          org_id: string
+          paid_at: string | null
+          status: string
+          stripe_payment_intent: string | null
+          stripe_session_id: string | null
+          tier: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          form_id: string
+          guest_limit?: number | null
+          id?: string
+          org_id: string
+          paid_at?: string | null
+          status?: string
+          stripe_payment_intent?: string | null
+          stripe_session_id?: string | null
+          tier: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          form_id?: string
+          guest_limit?: number | null
+          id?: string
+          org_id?: string
+          paid_at?: string | null
+          status?: string
+          stripe_payment_intent?: string | null
+          stripe_session_id?: string | null
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_passes_form_id_org_id_fkey"
+            columns: ["form_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "event_passes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       files: {
         Row: {
           bucket: string;
@@ -523,6 +604,56 @@ export type Database = {
           { foreignKeyName: "messages_rsvp_fk"; columns: ["rsvp_id", "org_id"]; isOneToOne: false; referencedRelation: "rsvps"; referencedColumns: ["id", "org_id"] },
         ];
       };
+      org_billing: {
+        Row: {
+          cancel_at_period_end: boolean
+          comped: boolean
+          current_period_end: string | null
+          had_trial: boolean
+          org_id: string
+          plan: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          trial_end: string | null
+          updated_at: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          comped?: boolean
+          current_period_end?: string | null
+          had_trial?: boolean
+          org_id: string
+          plan?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_end?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          comped?: boolean
+          current_period_end?: string | null
+          had_trial?: boolean
+          org_id?: string
+          plan?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_end?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_billing_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rsvps: {
         Row: {
           checked_in_at: string | null; created_at: string; customer_id: string | null; email: string | null; form_id: string; id: string; name: string | null;
@@ -721,6 +852,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      stripe_events: {
+        Row: {
+          id: string
+          received_at: string
+          type: string
+        }
+        Insert: {
+          id: string
+          received_at?: string
+          type: string
+        }
+        Update: {
+          id?: string
+          received_at?: string
+          type?: string
+        }
+        Relationships: []
+      }
       workflow_stages: {
         Row: {
           color: string;
@@ -775,6 +924,8 @@ export type Database = {
     };
     Functions: {
       accept_invitation: { Args: { p_token: string }; Returns: string };
+      billing_enforced: { Args: never; Returns: boolean }
+      billing_overview: { Args: { p_org: string }; Returns: Json }
       create_invitation: {
         Args: { p_email: string; p_org: string; p_role?: Database["public"]["Enums"]["org_role"] };
         Returns: string;
@@ -801,6 +952,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      effective_plan: { Args: { p_org: string }; Returns: string }
       get_invitation: {
         Args: { p_token: string };
         Returns: {
@@ -820,6 +972,7 @@ export type Database = {
         Returns: boolean;
       };
       is_org_member: { Args: { p_org: string }; Returns: boolean };
+      plan_limits: { Args: { p_plan: string }; Returns: Json }
       publish_form: { Args: { p_form: string }; Returns: number };
       submit_form: {
         Args: {
@@ -836,6 +989,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      texts_left: { Args: { p_org: string }; Returns: number }
       update_rsvp: { Args: { p_token: string; p_status: string; p_party: number }; Returns: Json };
       queue_rsvp_reminders: { Args: Record<PropertyKey, never>; Returns: string[] };
       reorder_stages: { Args: { p_org: string; p_order: string[] }; Returns: undefined };

@@ -8,6 +8,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Everything except static files and images.
-    "/((?!_next/static|_next/image|favicon.ico|api/twilio/|api/cron/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/twilio/|api/cron/|api/stripe/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

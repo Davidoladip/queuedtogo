@@ -198,7 +198,7 @@ describe("sending queued RSVP emails", () => {
       return b;
     };
     const f = vi.fn(async (_u: string | URL | Request, init?: RequestInit) => { void init; return new Response(JSON.stringify({ operationId: "op_rsvp12345" }), { status: 202 }); });
-    const r = await dispatchQueued({ orgId: "o1" }, { admin: { from } as never, email: { user: "AC" + "a".repeat(32), pass: "t".repeat(32), from: "updates@queuedtogo.com" }, cfg: null, fetchImpl: f as unknown as typeof fetch });
+    const r = await dispatchQueued({ orgId: "o1" }, { admin: { from, rpc: async () => ({ data: null, error: null }) } as never, email: { user: "AC" + "a".repeat(32), pass: "t".repeat(32), from: "updates@queuedtogo.com" }, cfg: null, fetchImpl: f as unknown as typeof fetch });
     expect(r.sent).toBe(1);
     expect(tables.messages[0]).toMatchObject({ status: "sent", subject: "Threadtogo: you're on the list for Launch Party" });
     const body = JSON.parse(String(f.mock.calls[0][1]?.body));
@@ -265,7 +265,7 @@ describe("sending queued RSVP texts", () => {
     };
     const f = vi.fn(async (_u: string | URL | Request, init?: RequestInit) => { void init; return new Response(JSON.stringify({ sid: "SM" + "c".repeat(32), status: "queued" }), { status: 201 }); });
     const cfg = { accountSid: "AC" + "a".repeat(32), user: "AC" + "a".repeat(32), pass: "t".repeat(32), authToken: "t".repeat(32), messagingServiceSid: "MG" + "d".repeat(32), from: null };
-    return { tables, admin: { from } as never, f, cfg };
+    return { tables, admin: { from, rpc: async () => ({ data: null, error: null }) } as never, f, cfg };
   }
   const day = new Date("2026-11-06T16:00:00Z"), night = new Date("2026-11-07T03:30:00Z");
   it("sends the confirmation text when RSVP texts are switched on", async () => {

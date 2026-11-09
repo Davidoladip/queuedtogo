@@ -24,7 +24,7 @@ type Row = {
   workflow_stages: { name: string } | null;
   rsvps?: { id: string; token: string; name: string | null; status: RsvpStatus; party_size: number; waitlisted: boolean; form_id: string; sms_consent?: boolean } | null;
 };
-type Deps = { admin?: Admin | null; cfg?: TwilioConfig | null; email?: EmailConfig | null; fetchImpl?: typeof fetch; rsvpTexts?: boolean; now?: Date };
+type Deps = { admin?: Admin | null; cfg?: TwilioConfig | null; email?: EmailConfig | null; fetchImpl?: typeof fetch; rsvpTexts?: boolean; now?: Date; /** Texts left on the plan this month (null = no limit). */ textsLeft?: number | null };
 const RSVP_KINDS = new Set(["rsvp_confirmation", "rsvp_reminder", "rsvp_promoted"]);
 type Outcome =
   | { kind: "sent"; providerId: string; body: string; subject?: string }
@@ -51,6 +51,9 @@ export async function dispatchQueued(opts: { orgId: string; jobId?: string; ids?
   if (error || !data) return tally;
 
   const rsvpTexts = deps && "rsvpTexts" in deps ? !!deps.rsvpTexts : rsvpTextsApproved();
+  // The plan's monthly text allowance (only counted once plan limits are switched on).
+  let textsLeft: number | null = deps && "textsLeft" in deps ? deps.textsLeft ?? null
+    : data.some((m) => (m as unknown as Row).channel === "sms") ? await admin.rpc("texts_left", { p_org: opts.orgId }).then((r) => (r.error ? null : r.data ?? null)) : null;
   for (const m of data as unknown as Row[]) {
     // Reminder and waitlist texts wait for daytime (8 AM to 9 PM, business time); the daily job sends them later.
     if (m.channel === "sms" && (m.kind === "rsvp_reminder" || m.kind === "rsvp_promoted") && quietHours(m.organizations?.timezone || "America/New_York", deps?.now)) continue;
@@ -63,6 +66,8 @@ export async function dispatchQueued(opts: { orgId: string; jobId?: string; ids?
       ? { kind: "skip", reason: "It was more than a day old, so it wasn't sent." }
       : !m.to_address
         ? { kind: "skip", reason: m.channel === "email" ? "There's no email address." : "The customer has no mobile number." }
+        : m.channel === "sms" && textsLeft !== null && textsLeft <= 0
+          ? { kind: "skip", reason: "This month's texts on your plan are used up. Upgrade on the Billing page to send more." }
         : m.channel === "email" ? await deliverEmail(m, mail, deps?.fetchImpl, admin)
           : RSVP_KINDS.has(m.kind) ? await deliverRsvpSms(m, sms, deps?.fetchImpl, admin, rsvpTexts)
             : await deliverSms(m, sms, deps?.fetchImpl);
@@ -74,6 +79,7 @@ export async function dispatchQueued(opts: { orgId: string; jobId?: string; ids?
     }
     if (out.kind === "sent") {
       tally.sent++;
+      if (m.channel === "sms" && textsLeft !== null) textsLeft--;
       await admin.from("messages").update({ status: "sent", provider_sid: out.providerId, body: out.body, subject: out.subject ?? null, sent_at: new Date().toISOString(), error_code: null, error_message: null }).eq("id", m.id);
       if (m.job_id && m.kind !== "team_alert") {
         await admin.from("job_events").insert({ org_id: m.org_id, job_id: m.job_id, type: "notification", body: (out.subject ?? out.body).slice(0, 2000), data: { message_id: m.id, channel: m.channel }, idempotency_key: `message:${m.id}` });

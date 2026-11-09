@@ -11,6 +11,7 @@ const SECTIONS = [
   ["guests", "Guests"],
   ["notifications", "Notifications"],
   ["tracking", "Tracking"],
+  ["billing", "Billing"],
   ["settings", "Settings"],
 ] as const;
 

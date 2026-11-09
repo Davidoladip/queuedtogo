@@ -1,0 +1,37 @@
+.bl { display: grid; gap: 16px; }
+.bl h2 { margin: 0 0 6px; }
+.bl-h { font-size: 20px; margin: 8px 0 12px; }
+.bl-kicker { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 4px; }
+.bl-current { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.bl-current h2 { font-family: var(--f-display); font-size: 28px; }
+.bl-price-sm { font-size: 16px; font-weight: 500; color: var(--muted); }
+.bl-note { margin: 8px 0 0; font-size: 13px; background: var(--surface-2); padding: 6px 10px; border-radius: 6px; display: inline-block; }
+.bl-small { font-size: 13px; }
+.bl-meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 22px; margin: 12px 0; }
+.bl-meter-top { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; margin-bottom: 6px; }
+.bl-bar { height: 8px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.bl-bar > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.bl-meter.near .bl-bar > span { background: var(--warn); }
+.bl-meter.full .bl-bar > span { background: var(--bad); }
+.bl-meter.full .bl-meter-top b { color: var(--bad); }
+.bl-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.bl-plan, .bl-passcard { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px; }
+.bl-plan.pop { border-color: var(--accent); }
+.bl-plan.current { outline: 2px solid var(--accent); outline-offset: -1px; }
+.bl-plan h3, .bl-passcard h3 { margin: 0; font-family: var(--f-display); font-size: 18px; }
+.bl-flag { position: absolute; top: -10px; right: 14px; background: var(--accent); color: var(--accent-fg); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+.bl-price { margin: 2px 0; }
+.bl-price b { font-family: var(--f-display); font-size: 30px; }
+.bl-price span { color: var(--muted); font-size: 14px; }
+.bl-plan ul { list-style: none; padding: 0; margin: 6px 0 10px; display: grid; gap: 6px; font-size: 14px; flex: 1; }
+.bl-plan li::before { content: "✓"; color: var(--good); font-weight: 700; margin-right: 8px; }
+.bl-plan-act { margin-top: auto; min-height: 40px; display: flex; align-items: center; }
+.bl-select { display: grid; gap: 4px; max-width: 420px; margin: 14px 0; font-size: 14px; font-weight: 500; }
+.bl-select select { padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); font: inherit; font-weight: 400; }
+.bl-passes { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.bl-passcard .btn, .bl-passcard .pill { margin-top: auto; align-self: stretch; text-align: center; }
+.bl-active { margin-top: 18px; }
+.bl-active h3 { font-size: 15px; margin: 0 0 6px; }
+.bl-active ul { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 4px; }
+.bl-meter.off .bl-meter-top b { color: var(--muted); font-weight: 500; }
+.bl-plans + .bl-small { margin-top: 10px; }

@@ -54,6 +54,8 @@ The smoke and prototype tests use Python with Playwright: `pip install playwrigh
 | `EMAIL_FROM` | Server only: the email sender, on a domain verified in Twilio Email, e.g. `QueuedToGo <updates@queuedtogo.com>`. Emails use the Twilio settings above. | No. |
 | `CRON_SECRET` | Server only: lets Vercel's daily job (`vercel.json`) send RSVP reminder emails. Any long random string; mark it Sensitive. | No. Without it, reminders aren't sent. |
 | `RSVP_TEXTS` | Server only: set to `on` once the Twilio texting campaign covers event RSVP texts. Until then RSVP forms show no texting checkbox and no RSVP texts are sent (order texts are unaffected). | No. |
+| `STRIPE_SECRET_KEY` | Server only: Stripe secret key (`sk_test_...` while testing, `sk_live_...` when live) for plans and event passes. Mark it Sensitive. | No. Without it the Billing page shows that payments aren't switched on. |
+| `STRIPE_WEBHOOK_SECRET` | Server only: signing secret (`whsec_...`) of the Stripe webhook pointing at `/api/stripe/webhook`. Mark it Sensitive. | With `STRIPE_SECRET_KEY`. |
 
 `.env.local` is ignored by Git. `.env.example` lists every variable without secrets.
 

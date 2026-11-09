@@ -639,6 +639,85 @@ select tests.login('finn');
 select tests.fails(format($$update public.rsvps set sms_consent = false where token = %L$$, tests.val('t1')::jsonb ->> 'token'), 'team members cannot change a guest''s texting permission');
 reset role;
 
+-- ---------------------------------------------------------------- plans and event passes (Stage 9)
+select tests.ok((select count(*) from public.org_billing where org_id in (tests.id('orgA'), tests.id('orgB'))) = 2, 'every business gets a plan row automatically');
+select tests.ok(public.effective_plan(tests.id('orgB')) = 'free' and not public.billing_enforced(), 'new businesses start on Free, and limits start switched off');
+select tests.login('bob');
+select tests.ok((select plan from public.org_billing where org_id = tests.id('orgB')) = 'free', 'an owner can see their plan');
+select tests.ok((select count(*) from public.org_billing where org_id = tests.id('orgA')) = 0, 'nobody can see another business''s plan');
+select tests.fails($$update public.org_billing set plan = 'events', status = 'active' where org_id = tests.id('orgB')$$, 'owners cannot give themselves a plan');
+select tests.fails($$insert into public.event_passes (org_id, form_id, tier, status, amount_cents) values (tests.id('orgB'), tests.id('formB'), 'unlimited', 'paid', 0)$$, 'owners cannot create a paid event pass');
+select tests.fails($$select * from public.form_pass(tests.id('formB'))$$, 'the pass lookup is server only');
+select tests.fails($$select * from public.stripe_events$$, 'the webhook log is server only');
+select tests.fails($$select public.effective_plan(tests.id('orgA'))$$, 'nobody can look up another business''s plan');
+select tests.fails($$update public.billing_config set enforce = false$$, 'nobody can switch limits off from the app');
+reset role;
+select tests.anon();
+select tests.fails($$select * from public.org_billing$$, 'visitors cannot see plans');
+select tests.fails($$select * from public.event_passes$$, 'visitors cannot see passes');
+reset role;
+
+update public.org_billing set plan = 'starter', status = 'canceled' where org_id = tests.id('orgB');
+select tests.ok(public.effective_plan(tests.id('orgB')) = 'free', 'a cancelled subscription falls back to Free');
+update public.org_billing set status = 'past_due' where org_id = tests.id('orgB');
+select tests.ok(public.effective_plan(tests.id('orgB')) = 'starter', 'a late payment keeps the plan while Stripe retries');
+update public.org_billing set plan = 'free', status = 'none' where org_id = tests.id('orgB');
+
+-- limits switched on
+update public.billing_config set enforce = true;
+with x as (insert into public.forms (org_id, title, slug, published_config) values (tests.id('orgB'), 'Bob two', 'bob-two', '{}') returning id) insert into tests.ids select 'formB2', id from x;
+with x as (insert into public.forms (org_id, title, slug, published_config, settings) values (tests.id('orgB'), 'Bob party', 'bob-party', '{}', '{"mode":"rsvp"}') returning id) insert into tests.ids select 'formB3', id from x;
+update public.forms set published_config = '{}' where id = tests.id('formB');
+select tests.login('bob');
+select tests.affects($$update public.forms set status = 'live' where id = tests.id('formB')$$, 1, 'Free: the first form can go live');
+select tests.fails($$update public.forms set status = 'live' where id = tests.id('formB2')$$, 'Free: a second live form is blocked');
+select tests.affects($$update public.forms set title = 'Bob form (renamed)' where id = tests.id('formB')$$, 1, 'editing a form that is already live is never blocked');
+select tests.fails($$select public.create_invitation(tests.id('orgB'), 'pat@example.com', 'member')$$, 'Free: inviting a teammate is blocked');
+reset role;
+insert into public.event_passes (org_id, form_id, tier, guest_limit, status, amount_cents, paid_at, expires_at)
+  values (tests.id('orgB'), tests.id('formB3'), '100', 100, 'paid', 2900, now(), now() + interval '30 days');
+select tests.login('bob');
+select tests.ok((select count(*) from public.event_passes where form_id = tests.id('formB3')) = 1, 'an owner can see their event pass');
+select tests.affects($$update public.forms set status = 'live' where id = tests.id('formB3')$$, 1, 'a form with an event pass can go live on any plan');
+select tests.fails($$update public.forms set status = 'live' where id = tests.id('formB2')$$, 'a form with a pass doesn''t free up the plan''s own slot');
+reset role;
+update public.org_billing set plan = 'starter', status = 'trialing' where org_id = tests.id('orgB');
+select tests.login('bob');
+select tests.affects($$update public.forms set status = 'live' where id = tests.id('formB2')$$, 1, 'Starter (trial): more forms can go live');
+select tests.ok(public.create_invitation(tests.id('orgB'), 'pat@example.com', 'member') is not null, 'Starter: one teammate can be invited');
+select tests.ok(public.create_invitation(tests.id('orgB'), 'Pat@example.com', 'admin') is not null, 'resending the same invitation doesn''t count twice');
+select tests.fails($$select public.create_invitation(tests.id('orgB'), 'quinn@example.com', 'member')$$, 'Starter: a third person is blocked');
+update public.forms set status = 'closed' where id in (tests.id('formB2'), tests.id('formB3'));
+reset role;
+update public.event_passes set expires_at = now() - interval '1 day' where form_id = tests.id('formB3');
+update public.org_billing set plan = 'free', status = 'none' where org_id = tests.id('orgB');
+select tests.login('bob');
+select tests.fails($$update public.forms set status = 'live' where id = tests.id('formB3')$$, 'an expired pass no longer unlocks the form');
+reset role;
+-- monthly replies (Free: 50) and pass limits
+insert into public.form_submissions (org_id, form_id, form_version, answers, created_at)
+  select tests.id('orgB'), tests.id('formB'), 1, '{}', now() from generate_series(1, 50);
+select tests.fails($$insert into public.form_submissions (org_id, form_id, form_version, answers) values (tests.id('orgB'), tests.id('formB'), 1, '{}')$$, 'Free: the 51st reply this month is refused');
+update public.form_submissions set created_at = public.org_month_start(tests.id('orgB')) - interval '1 day' where form_id = tests.id('formB');
+select tests.affects($$insert into public.form_submissions (org_id, form_id, form_version, answers) values (tests.id('orgB'), tests.id('formB'), 1, '{}')$$, 1, 'last month''s replies don''t count');
+update public.event_passes set expires_at = now() + interval '30 days', guest_limit = 2 where form_id = tests.id('formB3');
+insert into public.form_submissions (org_id, form_id, form_version, answers) select tests.id('orgB'), tests.id('formB3'), 1, '{}' from generate_series(1, 2);
+select tests.fails($$insert into public.form_submissions (org_id, form_id, form_version, answers) values (tests.id('orgB'), tests.id('formB3'), 1, '{}')$$, 'an event pass stops at its guest limit');
+select tests.ok(public.org_month_replies(tests.id('orgB')) = 1, 'replies to a form with a pass don''t use up the plan''s monthly replies');
+select tests.ok(public.texts_left(tests.id('orgB')) = 0, 'Free includes no texts');
+update public.org_billing set plan = 'pro', status = 'active' where org_id = tests.id('orgB');
+select tests.ok(public.texts_left(tests.id('orgB')) = 1000, 'Pro includes 1,000 texts a month');
+select tests.login('bob');
+select tests.ok((public.billing_overview(tests.id('orgB')) ->> 'plan') = 'pro' and (public.billing_overview(tests.id('orgB')) ->> 'replies_month')::int = 1
+  and jsonb_array_length(public.billing_overview(tests.id('orgB')) -> 'passes') = 1, 'the Billing page shows the plan, usage and passes');
+select tests.fails($$select public.billing_overview(tests.id('orgA'))$$, 'nobody can see another business''s usage');
+select tests.fails($$select public.texts_left(tests.id('orgB'))$$, 'the text allowance check is server only');
+reset role;
+update public.org_billing set comped = true, plan = 'events', status = 'none' where org_id = tests.id('orgB');
+select tests.ok(public.effective_plan(tests.id('orgB')) = 'events', 'a comped business keeps its plan without paying');
+update public.billing_config set enforce = false;
+update public.org_billing set comped = false, plan = 'free' where org_id = tests.id('orgB');
+
 -- ---------------------------------------------------------------- deleting a business (with a job in it)
 select tests.login('bob');
 select tests.affects($$delete from public.organizations where id = tests.id('orgB')$$, 1, 'an owner can delete their business');

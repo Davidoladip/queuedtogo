@@ -111,7 +111,7 @@ describe("webhooks", () => {
 
 // ------------------------------------------------------------------ dispatch with a fake database
 type R = Record<string, unknown>;
-function fakeAdmin(tables: Record<string, R[]>) {
+function fakeAdmin(tables: Record<string, R[]>, textsLeft: number | null = null) {
   const from = (t: string) => {
     let op: "select" | "update" | "insert" = "select";
     let patch: R = {};
@@ -137,11 +137,29 @@ function fakeAdmin(tables: Record<string, R[]>) {
     };
     return b;
   };
-  return { from } as never;
+  const rpc = async (name: string) => ({ data: name === "texts_left" ? textsLeft : null, error: null });
+  return { from, rpc } as never;
 }
 const queued = (id: string, extra: R = {}): R => ({ id, org_id: "o1", job_id: "j1", kind: "stage_update", channel: "sms", to_address: "+15551234567", template: "Hi {name}, {order} is ready: {link}", body: null, attempts: 0, status: "queued", created_at: new Date().toISOString(), customer_id: "c1", ...extra });
 
 describe("sending queued texts", () => {
+  it("stops at the plan's monthly text allowance and says why", async () => {
+    const tables = { messages: [queued("m1"), queued("m2", { created_at: new Date(Date.now() + 1000).toISOString() })], job_events: [] as R[] };
+    const f = vi.fn(async () => new Response(JSON.stringify({ sid: "SM" + "3".repeat(32), status: "accepted" }), { status: 201 }));
+    const r = await dispatchQueued({ orgId: "o1" }, { admin: fakeAdmin(tables, 1), cfg, fetchImpl: f as unknown as typeof fetch });
+    expect(r).toMatchObject({ sent: 1, skipped: 1 });
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(tables.messages[1]).toMatchObject({ status: "skipped" });
+    expect(String(tables.messages[1].skip_reason)).toMatch(/texts on your plan are used up/);
+  });
+  it("sends nothing on a plan without texts, and doesn't count when limits are off", async () => {
+    const t0 = { messages: [queued("m1")], job_events: [] as R[] };
+    const f0 = vi.fn(async () => new Response(JSON.stringify({ sid: "SM" + "4".repeat(32), status: "accepted" }), { status: 201 }));
+    expect(await dispatchQueued({ orgId: "o1" }, { admin: fakeAdmin(t0, 0), cfg, fetchImpl: f0 as unknown as typeof fetch })).toMatchObject({ sent: 0, skipped: 1 });
+    expect(f0).not.toHaveBeenCalled();
+    const t1 = { messages: [queued("m1")], job_events: [] as R[] };
+    expect(await dispatchQueued({ orgId: "o1" }, { admin: fakeAdmin(t1, null), cfg, fetchImpl: f0 as unknown as typeof fetch })).toMatchObject({ sent: 1 });
+  });
   it("sends, records the Twilio id and adds a history line", async () => {
     const tables = { messages: [queued("m1")], job_events: [] as R[] };
     const f = vi.fn(async () => new Response(JSON.stringify({ sid: "SM" + "2".repeat(32), status: "accepted" }), { status: 201 }));

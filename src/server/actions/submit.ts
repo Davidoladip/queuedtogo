@@ -98,7 +98,7 @@ export async function submitOrder(orgSlug: string, formSlug: string, fd: FormDat
         QTG01: "This form isn't taking RSVPs right now.",
         QTG02: "This form was just updated. Reload the page, check your answers and send it again.",
       };
-      const shown = ["QTG03", "QTG08", "QTG09", "QTG10"].includes(error.code ?? "") ? error.message : null;
+      const shown = ["QTG03", "QTG08", "QTG09", "QTG10", "QTG20"].includes(error.code ?? "") ? error.message : null;
       return { ok: false, message: known[error.code ?? ""] ?? shown ?? "We couldn't save your RSVP. Please try again." };
     }
     const r = data as { token: string; status: RsvpStatus; waitlisted: boolean; party: number; repeat: boolean };
@@ -137,6 +137,7 @@ export async function submitOrder(orgSlug: string, formSlug: string, fd: FormDat
       QTG01: "This form isn't taking orders right now.",
       QTG02: "This form was just updated. Reload the page, check your answers and send it again.",
       QTG03: error.message,
+      QTG20: error.message,
     };
     return { ok: false, message: known[error.code ?? ""] ?? "We couldn't save your order. Please try again." };
   }
