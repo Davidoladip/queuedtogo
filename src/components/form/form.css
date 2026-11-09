@@ -57,7 +57,7 @@ textarea.qf-in{resize:vertical}
 .qf-check input{margin-top:4px;accent-color:var(--a)}
 .qf-ferr{font-size:13px;font-weight:600}
 .qf-ferr:empty{display:none}
-.qf-prog{display:flex;flex-direction:column;gap:6px}
+.qf-prog{display:flex;flex-direction:column;gap:6px;margin-top:14px}
 .qf-prog-track{height:6px;border-radius:99px;background:color-mix(in srgb,var(--t) 12%,transparent);overflow:hidden}
 .qf-prog-track span{display:block;height:100%;background:var(--a);border-radius:99px;transition:width .25s}
 .qf-step{font-size:12.5px;opacity:.75;font-weight:600}

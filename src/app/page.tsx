@@ -3,6 +3,14 @@ import { redirect } from "next/navigation";
 import { getMyWorkspaces, getUser } from "@/lib/auth";
 import { Logo } from "@/components/ui/Logo";
 import { Notice } from "@/components/ui/Notice";
+import { Landing } from "@/components/home/Landing";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: { absolute: "QueuedToGo: order forms and updates for live events" },
+  description: "Take orders at your event with a QR-code form, work through them on a production board, and text customers when they're ready. RSVP invitations too. Free to start.",
+  alternates: { canonical: "/" },
+};
 
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
@@ -33,20 +41,5 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     );
   }
 
-  return (
-    <div className="auth-shell wrap">
-      <div className="auth-card" style={{ maxWidth: 520 }}>
-        <Logo />
-        <h1 style={{ fontSize: 30 }}>One submission. One production workflow. Every customer updated.</h1>
-        <p className="muted">
-          Build an order form for each live event, turn every submission into a job on your production board, and
-          keep customers updated as their order moves along.
-        </p>
-        <div className="row">
-          <Link href="/signup" className="btn primary block">Create an account</Link>
-          <Link href="/login" className="btn block">Sign in</Link>
-        </div>
-      </div>
-    </div>
-  );
+  return <Landing />;
 }

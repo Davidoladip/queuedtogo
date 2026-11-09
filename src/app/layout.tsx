@@ -2,7 +2,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://queuedtogo.com"),
   title: { default: "QueuedToGo", template: "%s · QueuedToGo" },
+  openGraph: { type: "website", siteName: "QueuedToGo", images: [{ url: "/og.png", width: 1200, height: 630, alt: "QueuedToGo: order forms and updates for live events" }] },
+  twitter: { card: "summary_large_image" },
   description: "Order forms for live events that turn every submission into a tracked production job.",
 };
 

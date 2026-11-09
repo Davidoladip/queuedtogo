@@ -162,3 +162,10 @@ dl.answers dd { margin: 0; overflow-wrap: anywhere; }
 .legal p, .legal li { line-height: 1.6; }
 .legal p + p { margin-top: 8px; }
 .legal ul { margin: 6px 0; padding-left: 22px; }
+
+/* Demo strip above the public demo forms */
+.demo-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px 20px; flex-wrap: wrap; padding: 10px max(16px, env(safe-area-inset-left)); background: #161A2B; color: #fff; font-size: 14px; position: relative; z-index: 5; }
+.demo-bar p { margin: 0; }
+.demo-bar nav { display: flex; gap: 16px; flex-wrap: wrap; }
+.demo-bar a { color: #fff; text-underline-offset: 3px; }
+.demo-bar a:focus-visible { outline: 2px solid #FFD84D; outline-offset: 2px; }
