@@ -1,19 +1,12 @@
 import type { Metadata } from "next";
-import { DemoBar } from "@/components/demo/DemoBar";
-import { DemoForm } from "@/components/demo/DemoForm";
-import { demoOrderForm } from "@/lib/demo";
+import { DemoSample } from "@/components/demo/DemoSample";
 
 export const metadata: Metadata = {
-  title: "Demo order form",
-  description: "Try a QueuedToGo order form the way your customers would. Nothing you type is saved.",
+  title: "Demo: Style and Sip order form",
+  description: "Try a real QueuedToGo order form from a live event. Nothing you type is saved.",
   robots: { index: false, follow: true },
 };
 
-export default function DemoOrderPage() {
-  return (
-    <div className="pf-page">
-      <DemoBar current="order" />
-      <DemoForm form={demoOrderForm()} />
-    </div>
-  );
+export default async function DemoOrderPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  return <DemoSample which="style-and-sip" framed={(await searchParams).frame === "1"} />;
 }

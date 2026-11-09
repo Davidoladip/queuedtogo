@@ -21,7 +21,7 @@ export default function DemoTrackPage() {
           <span className="section-label">{DEMO_BUSINESS}</span>
           <div>
             <h1>Order <span className="mono" style={{ fontWeight: 500 }}>QTG-1042</span></h1>
-            <p className="muted">Custom tee</p>
+            <p className="muted">Tote bag</p>
           </div>
           <div className="notice info">
             <div className="section-label">Current status</div>

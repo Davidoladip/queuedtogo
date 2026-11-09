@@ -1,33 +1,23 @@
 // The public demo forms behind "Try the demo" on the homepage. They run in the browser only:
 // answers are checked with the same rules as real forms, but nothing is saved or sent.
-import { blankField, normalizeDesign, normalizeSettings, starterFields, type FormModel } from "@/lib/design/engine";
-import { SWATCH_DEFAULT, emptyMeta } from "@/lib/design/media";
+import { blankField, normalizeDesign, normalizeSettings, type FormModel } from "@/lib/design/engine";
+import { formFromPublished } from "@/lib/design/fromDb";
 import { LOOKS } from "@/lib/design/looks";
+import styleAndSip from "@/lib/samples/style-and-sip.json";
+import liveEmbroidery from "@/lib/samples/live-embroidery.json";
 
-export const DEMO_BUSINESS = "Harbourfront Tees";
+export const DEMO_BUSINESS = "ThreadToGo";
 
-/** An order form for a custom-tee stand at a weekend market. */
-export function demoOrderForm(): FormModel {
-  const fields = starterFields();
-  const page = blankField("page");
-  const sizes = blankField("sizes");
-  fields.splice(2, 0, page);
-  fields.splice(fields.length - 1, 0, sizes);
-  const item = fields.find((f) => f.type === "choice");
-  if (item) item.config.optMeta = [emptyMeta(), { ...emptyMeta(), swatches: { ...structuredClone(SWATCH_DEFAULT), required: true, labels: true } }];
-  return {
-    id: "d0000000-0000-4000-8000-00000000d001",
-    title: "Harbourfront Night Market",
-    slug: "night-market",
-    eventDate: null,
-    venue: "Pier 3",
-    intro: "Order a custom tee, keep browsing, and we'll text you when it's ready to pick up.",
-    thanks: "Thanks! We're on it. We'll text you when it's ready.",
-    submitLabel: "Place my order",
-    settings: normalizeSettings({}),
-    design: normalizeDesign({ theme: { page: "#0F4C4A", card: "#FFF4E2", text: "#1B2B2A", accent: "#E8633A", font: "bold" } }),
-    fields,
-  };
+/** Real ThreadToGo forms from past events (copies of what customers saw; images load from the form-assets bucket). */
+export const SAMPLE_FORMS = {
+  "style-and-sip": { config: styleAndSip, id: "d0000000-0000-4000-8000-00000000d011", caption: "Style and Sip: tote bags made on the spot" },
+  embroidery: { config: liveEmbroidery, id: "d0000000-0000-4000-8000-00000000d012", caption: "Live embroidery at a baby celebration: personalised toiletry bags" },
+} as const;
+export type SampleKey = keyof typeof SAMPLE_FORMS;
+
+export function sampleForm(key: SampleKey): FormModel {
+  const s = SAMPLE_FORMS[key];
+  return formFromPublished(s.id, key, structuredClone(s.config) as Record<string, unknown>);
 }
 
 /** A luxury RSVP invitation with the envelope opening. */

@@ -88,6 +88,15 @@
 .hm-shot { margin: 0; background: var(--paper); border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(22,26,43,.12); overflow: hidden; }
 .hm-shot img { display: block; width: 100%; height: auto; }
 
+/* Real forms in phone frames */
+.hm-ex-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 48px; }
+.hm-ex-item { margin: 0; width: 320px; max-width: 100%; }
+.hm-device { background: var(--ink); border-radius: 40px; padding: 12px; box-shadow: 0 24px 60px rgba(22,26,43,.22); }
+.hm-device iframe { display: block; width: 100%; height: 620px; border: 0; border-radius: 30px; background: var(--mist); }
+.hm-ex-item figcaption { margin-top: 14px; display: grid; gap: 4px; font-size: 15px; }
+.hm-ex-item figcaption span { font-weight: 600; }
+.hm-ex-item figcaption a { color: var(--cobalt); text-underline-offset: 3px; }
+
 /* Invitations: uses the luxury invitation's own palette */
 .hm-inv { background: #141210; color: #F4EBD9; padding: 96px 0; }
 .hm-inv-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: center; }

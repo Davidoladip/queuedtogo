@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 import { LEGAL } from "@/lib/legal";
 import { PASSES, PASS_ORDER, PLANS, PLAN_ORDER, TRIAL_DAYS } from "@/lib/plans";
+import { SAMPLE_FORMS, type SampleKey } from "@/lib/demo";
 import "./home.css";
 
 const FAQ: { q: string; a: string }[] = [
@@ -46,26 +47,26 @@ export function Landing() {
               </p>
               <div className="hm-cta">
                 <Link href="/signup" className="hm-btn">Start free</Link>
-                <Link href="/demo" className="hm-btn hm-btn-ghost">Try the demo order form</Link>
+                <a href="#examples" className="hm-btn hm-btn-ghost">See real event forms</a>
               </div>
               <p className="hm-fine">Free plan, no card needed. Paid plans from ${PLANS.starter.price} a month.</p>
             </div>
 
-            <div className="hm-stage" role="img" aria-label="An order, QTG-1042 for a custom tee, moves from New to Making to Ready, and the customer gets a text saying it's ready to pick up.">
+            <div className="hm-stage" role="img" aria-label="An order, QTG-1042 for a tote bag, moves from New to Making to Ready, and the customer gets a text saying it's ready to pick up.">
               <div className="hm-board" aria-hidden="true">
                 <div className="hm-col"><span className="hm-col-h"><i style={{ background: "#8A90A6" }} />New</span>
-                  <div className="hm-tk"><b>QTG-1043</b><span>Cap, navy</span></div>
+                  <div className="hm-tk"><b>QTG-1043</b><span>Toiletry bag, red</span></div>
                 </div>
                 <div className="hm-col"><span className="hm-col-h"><i style={{ background: "#3346D3" }} />Making</span>
-                  <div className="hm-tk"><b>QTG-1039</b><span>Hoodie, M × 2</span></div>
+                  <div className="hm-tk"><b>QTG-1039</b><span>Tote bag × 2</span></div>
                 </div>
                 <div className="hm-col"><span className="hm-col-h"><i style={{ background: "#1D8657" }} />Ready</span>
-                  <div className="hm-tk hm-tk-done"><b>QTG-1037</b><span>Tee, white, L</span></div>
+                  <div className="hm-tk hm-tk-done"><b>QTG-1037</b><span>Toiletry bag, blue</span></div>
                 </div>
-                <div className="hm-tk hm-mover"><b>QTG-1042</b><em>Lena O.</em><span>Custom tee, black, M</span></div>
+                <div className="hm-tk hm-mover"><b>QTG-1042</b><em>Lena O.</em><span>Tote bag, gold thread</span></div>
               </div>
               <div className="hm-phone" aria-hidden="true">
-                <div className="hm-phone-top">Harbourfront Tees</div>
+                <div className="hm-phone-top">ThreadToGo</div>
                 <div className="hm-sms hm-sms-1">Thanks Lena! Order QTG-1042 is in. We&apos;ll text you when it&apos;s ready.</div>
                 <div className="hm-sms hm-sms-2">Your order QTG-1042 is ready to pick up at our table. queuedtogo.com/t/…</div>
               </div>
@@ -93,6 +94,26 @@ export function Landing() {
                 <p>When an order reaches the stages you choose, the customer gets a text or email with a link to track it. No calling out names.</p>
               </li>
             </ol>
+          </div>
+        </section>
+
+        <section id="examples" className="hm-sec hm-ex" aria-labelledby="hm-ex">
+          <div className="hm-in">
+            <h2 id="hm-ex" className="hm-h2">Forms from real events</h2>
+            <p className="hm-sub">Two order forms ThreadToGo used at live events. They&apos;re working copies: scroll them, fill them in, and see what your customers would see. Nothing you type is saved.</p>
+            <div className="hm-ex-row">
+              {(Object.keys(SAMPLE_FORMS) as SampleKey[]).map((k) => (
+                <figure key={k} className="hm-ex-item">
+                  <div className="hm-device">
+                    <iframe src={`/demo${k === "style-and-sip" ? "" : "/" + k}?frame=1`} title={`${SAMPLE_FORMS[k].caption} (working demo)`} loading="lazy" />
+                  </div>
+                  <figcaption>
+                    <span>{SAMPLE_FORMS[k].caption}</span>
+                    <Link href={k === "style-and-sip" ? "/demo" : `/demo/${k}`}>Open full screen</Link>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
           </div>
         </section>
 

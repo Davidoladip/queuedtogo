@@ -13,7 +13,7 @@ export default function DemoInvitationPage() {
   return (
     <div className="pf-page">
       <DemoBar current="invitation" />
-      <DemoForm form={demoInvitationForm()} />
+      <DemoForm form={demoInvitationForm()} assetBase="" />
     </div>
   );
 }
