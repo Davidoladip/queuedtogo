@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/admin", () => ({ adminClient: () => null }));
 import { PASSES, PLANS, PLAN_ORDER, passExpiry, usage } from "@/lib/plans";
-import { handleStripeEvent, markPassPaid, planOfSubscription, syncSubscription } from "@/server/billing";
+import { ensurePrice, handleStripeEvent, markPassPaid, planOfSubscription, syncSubscription } from "@/server/billing";
 
 type R = Record<string, unknown>;
 
@@ -54,9 +54,9 @@ describe("plans", () => {
       expect(JSON.parse(m![1])).toEqual(PLANS[key].limits);
     }
   });
-  it("are priced $19 / $49 / $99 with passes at $29 / $59 / $99", () => {
-    expect([PLANS.starter.price, PLANS.pro.price, PLANS.events.price]).toEqual([19, 49, 99]);
-    expect([PASSES["100"].price, PASSES["300"].price, PASSES.unlimited.price]).toEqual([29, 59, 99]);
+  it("are priced $29 / $69 / $139 with passes at $29 / $49 / $69", () => {
+    expect([PLANS.starter.price, PLANS.pro.price, PLANS.events.price]).toEqual([29, 69, 139]);
+    expect([PASSES["100"].price, PASSES["300"].price, PASSES.unlimited.price]).toEqual([29, 49, 69]);
     expect(PASSES.unlimited.guestLimit).toBeNull();
   });
   it("passes last until 30 days after the event, or 120 days without a date", () => {
@@ -117,6 +117,36 @@ describe("event passes", () => {
       expect(await markPassPaid(fakeAdmin(t), session(bad))).toBe("ignored");
       expect(t.event_passes[0].status).toBe("pending");
     }
+  });
+});
+
+describe("Stripe prices", () => {
+  const fake = (existing: { id: string; unit_amount: number; currency: string; product: string } | null) => {
+    const created: Record<string, unknown>[] = [];
+    const stripe = {
+      prices: {
+        list: vi.fn(async () => ({ data: existing ? [existing] : [] })),
+        create: vi.fn(async (p: Record<string, unknown>) => { created.push(p); return { id: "price_NEW" }; }),
+      },
+      products: { create: vi.fn(async () => ({ id: "prod_NEW" })) },
+    } as unknown as Stripe;
+    return { stripe, created };
+  };
+  it("reuse the price when the amount matches the app", async () => {
+    const { stripe, created } = fake({ id: "price_OLD", unit_amount: 6900, currency: "usd", product: "prod_PRO" });
+    expect(await ensurePrice(stripe, { plan: "pro" })).toBe("price_OLD");
+    expect(created).toHaveLength(0);
+  });
+  it("make a new price (same product, takes over the key) when the app's price changed", async () => {
+    const { stripe, created } = fake({ id: "price_OLD", unit_amount: 4900, currency: "usd", product: "prod_PRO" });
+    expect(await ensurePrice(stripe, { plan: "pro" })).toBe("price_NEW");
+    expect(created[0]).toMatchObject({ product: "prod_PRO", unit_amount: 6900, lookup_key: "qtg_pro_monthly", transfer_lookup_key: true, recurring: { interval: "month" } });
+  });
+  it("create the product and price the first time", async () => {
+    const { stripe, created } = fake(null);
+    expect(await ensurePrice(stripe, { pass: "300" })).toBe("price_NEW");
+    expect(created[0]).toMatchObject({ product: "prod_NEW", unit_amount: 4900, lookup_key: "qtg_pass_300" });
+    expect(created[0].recurring).toBeUndefined();
   });
 });
 

@@ -7,12 +7,12 @@
 | Plan | Price | Live forms | Team | Replies / month | Texts / month |
 |---|---|---|---|---|---|
 | Free | $0 | 1 | 1 | 50 | 0 |
-| Starter | $19 | 3 | 2 | 500 | 0 |
-| Pro | $49 | Unlimited | 5 | Unlimited | 1,000 |
-| Events | $99 | Unlimited | 15 | Unlimited | 3,000 |
+| Starter | $29 | 3 | 2 | 500 | 0 |
+| Pro | $69 | Unlimited | 5 | Unlimited | 1,000 |
+| Events | $139 | Unlimited | 15 | Unlimited | 3,000 |
 
 **Event invitation passes** (one-time payment for one RSVP form, on any plan): $29 up to 100 guest replies,
-$59 up to 300, $99 unlimited. A form with a pass doesn't use the plan's live-form or reply allowance.
+$49 up to 300, $69 unlimited. A form with a pass doesn't use the plan's live-form or reply allowance.
 A pass lasts until 30 days after the event date (120 days after purchase if the form has no date; never
 less than 30 days).
 

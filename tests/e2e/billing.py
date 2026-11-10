@@ -32,7 +32,7 @@ with sync_playwright() as p:
     cards = pg.locator(".bl-plan")
     check("four plans", cards.count() == 4, cards.count())
     prices = [cards.nth(i).locator(".bl-price b").inner_text() for i in range(4)]
-    check("priced $0 / $19 / $49 / $99", prices == ["$0", "$19", "$49", "$99"], prices)
+    check("priced $0 / $29 / $69 / $139", prices == ["$0", "$29", "$69", "$139"], prices)
     check("first-timers are offered the free trial", pg.get_by_role("button", name="Start 14-day free trial").count() == 3)
     check("trial needs a card note", "needs a card" in pg.locator("section[aria-labelledby=bl-plans]").inner_text())
     m = pg.get_by_role("meter", name="Replies")
@@ -47,7 +47,7 @@ with sync_playwright() as p:
     # Event passes
     sel = pg.locator(".bl-select select")
     check("pass form picker lists RSVP forms", sel.locator("option").count() == 2)
-    check("three pass sizes priced $29 / $59 / $99", [pg.locator(".bl-passcard .bl-price b").nth(i).inner_text() for i in range(3)] == ["$29", "$59", "$99"])
+    check("three pass sizes priced $29 / $49 / $69", [pg.locator(".bl-passcard .bl-price b").nth(i).inner_text() for i in range(3)] == ["$29", "$49", "$69"])
     pg.get_by_role("article", name="Up to 100 guests pass").get_by_role("button").click()
     pg.wait_for_function("document.querySelector('.notice.success')?.textContent.includes('pass-100')")
     check("buying a pass calls the pass action", True)
@@ -77,7 +77,7 @@ with sync_playwright() as p:
     # Comped (ThreadToGo)
     go("?state=comped")
     t = pg.locator(".bl-current").inner_text()
-    check("comped business sees it's included at no charge", "included at no charge" in t and "Events" in t and "$99" not in t, t)
+    check("comped business sees it's included at no charge", "included at no charge" in t and "Events" in t and "$139" not in t, t)
     check("comped business has nothing to buy", pg.locator(".bl-plan button").count() == 0 and pg.get_by_role("button", name="Manage billing").count() == 0)
     check("says when plan limits are off", pg.get_by_text("Plan limits aren't switched on yet").count() == 1)
     pg.screenshot(path=f"{SHOTS}/billing-comped.png", full_page=True)

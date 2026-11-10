@@ -28,19 +28,22 @@ const PRODUCT_NAMES: Record<string, string> = {
 
 /**
  * The Stripe price for a plan or pass, found by its lookup key. Created the first time it's needed
- * (so there is nothing to copy into the app by hand). If you change a price in Stripe, give the new
- * price the same lookup key (Stripe's "transfer lookup key") and the app uses it from then on.
+ * (so there is nothing to copy into the app by hand). The amount always follows src/lib/plans.ts: if the
+ * price under the key has a different amount (prices were changed in the app), a new price is made and
+ * takes over the key. Existing subscribers stay on the price they signed up at until you move them in Stripe.
  */
 export async function ensurePrice(stripe: Stripe, item: { plan: PaidPlan } | { pass: PassTier }): Promise<string> {
   const lookup = "plan" in item ? planLookupKey(item.plan) : passLookupKey(item.pass);
+  const cents = ("plan" in item ? PLANS[item.plan].price : PASSES[item.pass].price) * 100;
   const found = await stripe.prices.list({ lookup_keys: [lookup], active: true, limit: 1 });
-  if (found.data[0]) return found.data[0].id;
-  const amount = "plan" in item ? PLANS[item.plan].price : PASSES[item.pass].price;
-  const product = await stripe.products.create({ name: PRODUCT_NAMES[lookup] ?? lookup, metadata: { qtg: lookup } });
+  const cur = found.data[0];
+  if (cur && cur.unit_amount === cents && cur.currency === "usd") return cur.id;
+  const productId = cur ? (typeof cur.product === "string" ? cur.product : cur.product.id)
+    : (await stripe.products.create({ name: PRODUCT_NAMES[lookup] ?? lookup, metadata: { qtg: lookup } })).id;
   const price = await stripe.prices.create({
-    product: product.id,
+    product: productId,
     currency: "usd",
-    unit_amount: amount * 100,
+    unit_amount: cents,
     lookup_key: lookup,
     transfer_lookup_key: true,
     ...("plan" in item ? { recurring: { interval: "month" as const } } : {}),

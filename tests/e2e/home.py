@@ -50,10 +50,10 @@ with sync_playwright() as p:
 
     plans = pg.locator(".hm-plan")
     prices = [plans.nth(i).locator(".hm-price b").inner_text() for i in range(plans.count())]
-    check("plan prices match the app", prices == ["$0", "$19", "$49", "$99"], prices)
+    check("plan prices match the app", prices == ["$0", "$29", "$69", "$139"], prices)
     check("trial buttons", pg.get_by_role("link", name="Try Pro free for 14 days").count() == 1)
     passes = pg.locator(".hm-pass-line").inner_text()
-    check("event pass prices", all(x in passes for x in ("$29 for up to 100 guests", "$59 for up to 300 guests", "$99 for unlimited guests")), passes)
+    check("event pass prices", all(x in passes for x in ("$29 for up to 100 guests", "$49 for up to 300 guests", "$69 for unlimited guests")), passes)
     first = pg.locator(".hm-faq details").first
     first.locator("summary").click()
     check("questions open", first.get_attribute("open") is not None and "browser" in first.inner_text())

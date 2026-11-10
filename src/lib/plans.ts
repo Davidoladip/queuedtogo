@@ -14,17 +14,17 @@ export const PLANS: Record<PlanKey, Plan> = {
     features: ["1 live form", "50 replies a month", "Production board and email updates"],
   },
   starter: {
-    key: "starter", name: "Starter", price: 19, blurb: "For a small shop doing regular events.",
+    key: "starter", name: "Starter", price: 29, blurb: "For a small shop doing regular events.",
     limits: { live_forms: 3, members: 2, monthly_replies: 500, monthly_texts: 0 },
     features: ["3 live forms", "500 replies a month", "2 team members", "All form designs and RSVP"],
   },
   pro: {
-    key: "pro", name: "Pro", price: 49, blurb: "For busy vendors and growing teams.",
+    key: "pro", name: "Pro", price: 69, blurb: "For busy vendors and growing teams.",
     limits: { live_forms: null, members: 5, monthly_replies: null, monthly_texts: 1000 },
     features: ["Unlimited live forms and replies", "5 team members", "1,000 texts a month", "Event-day tools"],
   },
   events: {
-    key: "events", name: "Events", price: 99, blurb: "For planners and venues running many events.",
+    key: "events", name: "Events", price: 139, blurb: "For planners and venues running many events.",
     limits: { live_forms: null, members: 15, monthly_replies: null, monthly_texts: 3000 },
     features: ["Everything in Pro", "15 team members", "3,000 texts a month", "Priority help"],
   },
@@ -38,8 +38,8 @@ export type PassTier = "100" | "300" | "unlimited";
 export type Pass = { tier: PassTier; name: string; price: number; guestLimit: number | null };
 export const PASSES: Record<PassTier, Pass> = {
   "100": { tier: "100", name: "Up to 100 guests", price: 29, guestLimit: 100 },
-  "300": { tier: "300", name: "Up to 300 guests", price: 59, guestLimit: 300 },
-  unlimited: { tier: "unlimited", name: "Unlimited guests", price: 99, guestLimit: null },
+  "300": { tier: "300", name: "Up to 300 guests", price: 49, guestLimit: 300 },
+  unlimited: { tier: "unlimited", name: "Unlimited guests", price: 69, guestLimit: null },
 };
 export const PASS_ORDER: PassTier[] = ["100", "300", "unlimited"];
 export const isPassTier = (v: unknown): v is PassTier => v === "100" || v === "300" || v === "unlimited";
