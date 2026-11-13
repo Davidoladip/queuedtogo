@@ -10,10 +10,13 @@ function view(state: string, norsvp: boolean): BillingView {
   const plan: PlanKey = state === "free" ? "free" : state === "comped" ? "events" : state === "trial" ? "pro" : "starter";
   return {
     plan, chosen: plan,
-    status: state === "trial" ? "trialing" : state === "pastdue" ? "past_due" : state === "active" || state === "cancelling" ? "active" : "none",
+    status: state === "trial" ? "trialing" : state === "pastdue" ? "past_due" : ["active", "cancelling", "annual", "booked"].includes(state) ? "active" : "none",
     comped: state === "comped", enforced: state !== "comped", limits: PLANS[plan].limits,
     hasCustomer: state !== "free" && state !== "comped",
     periodEnd: later(21), trialEnd: later(14), cancelAtPeriodEnd: state === "cancelling", hadTrial: state !== "free",
+    interval: state === "annual" || state === "booked" ? "year" : "month",
+    pending: state === "booked" ? { plan: "starter", interval: "month", at: later(21) } : null,
+    paymentError: state === "pastdue" ? "Your card has insufficient funds." : null,
     usage: { liveForms: 1, members: 1, replies: plan === "free" ? 47 : 212, texts: 0 },
     passes: [{ formId: "f2", title: "Dr. Funmi's Golden Experience", tier: "300", guestLimit: 300, used: 41, expiresAt: later(60) }],
     rsvpForms: norsvp ? [] : [

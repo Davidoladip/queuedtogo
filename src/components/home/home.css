@@ -189,3 +189,4 @@
   .hm-mover { transform: translateX(calc(200% + 52px)); }
 }
 .hm [id] { scroll-margin-top: 80px; }
+.hm-annual { margin: 6px 0 0; font-size: 13.5px; color: var(--soft); }

@@ -6,7 +6,7 @@ import "@/components/billing/billing.css";
 
 /**
  * Development harness: the Billing page with sample data. 404 unless QTG_DEV_HARNESS=1.
- * ?state=free|trial|active|pastdue|cancelling|comped  &member=1  &off=1 (payments not connected)  &checkout=plan|pass|cancelled
+ * ?state=free|trial|active|annual|booked|pastdue|cancelling|comped  &member=1  &off=1 (payments not connected)  &checkout=plan|pass|cancelled
  */
 export default async function DevBillingPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await connection();

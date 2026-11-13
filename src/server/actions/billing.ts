@@ -1,11 +1,12 @@
 "use server";
 
+import Stripe from "stripe";
 import { z } from "zod";
 import { canManage, requireWorkspace } from "@/lib/auth";
 import { adminClient } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/urls";
-import { KEEPS_PLAN, PASSES, PASS_ORDER, TRIAL_DAYS, type PaidPlan, type PassTier } from "@/lib/plans";
-import { ensurePrice, markPassPaid, stripeClient, syncSubscription } from "@/server/billing";
+import { KEEPS_PLAN, PASSES, PASS_ORDER, PLANS, TRIAL_DAYS, type Interval, type PaidPlan, type PassTier } from "@/lib/plans";
+import { checkoutTaxOptions, ensurePrice, markPassPaid, stripeClient, syncSubscription } from "@/server/billing";
 
 export type BillingResult = { ok: true; url?: string; message?: string } | { ok: false; error: string };
 
@@ -14,6 +15,7 @@ const OWNERS = "Only owners and admins can change billing.";
 const slugSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/);
 const planSchema = z.enum(["starter", "pro", "events"]);
 const tierSchema = z.enum(["100", "300", "unlimited"]);
+const intervalSchema = z.enum(["month", "year"]);
 
 async function setup(orgSlug: string) {
   if (!slugSchema.safeParse(orgSlug).success) return { error: "We couldn't find this business." } as const;
@@ -45,49 +47,107 @@ const fail = (e: unknown, what: string): BillingResult => {
   return { ok: false, error: `We couldn't reach the payment service to ${what}. Try again in a moment.` };
 };
 
-/** Start a plan (Stripe Checkout with a free trial the first time) or switch an existing subscription. */
-export async function choosePlan(orgSlug: string, plan: PaidPlan): Promise<BillingResult> {
+/**
+ * Start a plan (Stripe Checkout with a free trial the first time) or change an existing subscription.
+ * Monthly -> annual and plan changes apply now (charged or credited for the difference). Annual -> monthly is
+ * booked for the renewal date so nobody loses months they've paid for.
+ */
+export async function choosePlan(orgSlug: string, plan: PaidPlan, interval: Interval = "month"): Promise<BillingResult> {
   const p = planSchema.safeParse(plan);
-  if (!p.success) return { ok: false, error: "Choose a plan." };
+  const iv = intervalSchema.safeParse(interval);
+  if (!p.success || !iv.success) return { ok: false, error: "Choose a plan." };
   const s = await setup(orgSlug);
   if ("error" in s) return { ok: false, error: s.error! };
   if (s.billing.comped) return { ok: false, error: `${s.org.name} has the ${s.billing.plan} plan included at no charge, so there's nothing to pay.` };
   try {
-    const price = await ensurePrice(s.stripe, { plan: p.data });
-    // Already subscribed: change the plan on the same subscription (Stripe prorates the difference).
+    const price = await ensurePrice(s.stripe, { plan: p.data, interval: iv.data });
     if (s.billing.stripe_subscription_id && KEEPS_PLAN.has(s.billing.status)) {
-      if (s.billing.plan === p.data) return { ok: true, message: "You're already on this plan." };
-      const sub = await s.stripe.subscriptions.retrieve(s.billing.stripe_subscription_id);
-      const item = sub.items.data[0];
-      const updated = await s.stripe.subscriptions.update(sub.id, {
-        items: [{ id: item.id, price }],
-        proration_behavior: "create_prorations",
-        cancel_at_period_end: false,
-        metadata: { ...sub.metadata, org_id: s.org.id, plan: p.data },
-      });
-      await syncSubscription(s.admin, updated);
-      return { ok: true, message: "Your plan is changed." };
+      return await changeSubscription(s, p.data, iv.data, price);
     }
     const customer = await customerFor(s);
     const base = `${await siteUrl()}/w/${s.org.slug}/billing`;
+    const meta = { org_id: s.org.id, plan: p.data, interval: iv.data };
     const session = await s.stripe.checkout.sessions.create({
       mode: "subscription",
       customer,
       client_reference_id: s.org.id,
       line_items: [{ price, quantity: 1 }],
       allow_promotion_codes: true,
-      metadata: { org_id: s.org.id, plan: p.data },
+      metadata: meta,
       subscription_data: {
-        metadata: { org_id: s.org.id, plan: p.data },
+        metadata: meta,
         ...(s.billing.had_trial ? {} : { trial_period_days: TRIAL_DAYS }),
       },
+      ...checkoutTaxOptions(),
       success_url: `${base}?checkout={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}?checkout=cancelled`,
     });
     if (!session.url) return { ok: false, error: "We couldn't open the checkout. Try again." };
     return { ok: true, url: session.url };
   } catch (e) {
-    return fail(e, "start the plan");
+    if (e instanceof Stripe.errors.StripeCardError) return { ok: false, error: `The payment didn't go through: ${e.message} Update your card in Manage billing and try again.` };
+    return fail(e, "change the plan");
+  }
+}
+
+type Ready = Exclude<Awaited<ReturnType<typeof setup>>, { error: string }>;
+
+async function changeSubscription(s: Ready, plan: PaidPlan, interval: Interval, price: string): Promise<BillingResult> {
+  const curInterval: Interval = s.billing.billing_interval === "year" ? "year" : "month";
+  if (s.billing.plan === plan && curInterval === interval && !s.billing.pending_plan) return { ok: true, message: "You're already on this plan." };
+  let sub = await s.stripe.subscriptions.retrieve(s.billing.stripe_subscription_id!);
+  // Any change booked earlier is replaced by this one.
+  if (sub.schedule) {
+    await s.stripe.subscriptionSchedules.release(typeof sub.schedule === "string" ? sub.schedule : sub.schedule.id);
+    sub = await s.stripe.subscriptions.retrieve(sub.id);
+  }
+  const item = sub.items.data[0];
+  const meta = { ...sub.metadata, org_id: s.org.id, plan, interval };
+  if (s.billing.plan === plan && curInterval === interval) {
+    // Only cancelling the booked change.
+    await s.admin.from("org_billing").update({ pending_plan: null, pending_interval: null, pending_change_at: null }).eq("org_id", s.org.id);
+    await syncSubscription(s.admin, sub);
+    return { ok: true, message: "The booked change is cancelled. Your plan stays as it is." };
+  }
+  if (curInterval === "year" && interval === "month" && sub.status !== "trialing") {
+    // Book the move to monthly for the renewal date.
+    const sched = await s.stripe.subscriptionSchedules.create({ from_subscription: sub.id });
+    const now = sched.phases[0];
+    await s.stripe.subscriptionSchedules.update(sched.id, {
+      end_behavior: "release",
+      phases: [
+        { items: [{ price: item.price.id, quantity: 1 }], start_date: now.start_date, end_date: now.end_date, metadata: sub.metadata },
+        { items: [{ price, quantity: 1 }], duration: { interval: "month", interval_count: 1 }, metadata: meta, proration_behavior: "none" },
+      ],
+    });
+    const at = new Date(now.end_date * 1000).toISOString();
+    await s.admin.from("org_billing").update({ pending_plan: plan, pending_interval: interval, pending_change_at: at }).eq("org_id", s.org.id);
+    return { ok: true, message: `Booked. ${PLANS[plan].name} monthly starts on ${new Date(at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}, when your current year ends.` };
+  }
+  const longer = curInterval === "month" && interval === "year";
+  const updated = await s.stripe.subscriptions.update(sub.id, {
+    items: [{ id: item.id, price }],
+    // Moving to annual charges the year now (less what's left of this month); other changes are prorated on the next bill.
+    proration_behavior: longer ? "always_invoice" : "create_prorations",
+    ...(longer ? { payment_behavior: "error_if_incomplete" as const } : {}),
+    cancel_at_period_end: false,
+    metadata: meta,
+  });
+  await syncSubscription(s.admin, updated);
+  return { ok: true, message: longer ? "You're now on annual billing." : "Your plan is changed." };
+}
+
+/** Undo a cancellation before the plan ends. */
+export async function resumePlan(orgSlug: string): Promise<BillingResult> {
+  const s = await setup(orgSlug);
+  if ("error" in s) return { ok: false, error: s.error! };
+  if (!s.billing.stripe_subscription_id || !s.billing.cancel_at_period_end) return { ok: false, error: "There's no cancelled plan to resume." };
+  try {
+    const updated = await s.stripe.subscriptions.update(s.billing.stripe_subscription_id, { cancel_at_period_end: false });
+    await syncSubscription(s.admin, updated);
+    return { ok: true, message: "Your plan is back on. It renews as usual." };
+  } catch (e) {
+    return fail(e, "resume the plan");
   }
 }
 
@@ -138,6 +198,7 @@ export async function buyEventPass(orgSlug: string, formId: string, tier: PassTi
       client_reference_id: s.org.id,
       line_items: [{ price, quantity: 1 }],
       metadata: meta,
+      ...checkoutTaxOptions(),
       payment_intent_data: { metadata: meta, description: `Event pass (${pass.name}) for "${form.title}"`.slice(0, 200) },
       success_url: `${base}?checkout={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}?checkout=cancelled`,

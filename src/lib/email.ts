@@ -244,3 +244,44 @@ export function rsvpEmail(v: RsvpEmailInput) {
 
 /** Shortens an email address for lists: lena@example.com → l•••@example.com. */
 export const maskEmail = (e: string) => { const [u, d] = e.split("@"); return d ? `${u.slice(0, 1)}•••@${d}` : "•••"; };
+
+// ---------------------------------------------------------------------------- billing (to the business's owners and admins)
+
+export type BillingEmailInput = {
+  kind: "payment_failed" | "plan_ended" | "cancel_confirmed";
+  business: string; plan: string; billingUrl: string;
+  /** Stripe's reason for a failed payment. */
+  reason?: string | null;
+  /** When a cancelled plan ends, already formatted ("December 13, 2026"). */
+  endsOn?: string | null;
+};
+
+export function billingEmail(v: BillingEmailInput) {
+  const footer = [`Sent to owners and admins of ${esc(v.business)} on QueuedToGo.`];
+  if (v.kind === "payment_failed") {
+    const reason = (v.reason ?? "The payment was declined.").slice(0, 300);
+    const p1 = `We couldn't take the payment for ${v.business}'s ${v.plan} plan. ${reason}`;
+    const p2 = "Stripe will try again over the next few days. Update the card now to keep the plan without a break.";
+    return {
+      subject: `Payment failed for ${v.business}'s ${v.plan} plan`,
+      text: `${p1}\n\n${p2}\n\nUpdate your card: ${v.billingUrl}`,
+      html: layout({ preheader: "Update your card to keep your plan.", heading: "Your payment didn't go through", paragraphs: [p1, p2], button: { url: v.billingUrl, label: "Update card" }, footer }),
+    };
+  }
+  if (v.kind === "cancel_confirmed") {
+    const p1 = `${v.business}'s ${v.plan} plan is cancelled. You keep everything in ${v.plan}${v.endsOn ? ` until ${v.endsOn}` : " until the end of the paid period"}, then the business moves to the Free plan.`;
+    const p2 = "Nothing is deleted. Changed your mind? Resume the plan from the Billing page before then.";
+    return {
+      subject: `${v.business}'s ${v.plan} plan is cancelled`,
+      text: `${p1}\n\n${p2}\n\nBilling: ${v.billingUrl}`,
+      html: layout({ preheader: v.endsOn ? `Your plan ends on ${v.endsOn}.` : "Your plan ends at the end of the period.", heading: "Your plan is cancelled", paragraphs: [p1, p2], button: { url: v.billingUrl, label: "Resume plan" }, footer }),
+    };
+  }
+  const p1 = `${v.business}'s ${v.plan} plan has ended, so the business is now on the Free plan.`;
+  const p2 = "Your forms, orders and customers are all still there. Choose a plan any time to pick up where you left off.";
+  return {
+    subject: `${v.business} is now on the Free plan`,
+    text: `${p1}\n\n${p2}\n\nChoose a plan: ${v.billingUrl}`,
+    html: layout({ preheader: "Your forms and orders are still there.", heading: "Your plan has ended", paragraphs: [p1, p2], button: { url: v.billingUrl, label: "Choose a plan" }, footer }),
+  };
+}

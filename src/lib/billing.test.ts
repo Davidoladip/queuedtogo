@@ -3,8 +3,9 @@ import Stripe from "stripe";
 import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/admin", () => ({ adminClient: () => null }));
-import { PASSES, PLANS, PLAN_ORDER, passExpiry, usage } from "@/lib/plans";
-import { ensurePrice, handleStripeEvent, markPassPaid, planOfSubscription, syncSubscription } from "@/server/billing";
+import { PASSES, PLANS, PLAN_ORDER, annualSaving, parseLookupKey, passExpiry, planLookupKey, planPrice, usage } from "@/lib/plans";
+import { billingEmail } from "@/lib/email";
+import { ensurePrice, handleStripeEvent, intervalOfSubscription, markPassPaid, planOfSubscription, syncSubscription, type BillingNotice } from "@/server/billing";
 
 type R = Record<string, unknown>;
 
@@ -27,6 +28,7 @@ function fakeAdmin(tables: Record<string, R[]>) {
       upsert: (p: R) => { op = "upsert"; patch = p; return b; },
       eq: (k: string, v: unknown) => { filters.push((r) => r[k] === v); return b; },
       is: (k: string, v: unknown) => { filters.push((r) => (r[k] ?? null) === v); return b; },
+      in: (k: string, v: unknown[]) => { filters.push((r) => v.includes(r[k])); return b; },
       maybeSingle: async () => ({ data: run().data?.[0] ?? null, error: null }),
       single: async () => ({ data: run().data?.[0] ?? null, error: null }),
       then: (res: (x: unknown) => unknown) => Promise.resolve(run()).then(res),
@@ -39,8 +41,8 @@ function fakeAdmin(tables: Record<string, R[]>) {
 const ORG = "11111111-1111-4111-8111-111111111111";
 const sub = (o: Partial<Stripe.Subscription> & { lookup?: string; end?: number } = {}): Stripe.Subscription => ({
   id: "sub_ABC123456", object: "subscription", customer: "cus_ABC123456", status: "trialing", metadata: { org_id: ORG, plan: "pro" },
-  trial_end: 1_800_000_000, cancel_at_period_end: false, cancel_at: null,
-  items: { data: [{ id: "si_1", current_period_end: o.end ?? 1_800_000_000, price: { lookup_key: o.lookup ?? "qtg_pro_monthly" } }] },
+  trial_end: 1_800_000_000, cancel_at_period_end: false, cancel_at: null, schedule: null,
+  items: { data: [{ id: "si_1", current_period_end: o.end ?? 1_800_000_000, price: { id: "price_X", lookup_key: o.lookup ?? "qtg_pro_monthly", recurring: { interval: (o.lookup ?? "").endsWith("_annual") ? "year" : "month" } } }] },
   ...o,
 } as unknown as Stripe.Subscription);
 
@@ -173,5 +175,116 @@ describe("Stripe webhooks", () => {
     const ev = { id: "evt_CHECKOUT01", type: "checkout.session.completed", data: { object: { mode: "subscription", subscription: "sub_ABC123456", metadata: { org_id: ORG } } } } as unknown as Stripe.Event;
     expect(await handleStripeEvent(fakeAdmin(t), fake, ev)).toBe("updated");
     expect(t.org_billing[0]).toMatchObject({ plan: "starter", status: "trialing" });
+  });
+});
+
+describe("annual billing", () => {
+  it("is priced at 2 months free with its own lookup keys", () => {
+    expect([PLANS.starter.annual, PLANS.pro.annual, PLANS.events.annual]).toEqual([290, 690, 1390]);
+    for (const k of ["starter", "pro", "events"] as const) {
+      expect(planPrice(k, "year")).toBe(PLANS[k].price * 10);
+      expect(annualSaving(k)).toBe(PLANS[k].price * 2);
+    }
+    expect(planLookupKey("pro", "year")).toBe("qtg_pro_annual");
+    expect(planLookupKey("pro")).toBe("qtg_pro_monthly");
+    expect(parseLookupKey("qtg_events_annual")).toEqual({ plan: "events", interval: "year" });
+    expect(parseLookupKey("qtg_pass_100")).toBeNull();
+  });
+  it("reads the plan and period of an annual subscription", () => {
+    const s = sub({ lookup: "qtg_starter_annual" });
+    expect(planOfSubscription(s)).toBe("starter");
+    expect(intervalOfSubscription(s)).toBe("year");
+    expect(intervalOfSubscription(sub())).toBe("month");
+  });
+  it("puts the annual price on the same product as the monthly one", async () => {
+    const created: Record<string, unknown>[] = [];
+    const stripe = {
+      prices: {
+        list: vi.fn(async (q: { lookup_keys: string[] }) => ({ data: q.lookup_keys[0] === "qtg_pro_monthly" ? [{ id: "price_M", unit_amount: 6900, currency: "usd", product: "prod_PRO" }] : [] })),
+        create: vi.fn(async (p: Record<string, unknown>) => { created.push(p); return { id: "price_Y" }; }),
+      },
+      products: { create: vi.fn(async () => ({ id: "prod_NEW" })) },
+    } as unknown as Stripe;
+    expect(await ensurePrice(stripe, { plan: "pro", interval: "year" })).toBe("price_Y");
+    expect(created[0]).toMatchObject({ product: "prod_PRO", unit_amount: 69000, lookup_key: "qtg_pro_annual", recurring: { interval: "year" } });
+  });
+  it("saves the period, and clears a booked change once Stripe's schedule is gone", async () => {
+    const t = { org_billing: [{ org_id: ORG, plan: "pro", status: "active", comped: false, stripe_customer_id: "cus_ABC123456", stripe_subscription_id: "sub_ABC123456", cancel_at_period_end: false,
+      pending_plan: "pro", pending_interval: "month", pending_change_at: "2027-11-13T00:00:00Z" }] as R[] };
+    await syncSubscription(fakeAdmin(t), sub({ status: "active", lookup: "qtg_pro_annual", schedule: "sub_sched_1" }));
+    expect(t.org_billing[0]).toMatchObject({ billing_interval: "year", pending_plan: "pro" });
+    await syncSubscription(fakeAdmin(t), sub({ status: "active", lookup: "qtg_pro_monthly" }));
+    expect(t.org_billing[0]).toMatchObject({ billing_interval: "month", pending_plan: null, pending_change_at: null });
+  });
+});
+
+describe("renewals, failures and cancellations", () => {
+  const row = (o: R = {}) => ({ org_id: ORG, plan: "pro", status: "active", comped: false, stripe_customer_id: "cus_ABC123456", stripe_subscription_id: "sub_ABC123456", cancel_at_period_end: false, last_payment_failed_at: null, ...o });
+  const invoice = (type: string, id: string) => ({ id, type, data: { object: { id: "in_1", customer: "cus_ABC123456", parent: { subscription_details: { subscription: "sub_ABC123456" } } } } }) as unknown as Stripe.Event;
+  const stripeWith = (reason: string | null, current = sub({ status: "past_due" })) => ({
+    subscriptions: { retrieve: vi.fn(async () => current) },
+    invoicePayments: { list: vi.fn(async () => ({ data: reason ? [{ payment: { payment_intent: { last_payment_error: { message: reason } } } }] : [] })) },
+  }) as unknown as Stripe;
+
+  it("record why a renewal failed, email the owners once, and clear it when paid", async () => {
+    const t = { org_billing: [row()] as R[], stripe_events: [] as R[] };
+    const sent: BillingNotice[] = [];
+    const notify = async (_a: unknown, n: BillingNotice) => { sent.push(n); };
+    const stripe = stripeWith("Your card has insufficient funds.");
+    expect(await handleStripeEvent(fakeAdmin(t), stripe, invoice("invoice.payment_failed", "evt_FAIL0001"), notify)).toBe("failed");
+    expect(t.org_billing[0]).toMatchObject({ last_payment_error: "Your card has insufficient funds." });
+    expect(sent).toEqual([{ orgId: ORG, kind: "payment_failed", reason: "Your card has insufficient funds." }]);
+    await handleStripeEvent(fakeAdmin(t), stripe, invoice("invoice.payment_failed", "evt_FAIL0002"), notify);
+    expect(sent).toHaveLength(1);
+    expect(await handleStripeEvent(fakeAdmin(t), stripe, invoice("invoice.paid", "evt_PAID0001"), notify)).toBe("paid");
+    expect(t.org_billing[0]).toMatchObject({ last_payment_error: null, last_payment_failed_at: null });
+  });
+  it("ignore a failed invoice for someone else's subscription", async () => {
+    const t = { org_billing: [row({ stripe_subscription_id: "sub_OTHER00001" })] as R[], stripe_events: [] as R[] };
+    expect(await handleStripeEvent(fakeAdmin(t), stripeWith("x"), invoice("invoice.payment_failed", "evt_FAIL0003"))).toBe("ignored");
+    expect(t.org_billing[0].last_payment_error).toBeUndefined();
+  });
+  it("re-read the subscription from Stripe instead of trusting a late event", async () => {
+    const t = { org_billing: [row()] as R[], stripe_events: [] as R[] };
+    const stale = { id: "evt_STALE0001", type: "customer.subscription.updated", data: { object: sub({ status: "trialing" }) } } as unknown as Stripe.Event;
+    await handleStripeEvent(fakeAdmin(t), stripeWith(null, sub({ status: "past_due" })), stale);
+    expect(t.org_billing[0].status).toBe("past_due");
+  });
+  it("email when a plan is cancelled and when it ends; nothing for a comped business", async () => {
+    const t = { org_billing: [row()] as R[] };
+    const sent: string[] = [];
+    const notify = async (_a: unknown, n: BillingNotice) => { sent.push(n.kind); };
+    await syncSubscription(fakeAdmin(t), sub({ status: "active", cancel_at_period_end: true }), false, notify);
+    await syncSubscription(fakeAdmin(t), sub({ status: "active", cancel_at_period_end: true }), false, notify);
+    await syncSubscription(fakeAdmin(t), sub({ status: "canceled" }), true, notify);
+    expect(sent).toEqual(["cancel_confirmed", "plan_ended"]);
+    const c = { org_billing: [row({ comped: true, stripe_subscription_id: null, stripe_customer_id: null })] as R[] };
+    await syncSubscription(fakeAdmin(c), sub({ status: "active", cancel_at_period_end: true }), false, notify);
+    expect(sent).toHaveLength(2);
+  });
+  it("keep the plan while Stripe retries, and clear the failure once paid up", async () => {
+    const t = { org_billing: [row({ last_payment_error: "Declined", last_payment_failed_at: "2026-11-13T00:00:00Z" })] as R[] };
+    await syncSubscription(fakeAdmin(t), sub({ status: "past_due" }));
+    expect(t.org_billing[0]).toMatchObject({ plan: "pro", status: "past_due", last_payment_error: "Declined" });
+    await syncSubscription(fakeAdmin(t), sub({ status: "active" }));
+    expect(t.org_billing[0]).toMatchObject({ last_payment_error: null });
+  });
+  it("accept a pass paid with sales tax on top (checks the amount before tax)", async () => {
+    const t = { event_passes: [{ id: "p1", org_id: ORG, form_id: "f1", tier: "100", amount_cents: 2900, status: "pending", stripe_session_id: "cs_test_TAX00001" }] as R[], forms: [{ id: "f1", org_id: ORG, event_date: null }] };
+    const s = { id: "cs_test_TAX00001", mode: "payment", payment_status: "paid", amount_subtotal: 2900, amount_total: 3074, currency: "usd", payment_intent: "pi_T", metadata: { org_id: ORG, pass_id: "p1" } } as unknown as Stripe.Checkout.Session;
+    expect(await markPassPaid(fakeAdmin(t), s)).toBe("paid");
+  });
+});
+
+describe("billing emails", () => {
+  it("say what happened, link to Billing, and escape names", () => {
+    const e = billingEmail({ kind: "payment_failed", business: "Bee <b>&</b> Co", plan: "Pro", billingUrl: "https://queuedtogo.com/w/bee/billing", reason: "Your card was declined." });
+    expect(e.subject).toBe("Payment failed for Bee <b>&</b> Co's Pro plan");
+    expect(e.html).toContain("Bee &lt;b&gt;&amp;&lt;/b&gt; Co");
+    expect(e.html).not.toContain("<b>&</b>");
+    expect(e.text).toContain("Your card was declined.");
+    expect(e.text).toContain("https://queuedtogo.com/w/bee/billing");
+    expect(billingEmail({ kind: "cancel_confirmed", business: "Bee", plan: "Pro", billingUrl: "u", endsOn: "December 13, 2026" }).text).toContain("until December 13, 2026");
+    expect(billingEmail({ kind: "plan_ended", business: "Bee", plan: "Pro", billingUrl: "u" }).subject).toBe("Bee is now on the Free plan");
   });
 });

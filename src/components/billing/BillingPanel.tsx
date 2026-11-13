@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { Notice } from "@/components/ui/Notice";
-import { PASSES, PASS_ORDER, PLANS, PLAN_ORDER, TRIAL_DAYS, usage, type PaidPlan, type PassTier } from "@/lib/plans";
+import { PASSES, PASS_ORDER, PLANS, PLAN_ORDER, TRIAL_DAYS, annualSaving, planPrice, usage, type Interval, type PaidPlan, type PassTier } from "@/lib/plans";
 import type { BillingView } from "@/lib/billing-data";
-import { buyEventPass, choosePlan, openBillingPortal, type BillingResult } from "@/server/actions/billing";
+import { buyEventPass, choosePlan, openBillingPortal, resumePlan, type BillingResult } from "@/server/actions/billing";
 
 type Props = {
   orgSlug: string;
@@ -48,6 +48,9 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
   const [formId, setFormId] = useState(view.rsvpForms[0]?.id ?? "");
   const subscribed = view.status === "trialing" || view.status === "active" || view.status === "past_due";
   const canPay = manage && connected && !view.comped;
+  const [period, setPeriod] = useState<Interval>(subscribed ? view.interval : "month");
+  const per = (i: Interval) => (i === "year" ? "year" : "month");
+  const periodName = (i: Interval) => (i === "year" ? "annual" : "monthly");
 
   function run(key: string, fn: () => Promise<BillingResult>) {
     setBusy(key);
@@ -63,12 +66,16 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
 
   const planButton = (key: PaidPlan) => {
     if (view.comped) return null;
-    if (subscribed && view.chosen === key) return <span className="pill accent">Your plan</span>;
-    const label = subscribed ? `Switch to ${PLANS[key].name}` : view.hadTrial ? `Choose ${PLANS[key].name}` : `Start ${TRIAL_DAYS}-day free trial`;
+    if (view.pending && view.pending.plan === key && view.pending.interval === period) return <span className="pill plain">Starts {day(view.pending.at)}</span>;
+    if (subscribed && view.chosen === key && view.interval === period && !view.pending) return <span className="pill accent">Your plan</span>;
+    const label = subscribed
+      ? view.chosen === key && view.interval !== period ? `Switch to ${periodName(period)}`
+        : view.chosen === key ? `Keep ${PLANS[key].name} ${periodName(period)}` : `Switch to ${PLANS[key].name}${view.interval !== period ? ` ${periodName(period)}` : ""}`
+      : view.hadTrial ? `Choose ${PLANS[key].name}` : `Start ${TRIAL_DAYS}-day free trial`;
     return (
       <button type="button" className={`btn block${key === "pro" ? " primary" : ""}`} disabled={!canPay || pending}
-        onClick={() => run(`plan-${key}`, () => choosePlan(orgSlug, key))}>
-        {busy === `plan-${key}` ? "Opening…" : label}
+        onClick={() => run(`plan-${key}-${period}`, () => choosePlan(orgSlug, key, period))}>
+        {busy === `plan-${key}-${period}` ? "Opening…" : label}
       </button>
     );
   };
@@ -83,27 +90,46 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
       {!connected && !view.comped && <Notice>Payments aren&apos;t switched on yet, so plans can&apos;t be bought here just now.</Notice>}
       {!manage && <Notice>Only owners and admins can change billing.</Notice>}
       {view.status === "past_due" && !view.comped && (
-        <Notice tone="error">Your last payment didn&apos;t go through. Update your card in Manage billing to keep your plan.</Notice>
+        <Notice tone="error">
+          <span className="bl-due">
+            <span>Your last payment didn&apos;t go through{view.paymentError ? <>: <b>{view.paymentError}</b></> : "."} Stripe will try again; update your card to keep your plan.</span>
+            {view.hasCustomer && manage && connected && (
+              <button type="button" className="btn small" disabled={pending} onClick={() => run("card", () => openBillingPortal(orgSlug))}>
+                {busy === "card" ? "Opening…" : "Update card"}
+              </button>
+            )}
+          </span>
+        </Notice>
       )}
       {msg && <Notice tone={msg.ok ? "success" : "error"}>{msg.text}</Notice>}
 
       <section className="panel bl-current" aria-labelledby="bl-now">
         <div className="bl-current-main">
           <p className="bl-kicker">Current plan</p>
-          <h2 id="bl-now">{PLANS[view.plan].name}{PLANS[view.plan].price && !view.comped ? <span className="bl-price-sm"> · ${PLANS[view.plan].price}/month</span> : null}</h2>
+          <h2 id="bl-now">{PLANS[view.plan].name}{PLANS[view.plan].price && !view.comped ? <span className="bl-price-sm"> · ${planPrice(view.plan, view.interval).toLocaleString("en-US")}/{per(view.interval)}</span> : null}</h2>
           <p className="muted">
             {view.comped ? `${orgName} has the ${PLANS[view.plan].name} plan included at no charge.`
               : view.status === "trialing" ? `Free trial until ${day(view.trialEnd)}. Your card is charged after that unless you cancel.`
                 : view.cancelAtPeriodEnd && subscribed ? `Cancelled. You keep ${PLANS[view.plan].name} until ${day(view.periodEnd)}, then move to Free.`
-                  : subscribed ? `Renews on ${day(view.periodEnd)}.`
+                  : subscribed ? `Renews on ${day(view.periodEnd)}${view.interval === "year" ? " (billed yearly)" : ""}.`
                     : "You're on the Free plan."}
           </p>
+          {view.pending && subscribed && !view.comped && (
+            <p className="bl-note">Moves to {PLANS[view.pending.plan].name} {periodName(view.pending.interval)} on {day(view.pending.at)}.</p>
+          )}
           {!view.enforced && <p className="bl-note">Plan limits aren&apos;t switched on yet, so nothing is blocked.</p>}
         </div>
         {view.hasCustomer && manage && connected && !view.comped && (
-          <button type="button" className="btn" disabled={pending} onClick={() => run("portal", () => openBillingPortal(orgSlug))}>
-            {busy === "portal" ? "Opening…" : "Manage billing"}
-          </button>
+          <div className="bl-current-act">
+            {view.cancelAtPeriodEnd && subscribed && (
+              <button type="button" className="btn primary" disabled={pending} onClick={() => run("resume", () => resumePlan(orgSlug))}>
+                {busy === "resume" ? "Resuming…" : "Resume plan"}
+              </button>
+            )}
+            <button type="button" className="btn" disabled={pending} onClick={() => run("portal", () => openBillingPortal(orgSlug))}>
+              {busy === "portal" ? "Opening…" : "Manage billing"}
+            </button>
+          </div>
         )}
       </section>
 
@@ -119,7 +145,18 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
       </section>
 
       <section aria-labelledby="bl-plans">
-        <h2 id="bl-plans" className="bl-h">Plans</h2>
+        <div className="bl-plans-head">
+          <h2 id="bl-plans" className="bl-h">Plans</h2>
+          {!view.comped && (
+            <div className="bl-toggle" role="radiogroup" aria-label="Billing period">
+              {(["month", "year"] as const).map((i) => (
+                <button key={i} type="button" role="radio" aria-checked={period === i} className={period === i ? "on" : ""} onClick={() => setPeriod(i)}>
+                  {i === "month" ? "Monthly" : <>Annual <span className="bl-save">2 months free</span></>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="bl-plans">
           {PLAN_ORDER.map((k) => {
             const p = PLANS[k];
@@ -128,7 +165,10 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
               <article key={k} className={`bl-plan${current ? " current" : ""}${k === "pro" ? " pop" : ""}`} aria-label={`${p.name} plan`}>
                 {k === "pro" && <span className="bl-flag">Most popular</span>}
                 <h3>{p.name}</h3>
-                <p className="bl-price"><b>${p.price}</b><span>/month</span></p>
+                <p className="bl-price"><b>${planPrice(k, period).toLocaleString("en-US")}</b><span>{k === "free" ? " forever" : `/${per(period)}`}</span></p>
+                {period === "year" && k !== "free" && (
+                  <p className="bl-yearly">${(p.annual / 12).toFixed(2)} a month · save ${annualSaving(k)} a year</p>
+                )}
                 <p className="muted bl-small">{p.blurb}</p>
                 <ul>{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
                 <div className="bl-plan-act">
@@ -138,7 +178,8 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
             );
           })}
         </div>
-        {!view.comped && !view.hadTrial && <p className="muted bl-small">The {TRIAL_DAYS}-day free trial needs a card; you won&apos;t be charged until it ends, and you can cancel any time.</p>}
+        {!view.comped && !view.hadTrial && <p className="muted bl-small">The {TRIAL_DAYS}-day free trial needs a card; you won&apos;t be charged until it ends, and you can cancel any time. Annual plans are charged for the year when the trial ends.</p>}
+        {subscribed && !view.comped && <p className="muted bl-small">Moving to annual charges the year now, less what&apos;s left of this month. Moving from annual to monthly starts when your year ends.</p>}
       </section>
 
       <section className="panel" aria-labelledby="bl-pass">

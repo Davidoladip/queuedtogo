@@ -51,6 +51,8 @@ with sync_playwright() as p:
     plans = pg.locator(".hm-plan")
     prices = [plans.nth(i).locator(".hm-price b").inner_text() for i in range(plans.count())]
     check("plan prices match the app", prices == ["$0", "$29", "$69", "$139"], prices)
+    annual = [plans.nth(i).locator(".hm-annual").inner_text() for i in range(plans.count())]
+    check("annual prices on the homepage", annual[1:] == ["or $290 a year (2 months free)", "or $690 a year (2 months free)", "or $1,390 a year (2 months free)"], annual)
     check("trial buttons", pg.get_by_role("link", name="Try Pro free for 14 days").count() == 1)
     passes = pg.locator(".hm-pass-line").inner_text()
     check("event pass prices", all(x in passes for x in ("$29 for up to 100 guests", "$49 for up to 300 guests", "$69 for unlimited guests")), passes)

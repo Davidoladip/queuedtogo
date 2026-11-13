@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { adminClient } from "@/lib/supabase/admin";
 import { handleStripeEvent, stripeClient } from "@/server/billing";
+import { notifyOwners } from "@/server/billing-notify";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
     return new Response("Bad signature.", { status: 400 });
   }
   try {
-    const result = await handleStripeEvent(admin, stripe, event);
+    const result = await handleStripeEvent(admin, stripe, event, notifyOwners);
     return Response.json({ received: true, result });
   } catch (e) {
     console.error("stripe webhook", event.type, event.id, e instanceof Error ? e.message : e);

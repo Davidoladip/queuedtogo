@@ -35,3 +35,15 @@
 .bl-active ul { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 4px; }
 .bl-meter.off .bl-meter-top b { color: var(--muted); font-weight: 500; }
 .bl-plans + .bl-small { margin-top: 10px; }
+
+/* Annual billing */
+.bl-plans-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 8px 0 12px; }
+.bl-plans-head .bl-h { margin: 0; }
+.bl-toggle { display: inline-flex; background: var(--surface-2); border-radius: 99px; padding: 3px; gap: 2px; }
+.bl-toggle button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; padding: 7px 14px; border-radius: 99px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.bl-toggle button.on { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
+.bl-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bl-save { font-size: 11.5px; font-weight: 600; color: var(--good); background: var(--good-soft); padding: 2px 7px; border-radius: 99px; }
+.bl-yearly { margin: -4px 0 8px; font-size: 13px; color: var(--good); font-weight: 500; }
+.bl-current-act { display: flex; gap: 8px; flex-wrap: wrap; }
+.bl-due { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; width: 100%; }

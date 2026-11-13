@@ -606,6 +606,12 @@ export type Database = {
       };
       org_billing: {
         Row: {
+          billing_interval: string
+          last_payment_error: string | null
+          last_payment_failed_at: string | null
+          pending_change_at: string | null
+          pending_interval: string | null
+          pending_plan: string | null
           cancel_at_period_end: boolean
           comped: boolean
           current_period_end: string | null
@@ -619,6 +625,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          billing_interval?: string
+          last_payment_error?: string | null
+          last_payment_failed_at?: string | null
+          pending_change_at?: string | null
+          pending_interval?: string | null
+          pending_plan?: string | null
           cancel_at_period_end?: boolean
           comped?: boolean
           current_period_end?: string | null
@@ -632,6 +644,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          billing_interval?: string
+          last_payment_error?: string | null
+          last_payment_failed_at?: string | null
+          pending_change_at?: string | null
+          pending_interval?: string | null
+          pending_plan?: string | null
           cancel_at_period_end?: boolean
           comped?: boolean
           current_period_end?: string | null

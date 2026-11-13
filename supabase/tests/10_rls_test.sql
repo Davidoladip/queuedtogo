@@ -646,6 +646,8 @@ select tests.login('bob');
 select tests.ok((select plan from public.org_billing where org_id = tests.id('orgB')) = 'free', 'an owner can see their plan');
 select tests.ok((select count(*) from public.org_billing where org_id = tests.id('orgA')) = 0, 'nobody can see another business''s plan');
 select tests.fails($$update public.org_billing set plan = 'events', status = 'active' where org_id = tests.id('orgB')$$, 'owners cannot give themselves a plan');
+select tests.fails($$update public.org_billing set billing_interval = 'year', last_payment_error = null where org_id = tests.id('orgB')$$, 'owners cannot change their billing period or clear a failed payment');
+select tests.ok((select billing_interval from public.org_billing where org_id = tests.id('orgB')) = 'month', 'plans start on monthly billing');
 select tests.fails($$insert into public.event_passes (org_id, form_id, tier, status, amount_cents) values (tests.id('orgB'), tests.id('formB'), 'unlimited', 'paid', 0)$$, 'owners cannot create a paid event pass');
 select tests.fails($$select * from public.form_pass(tests.id('formB'))$$, 'the pass lookup is server only');
 select tests.fails($$select * from public.stripe_events$$, 'the webhook log is server only');
@@ -657,6 +659,11 @@ select tests.fails($$select * from public.org_billing$$, 'visitors cannot see pl
 select tests.fails($$select * from public.event_passes$$, 'visitors cannot see passes');
 reset role;
 
+select tests.fails($$update public.org_billing set billing_interval = 'weekly' where org_id = tests.id('orgB')$$, 'billing period is month or year only');
+select tests.fails($$update public.org_billing set pending_plan = 'pro' where org_id = tests.id('orgB')$$, 'a booked change needs its plan, period and date together');
+update public.org_billing set pending_plan = 'pro', pending_interval = 'month', pending_change_at = now() + interval '30 days' where org_id = tests.id('orgB');
+select tests.ok((select pending_plan from public.org_billing where org_id = tests.id('orgB')) = 'pro', 'the server can book a change');
+update public.org_billing set pending_plan = null, pending_interval = null, pending_change_at = null where org_id = tests.id('orgB');
 update public.org_billing set plan = 'starter', status = 'canceled' where org_id = tests.id('orgB');
 select tests.ok(public.effective_plan(tests.id('orgB')) = 'free', 'a cancelled subscription falls back to Free');
 update public.org_billing set status = 'past_due' where org_id = tests.id('orgB');
