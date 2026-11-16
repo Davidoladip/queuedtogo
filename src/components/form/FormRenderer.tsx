@@ -168,7 +168,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   const gate = !E && form.design.adv.disableUntilValid;
 
   const selectCss = E && selected && /^[A-Za-z0-9_-]{1,64}$/.test(selected)
-    ? `.qf-wrap[data-qf="${form.id}"] [data-sid="${selected}"]{outline:2px solid #3346D3;outline-offset:3px;border-radius:6px}`
+    ? `.qf-wrap[data-qf="${form.id}"] [data-sid="${selected}"]{outline:2px solid #036A3E;outline-offset:3px;border-radius:6px}`
     : "";
 
   /** Class for a forced state preview (edit mode only). */

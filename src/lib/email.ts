@@ -98,10 +98,10 @@ function layout(o: {
   preheader: string; heading: string; paragraphs: string[]; button?: { url: string; label: string } | null; details?: [string, string][]; footer: string[];
   /** Extra links under the button (label, url). */
   links?: [string, string][];
-  /** The form's accent colour for the button (checked; falls back to QueuedToGo blue). */
+  /** The form's accent colour for the button (checked; falls back to QueuedToGo green). */
   accent?: { bg: string; text: string } | null;
 }) {
-  const bg = o.accent && HEX.test(o.accent.bg) ? o.accent.bg : "#3346D3", fg = o.accent && HEX.test(o.accent.text) ? o.accent.text : "#ffffff";
+  const bg = o.accent && HEX.test(o.accent.bg) ? o.accent.bg : "#036A3E", fg = o.accent && HEX.test(o.accent.text) ? o.accent.text : "#ffffff";
   const p = o.paragraphs.map((t) => `<p style="margin:0 0 14px;font-size:16px;line-height:1.55;color:#161A2B">${esc(t)}</p>`).join("");
   const rows = (o.details ?? []).map(([k, v]) => `<tr><td style="padding:6px 12px 6px 0;color:#5A6077;font-size:14px;vertical-align:top;white-space:nowrap">${esc(k)}</td><td style="padding:6px 0;font-size:14px;color:#161A2B">${esc(v)}</td></tr>`).join("");
   const btn = o.button ? `<p style="margin:18px 0 8px"><a href="${esc(o.button.url)}" style="display:inline-block;background:${bg};color:${fg};text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;font-size:15px">${esc(o.button.label)}</a></p>` : "";

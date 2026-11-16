@@ -68,7 +68,7 @@ textarea.qf-in{resize:vertical}
 .qf-powered{text-align:center;font-size:12px;opacity:.7;margin-top:14px;position:relative;color:var(--pt)}
 /* editor-only overlays */
 .editing [data-sid]{cursor:pointer}
-.editing [data-sid]:hover{outline:2px dashed color-mix(in srgb,#3346D3 60%,transparent);outline-offset:4px}
+.editing [data-sid]:hover{outline:2px dashed color-mix(in srgb,#036A3E 60%,transparent);outline-offset:4px}
 .editing [data-sid].picked{outline:2px solid var(--accent);outline-offset:4px}
 .qf-pbmark{display:flex;align-items:center;gap:10px;font:600 12px var(--bf);text-transform:uppercase;letter-spacing:.08em;opacity:.65;cursor:pointer}
 .qf-pbmark::before,.qf-pbmark::after{content:"";flex:1;border-top:1.5px dashed currentColor}
@@ -92,7 +92,7 @@ textarea.qf-in{resize:vertical}
 /* Artwork blocks (heading, question, option) */
 .qf-art-blk{position:relative;min-width:0}
 .qf-art-in{position:relative}
-.qf-rsz{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;border-radius:4px;background:#3346D3;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);cursor:nwse-resize;touch-action:none;z-index:5}
+.qf-rsz{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;border-radius:4px;background:#036A3E;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);cursor:nwse-resize;touch-action:none;z-index:5}
 /* Question media: artwork beside the question */
 .qf-media{display:flex;gap:14px;align-items:flex-start;min-width:0}
 .qf-media-right{flex-direction:row-reverse}

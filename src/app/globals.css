@@ -1,7 +1,7 @@
 /* QueuedToGo design tokens, carried over from the prototype (prototype/index.html). */
 :root {
   --bg: #F2F3F7; --surface: #FFFFFF; --surface-2: #E8EAF1; --fg: #161A2B; --muted: #5A6077; --line: #D4D8E3;
-  --accent: #3346D3; --accent-fg: #FFFFFF; --accent-soft: #E2E6FF;
+  --accent: #036A3E; --accent-fg: #FFFFFF; --accent-soft: #DDF1E6; --brand-outline: #2F6619;
   --good: #1D8657; --good-soft: #DDF3E8; --warn: #9A6512; --warn-soft: #FBEFD6; --bad: #BF3438; --bad-soft: #FBE1E1;
   --shadow: 0 1px 2px rgba(22, 26, 43, .06), 0 2px 8px rgba(22, 26, 43, .05);
   --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
@@ -12,7 +12,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #11131B; --surface: #1A1D28; --surface-2: #252937; --fg: #E7E9F2; --muted: #9BA1B8; --line: #313649;
-    --accent: #8D9BFF; --accent-fg: #0F1230; --accent-soft: #262C56;
+    --accent: #4CC48A; --accent-fg: #04210F; --accent-soft: #143826;
     --good: #52C68F; --good-soft: #173527; --warn: #E3B04D; --warn-soft: #3A2E14; --bad: #F27377; --bad-soft: #3E1C1F;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3);
     color-scheme: dark;
@@ -36,9 +36,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ---------- Top bar ---------- */
 .top { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
 .top-inner { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-block: 10px; }
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+.brand { display: flex; align-items: center; gap: 9px; text-decoration: none; color: inherit; }
 .brand-name { font: 700 21px/1 var(--f-display); letter-spacing: -.01em; }
 .brand-name span { color: var(--accent); }
+.brand-mark { display: block; width: auto; height: 32px; flex: none; }
 .tabs { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; max-width: 100%; }
 .tab { border: 0; background: none; padding: 8px 12px; border-radius: 8px; color: var(--muted); font-weight: 500; white-space: nowrap; text-decoration: none; }
 .tab:hover { background: var(--surface-2); color: var(--fg); }

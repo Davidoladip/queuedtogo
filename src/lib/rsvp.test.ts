@@ -167,7 +167,7 @@ describe("RSVP emails", () => {
     expect(rsvpEmail({ ...base, kind: "rsvp_promoted" }).subject).toBe("Good news: you're off the waitlist for Launch Party");
     const bad = rsvpEmail({ ...base, kind: "rsvp_confirmation", guestName: "<script>x</script>", accent: { bg: "red;x:1", text: "#fff" } });
     expect(bad.html).not.toContain("<script>");
-    expect(bad.html).toContain("background:#3346D3");
+    expect(bad.html).toContain("background:#036A3E");
   });
 });
 

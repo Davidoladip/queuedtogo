@@ -1,6 +1,6 @@
 /* Public homepage. Uses the app's own fonts and colours so the site and the app feel like one product. */
 .hm {
-  --ink: #161A2B; --paper: #FFFFFF; --mist: #F2F3F7; --line: #D9DCE6; --cobalt: #3346D3; --ticket: #FFD84D; --ready: #1D8657; --soft: #5A6077;
+  --ink: #161A2B; --paper: #FFFFFF; --mist: #F2F3F7; --line: #D9DCE6; --cobalt: #036A3E; --ticket: #FFD84D; --ready: #1D8657; --soft: #5A6077;
   background: var(--paper); color: var(--ink); font-family: var(--f-body); overflow-x: clip;
 }
 .hm a { color: inherit; }
@@ -47,7 +47,7 @@
 .hm-tk span { grid-column: 1 / -1; font-size: 13px; color: var(--soft); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hm-tk em { font-style: normal; font-size: 12px; color: var(--soft); justify-self: end; align-self: center; }
 .hm-tk-done { border-left: 4px solid var(--ready); }
-.hm-mover { position: absolute; left: 10px; top: 118px; width: calc((100% - 24px) / 3 - 20px); border: 2px solid var(--cobalt); box-shadow: 0 8px 24px rgba(51,70,211,.22); z-index: 2;
+.hm-mover { position: absolute; left: 10px; top: 118px; width: calc((100% - 24px) / 3 - 20px); border: 2px solid var(--cobalt); box-shadow: 0 8px 24px rgba(3,106,62,.22); z-index: 2;
   animation: hm-move 3.2s cubic-bezier(.55,.1,.25,1) .9s both; }
 @keyframes hm-move {
   0%, 12% { transform: translateX(0); border-color: var(--cobalt); }
@@ -115,7 +115,7 @@
 /* Pricing */
 .hm-plans { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
 .hm-plan { border: 1px solid var(--line); border-radius: 14px; padding: 24px 22px; display: flex; flex-direction: column; gap: 10px; }
-.hm-plan-pick { border: 2px solid var(--cobalt); box-shadow: 0 16px 40px rgba(51,70,211,.14); }
+.hm-plan-pick { border: 2px solid var(--cobalt); box-shadow: 0 16px 40px rgba(3,106,62,.14); }
 .hm-plan h3 { font: 700 20px/1 var(--f-display); margin: 0; }
 .hm-price { margin: 4px 0 0; color: var(--soft); font-size: 15px; }
 .hm-price b { font: 800 40px/1 var(--f-display); color: var(--ink); letter-spacing: -0.02em; margin-right: 4px; }
@@ -143,7 +143,7 @@
 .hm-foot { background: var(--ink); color: #C9CDDB; padding: 40px 0 48px; font-size: 14px; }
 .hm-foot-in { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
 .hm-foot .brand-name { color: #fff; }
-.hm-foot .brand-name span { color: #9AA6FF; }
+.hm-foot .brand-name span { color: #6FD3A2; }
 .hm-foot p { margin: 10px 0 0; }
 .hm-foot nav { display: flex; flex-wrap: wrap; gap: 10px 22px; }
 .hm-foot nav a { color: #C9CDDB; text-underline-offset: 3px; }
