@@ -8,13 +8,13 @@ export function buildCsp(nonce: string, opts: { supabaseUrl: string; dev: boolea
   const supaWs = supa.replace(/^http/, "ws");
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com${opts.dev ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com https://accounts.google.com/gsi/client${opts.dev ? " 'unsafe-eval'" : ""}`,
     // Inline styles: the form designer writes per-form CSS and React sets style attributes.
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style",
     "font-src 'self' data: https://fonts.gstatic.com",
     `img-src 'self' data: blob: ${supa}`,
-    `connect-src 'self' ${supa} ${supaWs} https://challenges.cloudflare.com`,
-    "frame-src 'self' https://challenges.cloudflare.com",
+    `connect-src 'self' ${supa} ${supaWs} https://challenges.cloudflare.com https://accounts.google.com/gsi/`,
+    "frame-src 'self' https://challenges.cloudflare.com https://accounts.google.com",
     "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'none'",

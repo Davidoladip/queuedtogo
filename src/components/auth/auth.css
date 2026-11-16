@@ -82,3 +82,5 @@
 .au-google .btn.au-google-btn:hover { background: var(--surface-2); border-color: var(--muted); }
 .au-or { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
 .au-or::before, .au-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.au-gsi { display: grid; justify-items: center; min-height: 44px; }
+.au-gsi-slot { width: 100%; max-width: 400px; display: flex; justify-content: center; }

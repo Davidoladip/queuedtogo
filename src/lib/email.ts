@@ -295,3 +295,30 @@ export function greetingName(raw: string | null | undefined): string {
   if (!first || first.length > 30 || /[./:@\\<>]|^www/i.test(first)) return "there";
   return first;
 }
+
+// ---------------------------------------------------------------------------- account emails (sent for Supabase Auth)
+
+export type AuthEmailKind = "signup" | "recovery" | "magiclink" | "invite" | "reauthentication";
+
+/** Sign-up confirmation, password reset and sign-in links, in QueuedToGo's own look and from its own address. */
+export function authEmail(kind: AuthEmailKind, v: { link: string; code?: string | null }) {
+  const footer = ["You're getting this because someone used this address on QueuedToGo. If it wasn't you, ignore this email."];
+  const pick = {
+    signup: { subject: "Confirm your email for QueuedToGo", heading: "Confirm your email", pre: "One click to finish creating your account.",
+      p: ["Thanks for signing up. Confirm your email address to finish creating your QueuedToGo account."], button: "Confirm email", after: "The link works once and expires in 24 hours." },
+    recovery: { subject: "Reset your QueuedToGo password", heading: "Reset your password", pre: "Choose a new password.",
+      p: ["We got a request to reset the password for your QueuedToGo account."], button: "Choose a new password", after: "The link works once and expires in 1 hour. Didn't ask? Your password hasn't changed." },
+    magiclink: { subject: "Your QueuedToGo sign-in link", heading: "Sign in to QueuedToGo", pre: "Your one-time sign-in link.",
+      p: ["Use the button below to sign in."], button: "Sign in", after: "The link works once and expires in 1 hour." },
+    invite: { subject: "You're invited to QueuedToGo", heading: "You're invited", pre: "Accept your invitation to QueuedToGo.",
+      p: ["You've been invited to join a team on QueuedToGo."], button: "Accept invitation", after: "The link works once." },
+    reauthentication: { subject: "Your QueuedToGo confirmation code", heading: "Your confirmation code", pre: "Enter this code to confirm it's you.",
+      p: [`Your code is ${v.code ?? ""}.`], button: "", after: "It expires in a few minutes." },
+  }[kind];
+  const paragraphs = [...pick.p, pick.after];
+  return {
+    subject: pick.subject,
+    text: `${paragraphs.join("\n\n")}${pick.button ? `\n\n${pick.button}: ${v.link}` : ""}`,
+    html: layout({ preheader: pick.pre, heading: pick.heading, paragraphs, button: pick.button ? { url: v.link, label: pick.button } : null, footer }),
+  };
+}
