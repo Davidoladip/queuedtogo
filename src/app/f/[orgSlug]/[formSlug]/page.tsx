@@ -9,6 +9,7 @@ import { PublicOrderForm } from "./PublicOrderForm";
 import { rsvpTextsApproved } from "@/lib/rsvp-texts";
 
 type PublicForm = {
+  free_plan?: boolean;
   form_id: string; org_name: string; org_slug: string; status: "live" | "closed"; version: number | null; config: Record<string, unknown> | null; title?: string;
   /** RSVP forms only: replies closed (deadline passed) or the event is full with no waitlist. */
   rsvp?: { closed: boolean; full: boolean } | null;
@@ -55,6 +56,7 @@ export default async function PublicFormPage({ params }: { params: Promise<{ org
         orderingOn={Boolean(process.env.SUPABASE_SECRET_KEY)}
         closedMessage={closedMessage}
         rsvpTexts={rsvpTextsApproved()}
+        freePlan={form.free_plan === true}
       />
     </div>
   );

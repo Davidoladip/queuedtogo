@@ -6,11 +6,16 @@ import { authErrorMessage, isNetworkError } from "@/lib/errors";
 import { safeNext, siteUrl } from "@/lib/urls";
 import { forgotSchema, resetSchema, signInSchema, signUpSchema } from "@/lib/validation/auth";
 import { fieldErrors, formValues, type FormState } from "@/lib/validation/form-state";
+import { BOT_MESSAGE, SLOW_DOWN, clientIp, passesBotCheck, takeRateLimit } from "@/server/abuse";
 
 export async function signIn(_prev: FormState, fd: FormData): Promise<FormState> {
   const values = formValues(fd, ["email"]);
   const parsed = signInSchema.safeParse({ email: fd.get("email"), password: fd.get("password") });
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error), values };
+  const ip = await clientIp();
+  if (!(await takeRateLimit("signin-ip", ip, 30, 600)) || !(await takeRateLimit("signin-email", parsed.data.email, 10, 600))) {
+    return { error: SLOW_DOWN, values };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
@@ -23,6 +28,9 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
   const values = formValues(fd, ["fullName", "email"]);
   const parsed = signUpSchema.safeParse({ fullName: fd.get("fullName"), email: fd.get("email"), password: fd.get("password") });
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error), values };
+  const ip = await clientIp();
+  if (!(await passesBotCheck(fd, ip))) return { error: BOT_MESSAGE, values };
+  if (!(await takeRateLimit("signup-ip", ip, 6, 3600))) return { error: SLOW_DOWN, values };
 
   const next = safeNext(fd.get("next"), "/onboarding");
   const supabase = await createClient();
@@ -52,6 +60,10 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
 export async function resendConfirmation(_prev: FormState, fd: FormData): Promise<FormState> {
   const parsed = forgotSchema.safeParse({ email: fd.get("email") });
   if (!parsed.success) return { error: "Enter a valid email address." };
+  const ip = await clientIp();
+  if (!(await takeRateLimit("resend-ip", ip, 6, 3600)) || !(await takeRateLimit("resend-email", parsed.data.email, 3, 3600))) {
+    return { error: SLOW_DOWN };
+  }
   const next = safeNext(fd.get("next"), "/onboarding");
   const supabase = await createClient();
   const { error } = await supabase.auth.resend({
@@ -67,6 +79,11 @@ export async function requestPasswordReset(_prev: FormState, fd: FormData): Prom
   const values = formValues(fd, ["email"]);
   const parsed = forgotSchema.safeParse({ email: fd.get("email") });
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error), values };
+  const ip = await clientIp();
+  if (!(await passesBotCheck(fd, ip))) return { error: BOT_MESSAGE, values };
+  if (!(await takeRateLimit("reset-ip", ip, 6, 3600)) || !(await takeRateLimit("reset-email", parsed.data.email, 3, 3600))) {
+    return { error: SLOW_DOWN, values };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {

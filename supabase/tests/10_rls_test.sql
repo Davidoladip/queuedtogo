@@ -725,6 +725,36 @@ select tests.ok(public.effective_plan(tests.id('orgB')) = 'events', 'a comped bu
 update public.billing_config set enforce = false;
 update public.org_billing set comped = false, plan = 'free' where org_id = tests.id('orgB');
 
+-- ---------------------------------------------------------------- security hardening (Nov 2026)
+select tests.ok(not has_table_privilege('authenticated', 'public.jobs', 'TRUNCATE') and not has_table_privilege('anon', 'public.customers', 'TRUNCATE')
+  and not has_table_privilege('authenticated', 'public.org_billing', 'TRIGGER'), 'browser roles cannot truncate or add triggers');
+select tests.ok(not exists (select 1 from storage.buckets where id = 'form-assets' and 'image/svg+xml' = any(allowed_mime_types)), 'SVG files are not accepted for form images');
+select tests.ok(public.sensitive_field_label('Card number') and public.sensitive_field_label('Your password') and public.sensitive_field_label('PIN')
+  and public.sensitive_field_label('Social Security Number') and public.sensitive_field_label('Bank account'), 'questions asking for secrets are recognised');
+select tests.ok(not public.sensitive_field_label('Enamel pin colour') and not public.sensitive_field_label('Pin badge') and not public.sensitive_field_label('Event date')
+  and not public.sensitive_field_label('Name on the bag'), 'ordinary questions are fine');
+select tests.login('alice');
+insert into public.form_fields (form_id, org_id, type, label, position) values (tests.id('formA'), tests.id('orgA'), 'short', 'Credit card number', 99);
+select tests.fails($$select public.publish_form(tests.id('formA'))$$, 'a form asking for a card number cannot be published');
+delete from public.form_fields where form_id = tests.id('formA') and label = 'Credit card number';
+select tests.ok(public.publish_form(tests.id('formA')) > 0, 'it publishes once the question is removed');
+reset role;
+insert into public.messages (org_id, channel, to_address, kind, status) values (tests.id('orgA'), 'sms', '+447700900123', 'confirmation', 'queued');
+select tests.ok((select status from public.messages where to_address = '+447700900123') = 'skipped', 'texts to numbers outside the US and Canada are skipped');
+insert into public.messages (org_id, channel, to_address, kind, status) select tests.id('orgA'), 'email', 'victim@example.com', 'confirmation', 'queued' from generate_series(1, 5);
+select tests.ok((select count(*) from public.messages where to_address = 'victim@example.com' and status = 'queued') = 3
+  and (select count(*) from public.messages where to_address = 'victim@example.com' and status = 'skipped') = 2, 'one person gets at most 3 confirmations a day');
+insert into public.messages (org_id, channel, to_address, kind, status) values (tests.id('orgA'), 'email', 'staff@example.com', 'team_alert', 'queued'), (tests.id('orgA'), 'email', 'staff@example.com', 'team_alert', 'queued'),
+  (tests.id('orgA'), 'email', 'staff@example.com', 'team_alert', 'queued'), (tests.id('orgA'), 'email', 'staff@example.com', 'team_alert', 'queued');
+select tests.ok((select count(*) from public.messages where to_address = 'staff@example.com' and status = 'queued') = 4, 'team alerts are not capped');
+delete from public.messages where to_address in ('+447700900123', 'victim@example.com', 'staff@example.com');
+select tests.login('bob');
+insert into tests.ids select 'free2', (public.create_organization('Second', 'second-free')).id;
+insert into tests.ids select 'free3', (public.create_organization('Third', 'third-free')).id;
+select tests.fails($$select public.create_organization('Fourth', 'fourth-free')$$, 'an account can have at most 3 businesses on the Free plan');
+reset role;
+delete from public.organizations where id in (tests.id('free2'), tests.id('free3'));
+
 -- ---------------------------------------------------------------- deleting a business (with a job in it)
 select tests.login('bob');
 select tests.affects($$delete from public.organizations where id = tests.id('orgB')$$, 1, 'an owner can delete their business');

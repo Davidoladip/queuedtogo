@@ -95,9 +95,12 @@ with sync_playwright() as p:
     check("the live-embroidery form loads inside its frame", f2.locator(".qf-title").inner_text(timeout=10000) == "LIVE EMBROIDERY FORM")
     check("frames have titles for screen readers", all("working demo" in (frames.nth(i).get_attribute("title") or "") for i in range(2)))
     hdr = pg.request.get(BASE + "/demo?frame=1").headers
-    check("demo pages may be framed by this site only", hdr.get("x-frame-options") == "SAMEORIGIN" and "frame-ancestors 'self'" in hdr.get("content-security-policy", ""), hdr)
+    csp = hdr.get("content-security-policy", "")
+    check("demo pages may be framed by this site only", hdr.get("x-frame-options") == "SAMEORIGIN" and "frame-ancestors 'self'" in csp and "frame-ancestors 'none'" not in csp, csp)
     hdr = pg.request.get(BASE + "/login").headers
-    check("every other page refuses to be framed", hdr.get("x-frame-options") == "DENY" and "frame-ancestors 'none'" in hdr.get("content-security-policy", ""), hdr)
+    check("every other page refuses to be framed", hdr.get("x-frame-options") == "DENY" and "frame-ancestors 'none'" in hdr.get("content-security-policy", ""), hdr.get("content-security-policy"))
+    pol = hdr.get("content-security-policy", "") + " " + hdr.get("content-security-policy-report-only", "")
+    check("pages carry a script policy with a per-request nonce", "'nonce-" in pol and "object-src 'none'" in pol, pol[:200])
     hdr = pg.request.get(BASE + "/demonstration-not-a-demo").headers
     check("only the demo paths are framable", hdr.get("x-frame-options") == "DENY", hdr)
 

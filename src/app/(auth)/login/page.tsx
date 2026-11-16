@@ -20,6 +20,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <p className="au-lede">Welcome back. Your orders are waiting.</p>
       </div>
       {sp.error === "link" && <Notice tone="error">That link has expired or was already used. Sign in below, or ask for a new link.</Notice>}
+      {sp.error === "google" && <Notice tone="error">Google sign-in didn&apos;t finish. Try again, or sign in with your email and password.</Notice>}
       {sp.signed_out && <Notice tone="success">You&apos;ve signed out. See you at the next event.</Notice>}
       <LoginForm next={next} />
       <p className="au-switch">

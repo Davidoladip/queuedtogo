@@ -7,11 +7,14 @@ import { initialState } from "@/lib/validation/form-state";
 import { Field } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { GoogleButton } from "@/components/auth/GoogleButton";
 import { PasswordField } from "@/components/auth/PasswordField";
 
 export function LoginForm({ next }: { next: string }) {
   const [state, action] = useActionState(signIn, initialState);
   return (
+    <>
+    <GoogleButton next={next} />
     <form action={action} className="form" noValidate>
       {state.error && <Notice tone="error">{state.error}</Notice>}
       <input type="hidden" name="next" value={next} />
@@ -20,5 +23,6 @@ export function LoginForm({ next }: { next: string }) {
       <Link href="/forgot-password" className="au-forgot">Forgot your password?</Link>
       <SubmitButton className="btn primary block" pendingText="Signing in…">Sign in</SubmitButton>
     </form>
+    </>
   );
 }

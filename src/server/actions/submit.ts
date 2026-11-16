@@ -9,6 +9,7 @@ import { UPLOAD_TYPES, checkSubmission, sniffMatches } from "@/lib/submission";
 import { siteUrl } from "@/lib/urls";
 import type { Json } from "@/types/database";
 import { dispatchQueued } from "@/server/messaging";
+import { BOT_MESSAGE, clientIp, passesBotCheck } from "@/server/abuse";
 import { rsvpTextsApproved } from "@/lib/rsvp-texts";
 import { eventTimes, googleCalendarUrl, type RsvpStatus } from "@/lib/rsvp";
 import type { RsvpDone } from "@/components/form/FormRenderer";
@@ -50,7 +51,8 @@ export async function submitOrder(orgSlug: string, formSlug: string, fd: FormDat
 
   // Visitor identity for rate limiting: a keyed hash of the IP address, never the address itself.
   const h = await headers();
-  const ip = (h.get("x-forwarded-for")?.split(",")[0] || h.get("x-real-ip") || "").trim();
+  const ip = await clientIp();
+  if (!(await passesBotCheck(fd, ip))) return { ok: false, message: BOT_MESSAGE };
   const pepper = process.env.SUBMISSION_IP_SALT || process.env.SUPABASE_SECRET_KEY!;
   const ipHash = ip ? createHmac("sha256", pepper).update(`${ip}|${form.org_id}`).digest("hex") : null;
   const clientKey = String(fd.get("__k") ?? "");

@@ -170,3 +170,5 @@ dl.answers dd { margin: 0; overflow-wrap: anywhere; }
 .demo-bar nav { display: flex; gap: 16px; flex-wrap: wrap; }
 .demo-bar a { color: #fff; text-underline-offset: 3px; }
 .demo-bar a:focus-visible { outline: 2px solid #FFD84D; outline-offset: 2px; }
+.bot-check:empty { display: none; }
+.bot-check { margin: 4px 0; min-height: 0; }

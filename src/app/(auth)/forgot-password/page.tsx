@@ -8,6 +8,7 @@ import { Field } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { BotCheck } from "@/components/ui/BotCheck";
 
 export default function ForgotPasswordPage() {
   const [state, action] = useActionState(requestPasswordReset, initialState);
@@ -26,6 +27,7 @@ export default function ForgotPasswordPage() {
         <form action={action} className="form" noValidate>
           {state.error && <Notice tone="error">{state.error}</Notice>}
           <Field label="Email" name="email" type="email" autoComplete="email" required defaultValue={state.values?.email} error={state.fieldErrors?.email} />
+          <BotCheck resetKey={state} />
           <SubmitButton className="btn primary block" pendingText="Sending…">Send reset link</SubmitButton>
         </form>
       )}

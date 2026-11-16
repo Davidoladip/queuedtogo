@@ -8,6 +8,8 @@ import { Field } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { PasswordField } from "@/components/auth/PasswordField";
+import { BotCheck } from "@/components/ui/BotCheck";
+import { GoogleButton } from "@/components/auth/GoogleButton";
 
 export function SignupForm({ next }: { next: string }) {
   const [state, action] = useActionState(signUp, initialState);
@@ -19,12 +21,14 @@ export function SignupForm({ next }: { next: string }) {
         <h1>Create your account</h1>
         <p className="au-lede">Then set up your business and your first event form. It&apos;s free to start.</p>
       </div>
+      <GoogleButton next={next} label="Sign up with Google" />
       <form action={action} className="form" noValidate>
         {state.error && <Notice tone="error">{state.error}</Notice>}
         <input type="hidden" name="next" value={next} />
         <Field label="Your name" name="fullName" autoComplete="name" required defaultValue={state.values?.fullName} error={state.fieldErrors?.fullName} />
         <Field label="Email" name="email" type="email" autoComplete="email" required defaultValue={state.values?.email} error={state.fieldErrors?.email} />
         <PasswordField label="Password" name="password" autoComplete="new-password" required minLength={8} rule error={state.fieldErrors?.password} />
+        <BotCheck resetKey={state} />
         <SubmitButton className="btn primary block" pendingText="Creating your account…">Create account</SubmitButton>
         <p className="au-small">We&apos;ll only email you about your account. See our <Link href="/privacy">privacy policy</Link>.</p>
       </form>

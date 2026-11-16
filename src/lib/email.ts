@@ -136,7 +136,7 @@ export type CustomerEmailInput = {
 };
 
 export function customerEmail(v: CustomerEmailInput) {
-  const first = (v.customerName ?? "").trim().split(/\s+/)[0] || "there";
+  const first = greetingName(v.customerName);
   const order = `QTG-${v.orderNumber}`;
   const details: [string, string][] = [["Order", order]];
   if (v.formTitle) details.push(["For", v.formTitle]);
@@ -205,7 +205,7 @@ export type RsvpEmailInput = {
 
 /** RSVP confirmation, day-before reminder, and "you're off the waitlist" emails. */
 export function rsvpEmail(v: RsvpEmailInput) {
-  const first = (v.guestName ?? "").trim().split(/\s+/)[0] || "there";
+  const first = greetingName(v.guestName);
   const details: [string, string][] = [["Event", v.eventTitle]];
   if (v.when) details.push(["When", v.when]);
   if (v.venue) details.push(["Where", v.venue]);
@@ -284,4 +284,14 @@ export function billingEmail(v: BillingEmailInput) {
     text: `${p1}\n\n${p2}\n\nChoose a plan: ${v.billingUrl}`,
     html: layout({ preheader: "Your forms and orders are still there.", heading: "Your plan has ended", paragraphs: [p1, p2], button: { url: v.billingUrl, label: "Choose a plan" }, footer }),
   };
+}
+
+/**
+ * The first name to greet someone with, from what they typed into a public form. Anything that looks like a link,
+ * an email address or a domain becomes "there", so a form can't be used to send spam links in our emails.
+ */
+export function greetingName(raw: string | null | undefined): string {
+  const first = (raw ?? "").trim().split(/\s+/)[0] ?? "";
+  if (!first || first.length > 30 || /[./:@\\<>]|^www/i.test(first)) return "there";
+  return first;
 }

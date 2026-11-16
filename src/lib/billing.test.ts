@@ -288,3 +288,12 @@ describe("billing emails", () => {
     expect(billingEmail({ kind: "plan_ended", business: "Bee", plan: "Pro", billingUrl: "u" }).subject).toBe("Bee is now on the Free plan");
   });
 });
+
+describe("names echoed in emails", () => {
+  it("greets by first name, but never echoes links or addresses", async () => {
+    const { greetingName } = await import("@/lib/email");
+    expect(greetingName("Lena Ortiz")).toBe("Lena");
+    expect(greetingName("  ")).toBe("there");
+    for (const bad of ["http://evil.com", "evil.com", "www.spam", "me@x.co", "<b>", "a".repeat(40), "bit.ly/x Free"]) expect(greetingName(bad), bad).toBe("there");
+  });
+});

@@ -208,3 +208,7 @@ span.qf-sw-i{cursor:default}
 .qf-env-arrived{animation:qf-arrive .35s ease-out}
 @keyframes qf-arrive{from{opacity:.4}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){.qf-env-scene.sealed .qf-env-wax,.qf-env-arrived{animation:none}}
+.pf-bot{display:flex;justify-content:center;padding:0 16px}
+.pf-bot .bot-check{width:100%;max-width:400px}
+.pf-made{margin:0;padding:14px 16px 22px;text-align:center;font:13px/1.4 system-ui,-apple-system,sans-serif;color:#6b7280}
+.pf-made a{color:inherit;text-decoration:underline;text-underline-offset:2px}

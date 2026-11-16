@@ -9,8 +9,14 @@ const PROTECTED = [/^\/w(\/|$)/, /^\/onboarding(\/|$)/, /^\/reset-password(\/|$)
  * Refreshes the Supabase session cookie on every request and redirects signed-out
  * visitors away from protected pages.
  */
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+export async function updateSession(request: NextRequest, extraRequestHeaders: Record<string, string> = {}) {
+  // Headers for the page render: the request's own (with any refreshed cookies) plus the extras (CSP nonce).
+  const forward = () => {
+    const h = new Headers(request.headers);
+    for (const [k, v] of Object.entries(extraRequestHeaders)) h.set(k, v);
+    return { headers: h };
+  };
+  let response = NextResponse.next({ request: forward() });
 
   const supabase = createServerClient(env.supabaseUrl, env.supabasePublishableKey, {
     cookies: {
@@ -19,7 +25,7 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        response = NextResponse.next({ request: forward() });
         cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
       },
     },

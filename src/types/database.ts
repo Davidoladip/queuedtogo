@@ -1013,6 +1013,8 @@ export type Database = {
       reorder_stages: { Args: { p_org: string; p_order: string[] }; Returns: undefined };
       save_form_draft: { Args: { p_data: Json; p_fields: Json; p_form: string }; Returns: string };
       seed_default_stages: { Args: { p_org: string }; Returns: undefined };
+      rate_limit_take: { Args: { p_key: string; p_max: number; p_window_seconds: number }; Returns: boolean };
+      sensitive_field_label: { Args: { p_label: string }; Returns: boolean };
       storage_org_id: { Args: { p_name: string }; Returns: string };
     };
     Enums: {

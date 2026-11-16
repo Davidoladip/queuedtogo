@@ -27,5 +27,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (ok) return NextResponse.redirect(new URL(type === "recovery" ? "/reset-password" : next, origin));
+  // Google sign-in cancelled or refused (Supabase passes the provider's error back).
+  if (searchParams.get("error")) return NextResponse.redirect(new URL("/login?error=google", origin));
   return NextResponse.redirect(new URL("/login?error=link", origin));
 }
