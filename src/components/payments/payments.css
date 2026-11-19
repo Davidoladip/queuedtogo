@@ -1,0 +1,17 @@
+.pay { display: grid; gap: 16px; max-width: 880px; }
+.pay h2 { margin: 0 0 6px; }
+.pay-how ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14.5px; line-height: 1.5; }
+.pay-acct-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.pay-acct h2 { font-family: var(--f-display); font-size: 26px; }
+.pay-name { font-size: 16px; font-weight: 500; color: var(--muted); }
+.pay-small { font-size: 13px; margin: 4px 0; }
+.pay-req ul { margin: 4px 0 0; padding-left: 18px; font-size: 14px; display: grid; gap: 3px; }
+.pay-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.pay-confirm { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--bad-soft); }
+.pay-confirm p { margin: 0; font-size: 14px; }
+.pay-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.pay-choice { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px; }
+.pay-choice h3 { margin: 0; font-family: var(--f-display); font-size: 20px; }
+.pay-choice p { margin: 0; font-size: 14px; color: var(--muted); }
+.pay-choice ul { list-style: none; padding: 0; margin: 6px 0 12px; display: grid; gap: 6px; font-size: 14px; flex: 1; }
+.pay-choice li::before { content: "✓"; color: var(--good); font-weight: 700; margin-right: 8px; }

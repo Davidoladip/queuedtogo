@@ -755,6 +755,28 @@ select tests.fails($$select public.create_organization('Fourth', 'fourth-free')$
 reset role;
 delete from public.organizations where id in (tests.id('free2'), tests.id('free3'));
 
+-- ---------------------------------------------------------------- Stage 10: payment accounts
+insert into public.payment_accounts (org_id, provider, account_id, status, charges_enabled) values (tests.id('orgA'), 'stripe', 'acct_TESTA123', 'active', true);
+insert into public.payment_secrets (org_id, provider, access_token_enc) values (tests.id('orgB'), 'square', 'v1.x.y.z');
+select tests.fails($$insert into public.payment_accounts (org_id, provider, account_id) values (tests.id('orgB'), 'stripe', 'acct_TESTA123')$$, 'one Stripe account cannot be connected to two businesses');
+select tests.login('alice');
+select tests.ok((select count(*) from public.payment_accounts) = 1 and (select account_id from public.payment_accounts) = 'acct_TESTA123', 'members see their own business''s payment account');
+select tests.fails($$update public.payment_accounts set charges_enabled = true, account_id = 'acct_EVIL' where org_id = tests.id('orgA')$$, 'members cannot change the payment account (no pointing sales at another account)');
+select tests.fails($$insert into public.payment_accounts (org_id, provider, account_id) values (tests.id('orgA'), 'stripe', 'acct_EVIL2')$$, 'members cannot add a payment account themselves');
+select tests.fails($$select * from public.payment_secrets$$, 'Square tokens can never be read from the browser');
+select tests.fails($$select * from public.payment_oauth_states$$, 'sign-in states can never be read from the browser');
+select tests.fails($$select public.payments_ready(tests.id('orgA'))$$, 'the readiness check is server-only');
+select tests.fails($$update public.org_billing set payments_allowed = true where org_id = tests.id('orgA')$$, 'a business cannot switch payments on for itself');
+select tests.login('bob');
+select tests.ok((select count(*) from public.payment_accounts) = 0, 'other businesses cannot see the payment account');
+reset role;
+select tests.ok(not public.payments_ready(tests.id('orgA')), 'a connected account is not enough: payments must also be switched on');
+update public.org_billing set payments_allowed = true where org_id = tests.id('orgA');
+select tests.ok(public.payments_ready(tests.id('orgA')), 'switched on and active means ready');
+update public.payment_accounts set status = 'restricted' where org_id = tests.id('orgA');
+select tests.ok(not public.payments_ready(tests.id('orgA')), 'a restricted account is not ready');
+delete from public.payment_accounts; delete from public.payment_secrets; update public.org_billing set payments_allowed = false;
+
 -- ---------------------------------------------------------------- deleting a business (with a job in it)
 select tests.login('bob');
 select tests.affects($$delete from public.organizations where id = tests.id('orgB')$$, 1, 'an owner can delete their business');

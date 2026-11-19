@@ -606,6 +606,7 @@ export type Database = {
       };
       org_billing: {
         Row: {
+          payments_allowed: boolean
           billing_interval: string
           last_payment_error: string | null
           last_payment_failed_at: string | null
@@ -625,6 +626,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          payments_allowed?: boolean
           billing_interval?: string
           last_payment_error?: string | null
           last_payment_failed_at?: string | null
@@ -644,6 +646,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          payments_allowed?: boolean
           billing_interval?: string
           last_payment_error?: string | null
           last_payment_failed_at?: string | null
@@ -694,6 +697,108 @@ export type Database = {
           { foreignKeyName: "rsvps_org_id_fkey"; columns: ["org_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
         ];
       };
+      payment_accounts: {
+        Row: {
+          account_id: string
+          charges_enabled: boolean
+          connected_at: string
+          connected_by: string | null
+          details_submitted: boolean
+          display_name: string | null
+          livemode: boolean
+          location_id: string | null
+          org_id: string
+          payouts_enabled: boolean
+          provider: string
+          requirements: string[]
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          charges_enabled?: boolean
+          connected_at?: string
+          connected_by?: string | null
+          details_submitted?: boolean
+          display_name?: string | null
+          livemode?: boolean
+          location_id?: string | null
+          org_id: string
+          payouts_enabled?: boolean
+          provider: string
+          requirements?: string[]
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          charges_enabled?: boolean
+          connected_at?: string
+          connected_by?: string | null
+          details_submitted?: boolean
+          display_name?: string | null
+          livemode?: boolean
+          location_id?: string | null
+          org_id?: string
+          payouts_enabled?: boolean
+          provider?: string
+          requirements?: string[]
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payment_oauth_states: {
+        Row: {
+          expires_at: string
+          org_id: string
+          provider: string
+          state_hash: string
+          user_id: string
+        }
+        Insert: {
+          expires_at?: string
+          org_id: string
+          provider: string
+          state_hash: string
+          user_id: string
+        }
+        Update: {
+          expires_at?: string
+          org_id?: string
+          provider?: string
+          state_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      payment_secrets: {
+        Row: {
+          access_token_enc: string
+          expires_at: string | null
+          org_id: string
+          provider: string
+          refresh_token_enc: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token_enc: string
+          expires_at?: string | null
+          org_id: string
+          provider: string
+          refresh_token_enc?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token_enc?: string
+          expires_at?: string | null
+          org_id?: string
+          provider?: string
+          refresh_token_enc?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       organization_invitations: {
         Row: {
           accepted_at: string | null;
@@ -1013,6 +1118,7 @@ export type Database = {
       reorder_stages: { Args: { p_org: string; p_order: string[] }; Returns: undefined };
       save_form_draft: { Args: { p_data: Json; p_fields: Json; p_form: string }; Returns: string };
       seed_default_stages: { Args: { p_org: string }; Returns: undefined };
+      payments_ready: { Args: { p_org: string }; Returns: boolean };
       rate_limit_take: { Args: { p_key: string; p_max: number; p_window_seconds: number }; Returns: boolean };
       sensitive_field_label: { Args: { p_label: string }; Returns: boolean };
       storage_org_id: { Args: { p_name: string }; Returns: string };
