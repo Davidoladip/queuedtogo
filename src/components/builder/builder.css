@@ -111,3 +111,10 @@ details.b-card[open] > summary { margin-bottom: 10px; }
 .b-look .muted { color: #5B5040; font-size: 13px; }
 .b-look .btn { align-self: flex-start; }
 .b-env { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border-left: 3px solid #D9C79A; background: var(--surface-2); border-radius: 8px; }
+
+/* Prices on options and ticket types */
+.b-price { display: inline-flex; align-items: center; gap: 2px; flex: none; width: 86px; margin: 0 4px; padding-left: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--muted); font-size: 14px; }
+.b-price:focus-within { border-color: var(--accent); }
+.b-opt-row .b-price input { flex: 1; width: 100%; border: 0; padding: 7px 6px 7px 2px; background: transparent; outline: none; }
+.b-price.bad { border-color: var(--bad); color: var(--bad); }
+.b-pay-fee { margin: 0; font-size: 13px; }

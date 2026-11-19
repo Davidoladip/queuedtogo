@@ -7,9 +7,9 @@ import type { FormModel } from "@/lib/design/engine";
 import { submitOrder } from "@/server/actions/submit";
 
 /** The customer-facing form, sending orders through the server (never straight to the database). */
-export function PublicOrderForm({ form, orgSlug, formSlug, orgName, assetBase, version, orderingOn, closedMessage, rsvpTexts, freePlan }: {
+export function PublicOrderForm({ form, orgSlug, formSlug, orgName, assetBase, version, orderingOn, closedMessage, rsvpTexts, freePlan, feeRate }: {
   form: FormModel; orgSlug: string; formSlug: string; orgName: string; assetBase: string; version: number | undefined;
-  orderingOn: boolean; closedMessage: string | null; rsvpTexts: boolean; freePlan: boolean;
+  orderingOn: boolean; closedMessage: string | null; rsvpTexts: boolean; freePlan: boolean; feeRate: number;
 }) {
   const bot = useRef<{ token: () => string; reset: () => void } | null>(null);
   const onReady = useCallback((api: { token: () => string; reset: () => void }) => { bot.current = api; }, []);
@@ -34,6 +34,7 @@ export function PublicOrderForm({ form, orgSlug, formSlug, orgName, assetBase, v
         rsvpTexts={rsvpTexts}
         version={version}
         onSubmitOrder={orderingOn ? send : undefined}
+        feeRate={feeRate}
       />
       {orderingOn && <div className="pf-bot"><BotCheck onReady={onReady} /></div>}
       {freePlan && (

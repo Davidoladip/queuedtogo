@@ -15,6 +15,7 @@ import { QuestionsPanel } from "./QuestionsPanel";
 import { DesignPanel } from "./DesignPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { DraftStore, type SaveState } from "./draft";
+import type { PaymentsStatus } from "@/lib/payments";
 
 export type Status = "draft" | "live" | "closed";
 export type Update = (fn: (draft: FormModel) => void, opts?: { coalesce?: string }) => void;
@@ -41,7 +42,11 @@ export type BuilderProps = {
   demo?: boolean;
   /** RSVP texts are available on QueuedToGo. */
   rsvpTextsApproved?: boolean;
+  /** Whether this business may sell, whether it can right now, and its platform fee rate. */
+  payments?: PaymentsStatus;
 };
+
+const NO_PAYMENTS: PaymentsStatus = { allowed: false, ready: false, rate: 0 };
 
 export function Builder(props: BuilderProps) {
   const { orgId, orgSlug, orgName, assetBase, siteUrl } = props;
@@ -240,14 +245,14 @@ export function Builder(props: BuilderProps) {
             ))}
           </div>
           <div className="b-body">
-            {tab === "questions" && <QuestionsPanel form={form} update={update} selected={selected} setSelected={setSelected} upload={upload} assetBase={assetBase} openDesign={openDesign} />}
+            {tab === "questions" && <QuestionsPanel form={form} update={update} selected={selected} setSelected={setSelected} upload={upload} assetBase={assetBase} openDesign={openDesign} payments={props.payments ?? NO_PAYMENTS} />}
             {tab === "design" && (
               <DesignPanel form={form} update={update} selected={selected} setSelected={setSelected} upload={upload} assetBase={assetBase}
                 ps={ps} setPs={setPs} brand={brand} setBrand={setBrand} canEditBrand={props.canEditBrand} otherForms={props.otherForms}
                 copyDesignFrom={copyDesignFrom} insertArtwork={insertArtwork} notify={notify} />
             )}
             {tab === "settings" && (
-              <SettingsPanel form={form} update={update} orgSlug={orgSlug} siteUrl={siteUrl} status={status} version={version}
+              <SettingsPanel payments={props.payments ?? NO_PAYMENTS} form={form} update={update} orgSlug={orgSlug} siteUrl={siteUrl} status={status} version={version}
                 onStatus={onStatus} pending={pending} canDelete={props.canDelete} orgName={orgName} rsvpTextsApproved={!!props.rsvpTextsApproved}
                 upload={upload} assetBase={assetBase} openDesign={openDesign} onPreviewCover={() => setPreviewCover(true)}
                 onPreviewEnvelope={() => setPreviewEnvelope(true)}
@@ -290,7 +295,7 @@ export function Builder(props: BuilderProps) {
               forced={forced ? { state: forced.state, sid: forced.ctx === "e" ? selected : forced.ctx.startsWith("q:") ? forced.ctx.slice(2) : null, kind: forced.ctx.startsWith("g.") ? forced.ctx.slice(2) : null } : null}
               onInsertArtwork={(index, file) => void insertArtwork(file, index)} onResizeArt={resizeArt} showThanks={previewThanks} showCover={coverOn && previewCover} showEnvelope={envOn && previewEnvelope}
               openSignal={openSignal} onOpenPlayed={() => { setPreviewCover(false); setPreviewEnvelope(false); }}
-              previewRsvp={{ status: rsvpPreview === "wait" ? "yes" : rsvpPreview, waitlisted: rsvpPreview === "wait" }} rsvpTexts={!!props.rsvpTextsApproved} />
+              previewRsvp={{ status: rsvpPreview === "wait" ? "yes" : rsvpPreview, waitlisted: rsvpPreview === "wait" }} rsvpTexts={!!props.rsvpTextsApproved} feeRate={(props.payments ?? NO_PAYMENTS).rate} />
           </div>
         </section>
       </div>

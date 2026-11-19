@@ -4,14 +4,23 @@
 import { isInput, LOCKABLE, type FormField, type FormModel } from "./design/engine";
 import type { SwatchSettings } from "./design/media";
 import { RSVP_KEYS, guestsText, type RsvpStatus } from "./rsvp";
+import { MAX_TICKETS_PER_ORDER, fieldIsPaid, fieldLines, maxPerOrder, salesEnded, shownOptions, type Line } from "./pricing";
 
 export type AnswerValue = string | string[] | Record<string, number> | { file: string; size: number; type: string; path?: string } | null;
-export type Answer = { label: string; type: string; value: AnswerValue; colour?: string; optionColours?: Record<string, string>; rsvp?: RsvpStatus; party?: number };
+export type Answer = {
+  label: string; type: string; value: AnswerValue; colour?: string; optionColours?: Record<string, string>; rsvp?: RsvpStatus; party?: number;
+  /** Paid forms: what this answer costs, priced from the published form. */
+  lines?: Line[];
+};
 export type Customer = { name: string | null; email: string | null; phone: string | null; channel: string };
 export type UploadIn = { fieldId: string; file: File };
 
 export type Checked =
-  | { ok: true; answers: Record<string, Answer>; customer: Customer; consent: boolean; title: string; summary: string; uploads: UploadIn[]; rsvp: { status: RsvpStatus; party: number } | null }
+  | {
+      ok: true; answers: Record<string, Answer>; customer: Customer; consent: boolean; title: string; summary: string; uploads: UploadIn[]; rsvp: { status: RsvpStatus; party: number } | null;
+      /** Everything priced on the form (tickets, including free ones, and priced options). Empty for unpriced forms. */
+      lines: Line[];
+    }
   | { ok: false; errors: Record<string, string>; message: string };
 
 /** Minimal FormData-like interface so this works with FormData and in tests. */
@@ -35,7 +44,7 @@ const swatchValue = (c: { color: string; label: string }) => (c.label ? `${c.lab
 const pickColour = (sw: SwatchSettings, v: string) => sw.items.map(swatchValue).find((x) => x === v) ?? null;
 const text = (v: FormDataEntryValue | null) => (typeof v === "string" ? v.trim() : "");
 
-export function checkSubmission(form: FormModel, fd: Fields): Checked {
+export function checkSubmission(form: FormModel, fd: Fields, now = Date.now()): Checked {
   const errors: Record<string, string> = {};
   const answers: Record<string, Answer> = {};
   const uploads: UploadIn[] = [];
@@ -120,6 +129,29 @@ export function checkSubmission(form: FormModel, fd: Fields): Checked {
         if (filled) value = q;
         break;
       }
+      case "tickets": {
+        // One number box per ticket type, in the order shown; each within its limit per order, and not after sales end.
+        const raw = fd.getAll(f.id).map(text);
+        const q: Record<string, number> = {};
+        let total = 0;
+        for (const [pos, x] of shownOptions(f).entries()) {
+          const v = raw[pos] ?? "";
+          if (v === "" || v === "0") continue;
+          const n = Number(v);
+          const t = f.config.tickets?.[x.i];
+          if (!t || !Number.isInteger(n) || n < 0) { errors[f.id] = "Enter whole numbers of tickets."; break; }
+          if (salesEnded(t, now)) { errors[f.id] = `Sales of ${x.o} have ended.`; break; }
+          const max = maxPerOrder(t);
+          if (n > max) { errors[f.id] = `You can buy up to ${max} ${x.o} ticket${max === 1 ? "" : "s"} per order.`; break; }
+          q[x.o] = (q[x.o] ?? 0) + n;
+          total += n;
+        }
+        if (errors[f.id]) break;
+        if (total > MAX_TICKETS_PER_ORDER) { errors[f.id] = `You can buy up to ${MAX_TICKETS_PER_ORDER} tickets per order.`; break; }
+        filled = total > 0;
+        if (filled) value = q;
+        break;
+      }
       case "upload": {
         const files = fd.getAll(f.id).filter((x): x is File => typeof x !== "string" && x.size > 0);
         filled = files.length > 0;
@@ -134,9 +166,10 @@ export function checkSubmission(form: FormModel, fd: Fields): Checked {
       }
     }
     if (errors[f.id]) continue;
-    if (f.required && !filled) { errors[f.id] = f.type === "sizes" ? "Enter a quantity for at least one size." : "This is required."; continue; }
+    if (f.required && !filled) { errors[f.id] = f.type === "sizes" ? "Enter a quantity for at least one size." : f.type === "tickets" ? "Choose at least one ticket." : "This is required."; continue; }
 
     const answer: Answer = { label, type: f.type, value };
+    if (filled && fieldIsPaid(f)) { const ls = fieldLines(f, fd); if (ls.length) answer.lines = ls; }
     if (rsvpPick) {
       answer.rsvp = rsvpPick.status;
       answer.party = rsvpPick.party;
@@ -184,11 +217,12 @@ export function checkSubmission(form: FormModel, fd: Fields): Checked {
   const consent = isRsvp ? form.settings.rsvp.texts && ticked && !!customer.phone : form.settings.notify.consent && ticked;
   const who = customer.name || customer.email || customer.phone || "Order";
   const summary = list
-    .filter((f) => ["choice", "multi", "dropdown", "sizes", "rsvp"].includes(f.type) && answers[f.id].value)
+    .filter((f) => ["choice", "multi", "dropdown", "sizes", "tickets", "rsvp"].includes(f.type) && answers[f.id].value)
     .map((f) => `${answers[f.id].label}: ${formatAnswer(answers[f.id])}`)
     .join(" · ")
     .slice(0, 500);
-  return { ok: true, answers, customer, consent, title: `${form.title} · ${who}`.slice(0, 200), summary, uploads, rsvp: isRsvp ? rsvp : null };
+  const lines = list.flatMap((f) => answers[f.id].lines ?? []);
+  return { ok: true, answers, customer, consent, title: `${form.title} · ${who}`.slice(0, 200), summary, uploads, rsvp: isRsvp ? rsvp : null, lines };
 }
 
 /** Human-readable answer, used in job summaries and on the Submissions page. */

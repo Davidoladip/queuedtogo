@@ -1,6 +1,6 @@
 import "server-only";
 import { adminClient } from "@/lib/supabase/admin";
-import type { PaymentAccountView, PaymentProvider, AccountStatus } from "@/lib/payments";
+import { feeRate, type PaymentAccountView, type PaymentProvider, type AccountStatus, type PaymentsStatus } from "@/lib/payments";
 import type { PlanKey } from "@/lib/plans";
 
 /** The business's payment account, plan and whether selling is switched on (membership already checked). */
@@ -23,4 +23,12 @@ export async function loadPayments(orgId: string): Promise<{ account: PaymentAcc
     plan,
     comped: !!b?.comped,
   };
+}
+
+/** Whether the business may sell, whether it can right now, and its platform fee rate (membership already checked). */
+export async function loadPaymentsStatus(orgId: string): Promise<PaymentsStatus> {
+  const admin = adminClient();
+  if (!admin) return { allowed: false, ready: false, rate: 0 };
+  const [p, { data: ready }] = await Promise.all([loadPayments(orgId), admin.rpc("payments_ready", { p_org: orgId })]);
+  return { allowed: p.allowed, ready: ready === true, rate: feeRate(p.plan, p.comped) };
 }

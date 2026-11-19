@@ -28,4 +28,26 @@ export function sampleForm(): FormModel {
   };
 }
 
+/** A ticketed event form with a priced add-on, for the payments browser tests. */
+export function samplePaidForm(): FormModel {
+  const name = blankField("short"); name.id = "a1f0c3d2-1111-4a1a-8a1a-000000000001"; name.label = "Your name"; name.required = true;
+  const email = blankField("email"); email.id = "a1f0c3d2-1111-4a1a-8a1a-000000000002"; email.required = true;
+  const tickets = blankField("tickets"); tickets.id = "a1f0c3d2-1111-4a1a-8a1a-000000000003";
+  tickets.options = ["General admission", "VIP", "Early bird"];
+  tickets.config.tickets = [
+    { id: "tt_general01", price: 2500, qty: 200, max: null, ends: null },
+    { id: "tt_vip000001", price: 6000, qty: 20, max: 4, ends: null },
+    { id: "tt_early0001", price: 2000, qty: null, max: null, ends: "2020-01-01T00:00:00.000Z" },
+  ];
+  const shirt = blankField("choice"); shirt.id = "a1f0c3d2-1111-4a1a-8a1a-000000000004"; shirt.label = "Add an event tee?"; shirt.options = ["No thanks", "Event tee"]; shirt.config.prices = [0, 1800];
+  return {
+    ...sampleForm(),
+    id: "5d1f8c2e-6c43-4a8e-9b1e-2a7f1c0d9e11",
+    title: "Harbourfront Gala",
+    slug: "harbourfront-gala",
+    submitLabel: "Continue to payment",
+    fields: [name, email, tickets, shirt, blankField("submit")],
+  };
+}
+
 export const harnessEnabled = () => process.env.QTG_DEV_HARNESS === "1" && process.env.VERCEL !== "1";

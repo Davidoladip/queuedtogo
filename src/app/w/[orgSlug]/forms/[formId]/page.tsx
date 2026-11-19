@@ -11,6 +11,7 @@ const DEFAULT_BRAND = ["#3346D3", "#E8633A", "#12306B", "#FFC93C"];
 import { formFromRows } from "@/lib/design/fromDb";
 import { Builder } from "@/components/builder/Builder";
 import { rsvpTextsApproved } from "@/lib/rsvp-texts";
+import { loadPaymentsStatus } from "@/lib/payments-data";
 
 export const metadata: Metadata = { title: "Form builder" };
 
@@ -56,6 +57,7 @@ export default async function FormBuilderPage({ params }: { params: Promise<{ or
       brand={brand}
       canEditBrand={canManage(org.role)}
       otherForms={others ?? []}
+      payments={await loadPaymentsStatus(org.id)}
     />
   );
 }

@@ -6,6 +6,7 @@
 
 import { alphaMul, bestOn, cc, lum, mix, over, rgbOf, shade } from "./color";
 import { FONT_CATALOG, FONT_GROUPS } from "./fonts";
+import { PRICEABLE, normalizePay, normalizePrices, normalizeTickets, type PaySettings, type TicketType } from "../pricing";
 import { PARTY_LIMIT, RSVP_DEFAULT_OPTIONS, RSVP_DEFAULT_PARTY_LABEL, normalizeRsvp, type RsvpSettings } from "../rsvp";
 import {
   DEFAULT_CONSENT, artCss, artDefaultFor, normalizeArt, normalizeOptionMeta, normalizeSwatches, shadowCss, swatchCss,
@@ -57,6 +58,7 @@ export const BLOCKS = {
   rsvp: { name: "RSVP (yes / no / maybe)", k: "✉", opts: true },
   dropdown: { name: "Dropdown", k: "▾", opts: true },
   sizes: { name: "Quantity per size", k: "S/M", opts: true },
+  tickets: { name: "Tickets", k: "🎟", opts: true },
   date: { name: "Date", k: "D" },
   upload: { name: "File upload", k: "↑" },
   button: { name: "Link button", k: "↗", deco: true },
@@ -116,6 +118,10 @@ export type FieldConfig = {
   partyMax?: number;
   /** RSVP question: the guest-count question. */
   partyLabel?: string;
+  /** Choice, multi-select, dropdown and size questions: price of each option in cents, in the same order as `options`. */
+  prices?: number[];
+  /** Tickets question: each ticket type's price, quantity, limit per order and sales end, in the same order as `options`. */
+  tickets?: TicketType[];
 };
 export type FormField = {
   id: string;
@@ -135,6 +141,8 @@ export type FormSettings = {
   rsvp: RsvpSettings;
   /** An opening page shown before the form, with a button that opens it (for example an invitation). */
   cover: CoverSettings;
+  /** Paid forms: who pays the platform fee and the refund policy shown before payment. */
+  pay: PaySettings;
 };
 export type CoverSettings = {
   on: boolean; heading: string; text: string; button: string;
@@ -649,6 +657,10 @@ export function normalizeField(raw: unknown): FormField | null {
     if (art) config.art = art; else delete config.art;
     if (sw) config.swatches = sw; else delete config.swatches;
   } else { delete config.art; delete config.swatches; }
+  // Prices: whole cents only, one per option; ticket types always line up with the ticket names.
+  const prices = PRICEABLE.has(type) ? normalizePrices(config.prices, options.length) : undefined;
+  if (prices) config.prices = prices; else delete config.prices;
+  if (type === "tickets") config.tickets = normalizeTickets(config.tickets, options.length); else delete config.tickets;
   if (hasChoiceOptions(type) && Array.isArray(config.optMeta)) config.optMeta = normalizeOptionMeta(config.optMeta, options.length);
   else delete config.optMeta;
   return {
@@ -694,6 +706,7 @@ export function normalizeSettings(raw: unknown): FormSettings {
     },
     notify: { channel: en(n.channel, ["sms", "whatsapp", "email"] as const, "sms"), consent: n.consent !== false, consentText: text },
     rsvp: normalizeRsvp(obj(raw).rsvp),
+    pay: normalizePay(obj(raw).pay),
   };
 }
 
@@ -717,6 +730,7 @@ export function blankField(type: FieldType): FormField {
     case "number": f.label = "How many?"; break;
     case "choice": case "multi": case "dropdown": f.label = "Pick one"; f.options = ["Option 1", "Option 2"]; if (type === "multi") f.label = "Pick any"; break;
     case "sizes": f.label = "Quantity per size"; f.options = ["S", "M", "L", "XL"]; break;
+    case "tickets": f.label = "Tickets"; f.required = true; f.options = ["General admission"]; f.config.tickets = normalizeTickets([{ price: 2500 }], 1); break;
     case "rsvp": f.label = "Will you be there?"; f.options = [...RSVP_DEFAULT_OPTIONS]; f.required = true; f.config.partyMax = 4; f.config.partyLabel = RSVP_DEFAULT_PARTY_LABEL; break;
     case "date": f.label = "Date"; break;
     case "upload": f.label = "Upload your design"; break;

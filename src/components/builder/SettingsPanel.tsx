@@ -9,7 +9,9 @@ import { ArtQuick, ArtUploader } from "./media-controls";
 import { DEFAULT_RSVP_CONSENT, DEFAULT_RSVP_THANKS, DEFAULT_RSVP_TITLES, RSVP_CONSENT_VARS, RSVP_SUBMIT_LABEL, RSVP_THANKS_VARS, type RsvpTitles } from "@/lib/rsvp";
 import { CONSENT_VARS, DEFAULT_CONSENT, DEFAULT_THANKS, THANKS_VARS, fillMessage, unknownPlaceholders } from "@/lib/design/media";
 import { deleteForm } from "@/server/actions/forms";
-import { ColorInput, Seg, Select, TextInput, Toggle } from "./controls";
+import { ColorInput, NumberInput, Seg, Select, TextInput, Toggle } from "./controls";
+import { formIsPaid, refundText, type FeePayer, type RefundPolicy } from "@/lib/pricing";
+import type { PaymentsStatus } from "@/lib/payments";
 import type { Status, Update, Upload } from "./Builder";
 
 type Props = {
@@ -29,6 +31,8 @@ type Props = {
   onPlayOpening: () => void;
   /** Show the sealed envelope in the preview. */
   onPreviewEnvelope: () => void;
+  /** Whether this business may sell, and its platform fee rate. */
+  payments: PaymentsStatus;
 };
 
 /** Offering texts needs a mobile number question; add an optional one if the form has none. */
@@ -94,7 +98,7 @@ function MessageEditor({ label, value, fallback, vars, sample, onChange, hint, m
   );
 }
 
-export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version, onStatus, pending, canDelete, orgName, onPreviewThanks, rsvpTextsApproved, upload, assetBase, onPreviewCover, openDesign, onPlayOpening, onPreviewEnvelope }: Props) {
+export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version, onStatus, pending, canDelete, orgName, onPreviewThanks, rsvpTextsApproved, upload, assetBase, onPreviewCover, openDesign, onPlayOpening, onPreviewEnvelope, payments }: Props) {
   const channel = CHANNELS[form.settings.notify.channel];
   const consent = form.settings.notify.consentText;
   const slugOk = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/.test(form.slug);
@@ -115,6 +119,27 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
         {isRsvp && !hasRsvpQ && <span className="b-warn" role="alert">This RSVP form has no RSVP question. Add one in Questions (“RSVP (yes / no / maybe)”).</span>}
         {!isRsvp && hasRsvpQ && <span className="b-note muted">The RSVP question stays on the form as an ordinary question. Remove it in Questions if you don&apos;t need it.</span>}
       </section>
+
+      {formIsPaid(form) && (
+        <section className="b-card form" id="payments">
+          <h3>Payments</h3>
+          <Seg<FeePayer> label="QueuedToGo booking fee" value={form.settings.pay.feePayer} options={[["guest", "Added to the buyer's total"], ["business", "Taken from your share"]]}
+            onChange={(v) => update((d) => { d.settings.pay.feePayer = v; })} />
+          <p className="muted b-pay-fee">
+            {payments.rate > 0
+              ? <>The fee on your plan is {+(payments.rate * 100).toFixed(2)}% of each sale. {form.settings.pay.feePayer === "guest" ? "Buyers see it as a separate “Booking fee” line." : "Buyers pay the listed prices; the fee comes out of what you receive."}</>
+              : "Your business pays no QueuedToGo booking fee."}{" "}Card processing fees from Stripe or Square are taken from your payout as usual.
+          </p>
+          <Select<RefundPolicy> label="Refund policy shown before payment" value={form.settings.pay.refund}
+            options={[["contact", "Contact the organizer"], ["until", "Refunds until a few days before"], ["none", "No refunds"]]}
+            onChange={(v) => update((d) => { d.settings.pay.refund = v; })} />
+          {form.settings.pay.refund === "until" && (
+            <NumberInput label="Days before the event" value={form.settings.pay.refundDays} min={1} max={90} onChange={(v) => update((d) => { d.settings.pay.refundDays = v; }, { coalesce: "rdays" })} />
+          )}
+          <p className="muted b-note">Buyers see: “{refundText(form.settings.pay)}”</p>
+          {!payments.ready && <span className="b-warn" role="alert">This form can be published once your payment account is approved on the <a href={`/w/${orgSlug}/payments`}>Get paid</a> page.</span>}
+        </section>
+      )}
 
       <section className="b-card form" id="cover">
         <h3>Cover page</h3>

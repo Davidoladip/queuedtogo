@@ -24,6 +24,7 @@ import {
 } from "@/lib/design/engine";
 import { googleFontsUrls } from "@/lib/design/fonts";
 import { DEFAULT_THANKS, fillMessage, type ArtSettings, type SwatchSettings } from "@/lib/design/media";
+import { formIsPaid, maxPerOrder, money, optionPrice, quoteForm, refundText, salesEnded, type Quote } from "@/lib/pricing";
 import { DEFAULT_RSVP_THANKS, RSVP_KEYS, guestsText, rsvpHeadline, whenText, type RsvpStatus } from "@/lib/rsvp";
 
 type Mode = "edit" | "live";
@@ -65,6 +66,8 @@ type Props = {
   onOpenPlayed?: () => void;
   /** Live mode: sends the order. Without it, the form explains that ordering isn't switched on. */
   onSubmitOrder?: (fd: FormData) => Promise<OrderResult>;
+  /** Paid forms: the business's platform fee rate, for the fee line in the running total. */
+  feeRate?: number;
 };
 
 /** What a guest sees after replying to an RSVP form. */
@@ -89,8 +92,10 @@ const PHONE = (v: string) => {
 };
 const isLocked = (f: FormField) => LOCKABLE.has(f.type) && f.config.locked === true;
 
-export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp, rsvpTexts, showCover, showEnvelope, openSignal, onOpenPlayed }: Props) {
+export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp, rsvpTexts, showCover, showEnvelope, openSignal, onOpenPlayed, feeRate = 0 }: Props) {
   const E = mode === "edit";
+  const paid = formIsPaid(form);
+  const [quote, setQuote] = useState<Quote | null>(null);
   const isRsvp = form.settings.mode === "rsvp";
   const t = form.design.theme;
   const art = srcOf(form.design.art, assetBase);
@@ -203,10 +208,12 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
       if (colourMissing(f, fd)) return true;
       if (!f.required || isLocked(f)) return false;
       const values = fd.getAll(f.id).map((v) => (typeof v === "string" ? v.trim() : v.size ? "file" : ""));
-      return f.type === "sizes" ? !values.some((v) => Number(v) > 0) : !values.some(Boolean);
+      return f.type === "sizes" || f.type === "tickets" ? !values.some((v) => Number(v) > 0) : !values.some(Boolean);
     });
   }
   function recheck() {
+    // The running total, priced the same way the server prices the order (the server's figure is what's charged).
+    if (paid && formRef.current) setQuote(quoteForm(form, new FormData(formRef.current), feeRate));
     if (!gate || !formRef.current) return;
     const fd = new FormData(formRef.current);
     setReady(pages.map((_, i) => !missing(i, fd)));
@@ -220,8 +227,8 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
       if (colour) { errs[f.id] = colour; continue; }
       if (f.type === "submit" || isLocked(f) || (!f.required && !["email", "phone"].includes(f.type))) continue;
       const values = fd.getAll(f.id).map((v) => (typeof v === "string" ? v.trim() : v.size ? "file" : ""));
-      const filled = f.type === "sizes" ? values.some((v) => Number(v) > 0) : values.some(Boolean);
-      if (f.required && !filled) { errs[f.id] = f.type === "sizes" ? "Enter a quantity for at least one size." : "This is required."; continue; }
+      const filled = f.type === "sizes" || f.type === "tickets" ? values.some((v) => Number(v) > 0) : values.some(Boolean);
+      if (f.required && !filled) { errs[f.id] = f.type === "sizes" ? "Enter a quantity for at least one size." : f.type === "tickets" ? "Choose at least one ticket." : "This is required."; continue; }
       const v = String(values[0] ?? "");
       if (f.type === "email" && v && !EMAIL.test(v)) errs[f.id] = "Enter a valid email address.";
       if (f.type === "phone" && v && !PHONE(v)) errs[f.id] = "Enter a valid mobile number, like (555) 123-4567.";
@@ -257,7 +264,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
     }
   }
   function another() {
-    setDone(null); setErrors({}); setNotice(null); setPage(0); setReady([]);
+    setDone(null); setErrors({}); setNotice(null); setPage(0); setReady([]); setQuote(null);
     setClientKey(newClientKey());
     setFormKey((k) => k + 1);
   }
@@ -437,6 +444,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
                   {askConsent && legalReady() && (
                     <p className="qf-legal">See the <a href="/terms" target="_blank" rel="noopener">texting terms</a> and <a href="/privacy" target="_blank" rel="noopener">privacy policy</a>.</p>
                   )}
+                  {paid && <TotalBox quote={quote} businessName={businessName} refund={refundText(form.settings.pay)} />}
                   {notice && <div className="qf-closed" role="status">{notice}</div>}
                   <div className="qf-nav">
                     {i > 0 && prevBtn(i)}
@@ -627,7 +635,7 @@ function Block({ f: raw, editing, error, fs, art }: { f: FormField; editing: boo
     }
     case "long": return wrap("input", <>{lab}{help}<textarea className="qf-in" placeholder={f.placeholder || undefined} {...common} /></>);
     case "dropdown":
-      return wrap("input", <>{lab}{help}<select className="qf-in" defaultValue="" {...common}><option value="">Choose…</option>{opts.map(({ o, i }) => <option key={i}>{o}</option>)}</select></>);
+      return wrap("input", <>{lab}{help}<select className="qf-in" defaultValue="" {...common}><option value="">Choose…</option>{opts.map(({ o, i }) => <option key={i} value={o}>{optionPrice(f, i) > 0 ? `${o} · ${money(optionPrice(f, i))}` : o}</option>)}</select></>);
     case "choice": case "multi": {
       const ty = f.type === "choice" ? "radio" : "checkbox", list = f.config.display === "list";
       return wrap("choice", <>{glab}{help}
@@ -635,7 +643,8 @@ function Block({ f: raw, editing, error, fs, art }: { f: FormField; editing: boo
           {opts.map(({ o, i }) => {
             const sid = `${f.id}__o${i}`, m = f.config.optMeta?.[i];
             const oArt = m?.art ? <ArtBlock sid={`${sid}__art`} a={m.art} alt={m.art.alt || o} {...art} /> : null;
-            const text = oArt ? <span className={`qf-opt-c ${m!.art!.pos}`}>{oArt}<span className="qf-opt-t">{o}</span></span> : o;
+            const price = optionPrice(f, i) > 0 ? <span className="qf-price"> {money(optionPrice(f, i))}</span> : null;
+            const text = oArt ? <span className={`qf-opt-c ${m!.art!.pos}`}>{oArt}<span className="qf-opt-t">{o}{price}</span></span> : <>{o}{price}</>;
             const optLabel = (
               <label key={i} className={`${list ? "qf-li" : "qf-opt"}${fs(sid, "option")}`} data-sid={sid} data-kind="option">
                 <input type={ty} name={f.id} value={o} tabIndex={ti} /><span>{text}</span>
@@ -655,7 +664,32 @@ function Block({ f: raw, editing, error, fs, art }: { f: FormField; editing: boo
     case "sizes":
       return wrap("input", <>{glab}{help}
         <div className="qf-sizes" role="group" aria-labelledby={`ql-${f.id}`}>
-          {opts.map(({ o, i }) => <label key={i}>{o}<input className="qf-in" type="number" min={0} inputMode="numeric" name={f.id} data-size={o} placeholder="0" tabIndex={ti} /></label>)}
+          {opts.map(({ o, i }) => <label key={i}>{o}{optionPrice(f, i) > 0 && <span className="qf-price"> {money(optionPrice(f, i))}</span>}<input className="qf-in" type="number" min={0} inputMode="numeric" name={f.id} data-size={o} placeholder="0" tabIndex={ti} /></label>)}
+        </div></>);
+    case "tickets":
+      return wrap("input", <>{glab}{help}
+        <div className="qf-tickets" role="group" aria-labelledby={`ql-${f.id}`}>
+          {opts.map(({ o, i }) => {
+            const t = f.config.tickets?.[i];
+            if (!t) return null;
+            const ended = !editing && salesEnded(t);
+            const qid = `q-${f.id}-t${i}`;
+            return (
+              <div key={i} className={`qf-tt${ended ? " ended" : ""}`}>
+                <label className="qf-tt-name" htmlFor={qid}>
+                  <span>{o}</span>
+                  <span className="qf-tt-price">{t.price > 0 ? money(t.price) : "Free"}</span>
+                  {ended ? <span className="qf-tt-note">Sales have ended</span>
+                    : t.ends ? <span className="qf-tt-note">Sales end {new Date(t.ends).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span> : null}
+                </label>
+                {/* Every type keeps its box (read-only once sales end), so the answers line up with the types on the server. */}
+                <span className="qf-tt-q">
+                  <input className="qf-in" id={qid} type="number" name={f.id} min={0} max={maxPerOrder(t)} step={1} inputMode="numeric" placeholder="0"
+                    readOnly={ended} aria-label={`${o}: number of tickets`} tabIndex={ended ? -1 : ti} {...(ended ? { defaultValue: "0" } : {})} />
+                </span>
+              </div>
+            );
+          })}
         </div></>);
     case "upload":
       return wrap("input", <>{glab}{help}
@@ -755,6 +789,25 @@ function Envelope({ label, stage, env, seal, frontFont, editing, onOpen, childre
         </button>
       </div>
       {env.prompt && <p className="qf-env-prompt" aria-hidden="true">{env.prompt}</p>}
+    </div>
+  );
+}
+
+/** The running total above the pay button: each priced line, the platform fee when the buyer pays it, and the total. */
+function TotalBox({ quote, businessName, refund }: { quote: Quote | null; businessName: string; refund: string }) {
+  const lines = quote?.lines.filter((l) => l.qty > 0) ?? [];
+  return (
+    <div className="qf-total" aria-live="polite">
+      {lines.length > 0 ? (
+        <ul className="qf-total-lines">
+          {lines.map((l, k) => (
+            <li key={k}><span>{l.name}{l.qty > 1 ? ` × ${l.qty}` : ""}</span><span>{l.amount > 0 ? money(l.amount, true) : "Free"}</span></li>
+          ))}
+          {quote && quote.feePayer === "guest" && quote.fee > 0 && <li className="qf-total-fee"><span>Booking fee</span><span>{money(quote.fee, true)}</span></li>}
+        </ul>
+      ) : <p className="qf-help">Your total appears here as you choose.</p>}
+      <div className="qf-total-sum"><span>Total</span><b>{money(quote?.total ?? 0, true)}</b></div>
+      <p className="qf-help">Paid securely to {businessName}. {refund}</p>
     </div>
   );
 }

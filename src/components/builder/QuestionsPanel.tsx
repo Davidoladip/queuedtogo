@@ -5,6 +5,8 @@ import { useState } from "react";
 import { BLOCKS, IMG_DEFAULT, LOCKABLE, baseFieldId, blankField, hasChoiceOptions, hasOptions, isInput, newId, srcOf, supportsMedia, type FieldType, type FormField, type FormModel } from "@/lib/design/engine";
 import { artDefaultFor, emptyMeta, type OptionMeta } from "@/lib/design/media";
 import { PARTY_LIMIT, RSVP_DEFAULT_OPTIONS, RSVP_DEFAULT_PARTY_LABEL } from "@/lib/rsvp";
+import { DEFAULT_MAX_PER_ORDER, MAX_PER_ORDER_CAP, MAX_TICKET_QTY, PRICEABLE, fieldIsPaid, money, newTicketId, newTicketType, parsePrice, priceInput, type TicketType } from "@/lib/pricing";
+import type { PaymentsStatus } from "@/lib/payments";
 
 const RSVP_ANSWER_NAMES = ["Yes", "No", "Maybe"];
 import { ArtQuick, ArtUploader, SwatchEditor, newSwatches } from "./media-controls";
@@ -16,6 +18,8 @@ type Props = {
   form: FormModel; update: Update; selected: string | null; setSelected: (s: string | null) => void; upload: Upload; assetBase: string;
   /** Switch to the Design tab with this element selected. */
   openDesign: (sid: string) => void;
+  /** Whether this business may sell (prices and the Tickets question appear only then). */
+  payments: PaymentsStatus;
 };
 
 const ADDABLE = (Object.keys(BLOCKS) as FieldType[]).filter((t) => t !== "submit");
@@ -28,7 +32,7 @@ export function fieldIdOf(form: FormModel, sid: string | null): string | null {
   return baseFieldId(sid);
 }
 
-export function QuestionsPanel({ form, update, selected, setSelected, upload, assetBase, openDesign }: Props) {
+export function QuestionsPanel({ form, update, selected, setSelected, upload, assetBase, openDesign, payments }: Props) {
   const openId = fieldIdOf(form, selected);
   const [addType, setAddType] = useState<FieldType>("short");
 
@@ -95,10 +99,10 @@ export function QuestionsPanel({ form, update, selected, setSelected, upload, as
               </div>
               {open && (
                 <div className="b-row-body form">
-                  <FieldEditor form={form} f={f} patch={patch} update={update} upload={upload} assetBase={assetBase} openDesign={openDesign} />
+                  <FieldEditor form={form} f={f} patch={patch} update={update} upload={upload} assetBase={assetBase} openDesign={openDesign} canPrice={payments.allowed} />
                   {!isSubmit && (
                     <div className="b-row-actions">
-                      <button type="button" className="btn small" onClick={() => { const copy = { ...structuredClone(f), id: newId() }; update((d) => { d.fields.splice(i + 1, 0, copy); }); setSelected(copy.id); }}>Duplicate</button>
+                      <button type="button" className="btn small" onClick={() => { const copy = { ...structuredClone(f), id: newId() }; if (copy.config.tickets) copy.config.tickets = copy.config.tickets.map((t) => ({ ...t, id: newTicketId() })); update((d) => { d.fields.splice(i + 1, 0, copy); }); setSelected(copy.id); }}>Duplicate</button>
                       <button type="button" className="btn small danger" onClick={() => { update((d) => { d.fields = d.fields.filter((x) => x.id !== f.id); }); setSelected(null); }}>Delete block</button>
                     </div>
                   )}
@@ -113,10 +117,13 @@ export function QuestionsPanel({ form, update, selected, setSelected, upload, as
         <label htmlFor="b-add-type" className="b-label">Add a block{openId ? " below the open one" : ""}</label>
         <div className="b-add-row">
           <select id="b-add-type" value={addType} onChange={(e) => setAddType(e.target.value as FieldType)}>
-            {ADDABLE.filter((t) => t !== "rsvp" || !form.fields.some((x) => x.type === "rsvp")).map((t) => <option key={t} value={t}>{BLOCKS[t].k}  {BLOCKS[t].name}</option>)}
+            {ADDABLE.filter((t) => (t !== "rsvp" || !form.fields.some((x) => x.type === "rsvp")) && (t !== "tickets" || payments.allowed)).map((t) => <option key={t} value={t}>{BLOCKS[t].k}  {BLOCKS[t].name}</option>)}
           </select>
           <button type="button" className="btn primary" onClick={add}>Add</button>
         </div>
+        {payments.allowed && !payments.ready && form.fields.some(fieldIsPaid) && (
+          <p className="muted b-note">Forms with prices or tickets can be published once your payment account is approved on the Get paid page.</p>
+        )}
       </div>
     </div>
   );
@@ -132,8 +139,8 @@ function rowLabel(form: FormModel, f: FormField) {
 
 type Patch = (id: string, fn: (f: FormField) => void, key?: string) => void;
 
-function FieldEditor({ form, f, patch, update, upload, assetBase, openDesign }: {
-  form: FormModel; f: FormField; patch: Patch; update: Update; upload: Upload; assetBase: string; openDesign: (sid: string) => void;
+function FieldEditor({ form, f, patch, update, upload, assetBase, openDesign, canPrice }: {
+  form: FormModel; f: FormField; patch: Patch; update: Update; upload: Upload; assetBase: string; openDesign: (sid: string) => void; canPrice: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -204,7 +211,7 @@ function FieldEditor({ form, f, patch, update, upload, assetBase, openDesign }: 
           {["short", "long", "email", "phone", "number"].includes(f.type) && (
             <TextInput label="Placeholder" value={f.placeholder} maxLength={200} onChange={(v) => patch(f.id, (x) => { x.placeholder = v; }, "ph")} />
           )}
-          {hasOptions(f.type) && <OptionsEditor f={f} patch={patch} upload={upload} assetBase={assetBase} openDesign={openDesign} />}
+          {hasOptions(f.type) && <OptionsEditor f={f} patch={patch} upload={upload} assetBase={assetBase} openDesign={openDesign} canPrice={canPrice} />}
           {f.type === "rsvp" && (
             <>
               <NumberInput label="Most people per reply (including the guest)" value={f.config.partyMax ?? 1} min={1} max={PARTY_LIMIT}
@@ -239,37 +246,56 @@ function FieldEditor({ form, f, patch, update, upload, assetBase, openDesign }: 
 }
 
 // ---------------------------------------------------------------- options (one row each)
-function OptionsEditor({ f, patch, upload, assetBase, openDesign }: { f: FormField; patch: Patch; upload: Upload; assetBase: string; openDesign: (sid: string) => void }) {
+type Aligned = { meta: OptionMeta[]; prices: number[]; tix: TicketType[] };
+
+function OptionsEditor({ f, patch, upload, assetBase, openDesign, canPrice }: { f: FormField; patch: Patch; upload: Upload; assetBase: string; openDesign: (sid: string) => void; canPrice: boolean }) {
   const [bulk, setBulk] = useState(false);
   const [openOpt, setOpenOpt] = useState<number | null>(null);
+  const [openTix, setOpenTix] = useState<number | null>(null);
   const rich = hasChoiceOptions(f.type);
   const fixed = f.type === "rsvp";
-  const noun = f.type === "sizes" ? "size" : "option";
-  /** Change the option list and keep each option's artwork, swatches and style attached to it. */
-  const edit = (fn: (opts: string[], meta: OptionMeta[]) => void, key?: string) => patch(f.id, (x) => {
-    const meta: OptionMeta[] = x.options.map((_, i) => x.config.optMeta?.[i] ?? emptyMeta());
-    fn(x.options, meta);
-    if (rich) x.config.optMeta = meta.slice(0, x.options.length); else delete x.config.optMeta;
+  const isTix = f.type === "tickets";
+  // Prices show once the business may sell, or while a question still has prices (so they can be removed).
+  const priced = isTix || (PRICEABLE.has(f.type) && (canPrice || (f.config.prices ?? []).some((p) => p > 0)));
+  const noun = f.type === "sizes" ? "size" : isTix ? "ticket type" : "option";
+  const Noun = noun[0].toUpperCase() + noun.slice(1);
+  /** Change the option list and keep each option's artwork, swatches, style, price and ticket settings attached to it. */
+  const edit = (fn: (opts: string[], a: Aligned) => void, key?: string) => patch(f.id, (x) => {
+    const a: Aligned = {
+      meta: x.options.map((_, i) => x.config.optMeta?.[i] ?? emptyMeta()),
+      prices: x.options.map((_, i) => x.config.prices?.[i] ?? 0),
+      tix: x.options.map((_, i) => x.config.tickets?.[i] ?? newTicketType()),
+    };
+    fn(x.options, a);
+    const n = x.options.length;
+    if (rich) x.config.optMeta = a.meta.slice(0, n); else delete x.config.optMeta;
+    if (PRICEABLE.has(x.type) && a.prices.some((p) => p > 0)) x.config.prices = a.prices.slice(0, n); else delete x.config.prices;
+    if (x.type === "tickets") x.config.tickets = a.tix.slice(0, n);
   }, key);
-  const move = (i: number, dir: -1 | 1) => edit((o, m) => {
+  const swap = <T,>(arr: T[], i: number, j: number) => { [arr[i], arr[j]] = [arr[j], arr[i]]; };
+  const move = (i: number, dir: -1 | 1) => edit((o, a) => {
     const j = i + dir;
     if (j < 0 || j >= o.length) return;
-    [o[i], o[j]] = [o[j], o[i]]; [m[i], m[j]] = [m[j], m[i]];
+    swap(o, i, j); swap(a.meta, i, j); swap(a.prices, i, j); swap(a.tix, i, j);
   });
   return (
     <div className="b-field">
       <div className="b-el-head">
-        <span className="b-label">{f.type === "sizes" ? "Sizes" : fixed ? "Answers" : "Options"}</span>
+        <span className="b-label">{f.type === "sizes" ? "Sizes" : fixed ? "Answers" : isTix ? "Ticket types" : "Options"}{priced && !isTix ? " and prices" : ""}</span>
         {!fixed && <button type="button" className="linkbtn" onClick={() => setBulk(!bulk)}>{bulk ? "Edit one by one" : "Paste a list"}</button>}
       </div>
       {bulk ? (
-        <TextInput label={`${f.type === "sizes" ? "Sizes" : "Options"} (one per line)`} multiline value={f.options.join("\n")}
-          hint="Options that keep the same wording keep their artwork, colours and style."
-          onChange={(v) => edit((o, m) => {
+        <TextInput label={`${f.type === "sizes" ? "Sizes" : isTix ? "Ticket types" : "Options"} (one per line)`} multiline value={f.options.join("\n")}
+          hint={isTix ? "Ticket types that keep the same name keep their price and limits." : "Options that keep the same wording keep their artwork, colours, style and price."}
+          onChange={(v) => edit((o, a) => {
             const next = v.split("\n").map((t) => t.slice(0, 200)).slice(0, 100);
-            const byText = new Map(o.map((t, i) => [t.trim(), m[i]]));
-            const nm = next.map((t) => byText.get(t.trim()) ?? emptyMeta());
-            o.splice(0, o.length, ...next); m.splice(0, m.length, ...nm);
+            const byText = new Map(o.map((t, i) => [t.trim(), i]));
+            const at = (t: string) => byText.get(t.trim());
+            const nm = next.map((t) => (at(t) != null ? a.meta[at(t)!] : emptyMeta()));
+            const np = next.map((t) => (at(t) != null ? a.prices[at(t)!] : 0));
+            const used = new Set<number>();
+            const nt = next.map((t) => { const i = at(t); if (i != null && !used.has(i)) { used.add(i); return a.tix[i]; } return newTicketType(); });
+            o.splice(0, o.length, ...next); a.meta.splice(0, a.meta.length, ...nm); a.prices.splice(0, a.prices.length, ...np); a.tix.splice(0, a.tix.length, ...nt);
           }, "opts")} />
       ) : (
         <ol className="b-opt-list">
@@ -282,6 +308,14 @@ function OptionsEditor({ f, patch, upload, assetBase, openDesign }: { f: FormFie
                   {fixed && <span className="b-opt-key">{RSVP_ANSWER_NAMES[i]}</span>}
                   <input type="text" value={o} maxLength={200} aria-label={fixed ? `Wording for ${RSVP_ANSWER_NAMES[i]}` : `${noun} ${i + 1}`} placeholder={fixed ? (i === 2 ? "Leave empty to hide Maybe" : RSVP_DEFAULT_OPTIONS[i]) : `${noun[0].toUpperCase()}${noun.slice(1)} ${i + 1}`}
                     onChange={(e) => edit((opts) => { opts[i] = e.target.value; }, `opt${i}`)} />
+                  {priced && (
+                    <PriceBox cents={isTix ? f.config.tickets?.[i]?.price ?? 0 : f.config.prices?.[i] ?? 0} label={`Price of ${o || `${noun} ${i + 1}`}`} free={isTix}
+                      onChange={(c) => edit((_, a) => { if (isTix) a.tix[i] = { ...a.tix[i], price: c }; else a.prices[i] = c; }, `price${i}`)} />
+                  )}
+                  {isTix && (
+                    <button type="button" className={`b-icon${f.config.tickets?.[i] && (f.config.tickets[i].qty || f.config.tickets[i].max || f.config.tickets[i].ends) ? " on" : ""}`} aria-expanded={openTix === i}
+                      aria-label={`Quantity, limit and sales end for ${o || `ticket type ${i + 1}`}`} title="Quantity, limit per order and sales end" onClick={() => setOpenTix(openTix === i ? null : i)}>⚙</button>
+                  )}
                   {rich && (
                     <button type="button" className={`b-icon${extras ? " on" : ""}`} aria-expanded={openOpt === i} aria-label={`Artwork, colours and style for ${o || `option ${i + 1}`}`} title="Artwork, colours and style"
                       onClick={() => setOpenOpt(openOpt === i ? null : i)}>✦{extras ? <sup>{extras}</sup> : null}</button>
@@ -290,23 +324,26 @@ function OptionsEditor({ f, patch, upload, assetBase, openDesign }: { f: FormFie
                     <>
                       <button type="button" className="b-icon" aria-label={`Move ${noun} ${i + 1} up`} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
                       <button type="button" className="b-icon" aria-label={`Move ${noun} ${i + 1} down`} disabled={i === f.options.length - 1} onClick={() => move(i, 1)}>↓</button>
-                      <button type="button" className="b-icon" aria-label={`Remove ${noun} ${i + 1}`} disabled={f.options.length <= 1} onClick={() => { edit((opts, meta) => { opts.splice(i, 1); meta.splice(i, 1); }); setOpenOpt(null); }}>✕</button>
+                      <button type="button" className="b-icon" aria-label={`Remove ${noun} ${i + 1}`} disabled={f.options.length <= 1} onClick={() => { edit((opts, a) => { opts.splice(i, 1); a.meta.splice(i, 1); a.prices.splice(i, 1); a.tix.splice(i, 1); }); setOpenOpt(null); setOpenTix(null); }}>✕</button>
                     </>
                   )}
                 </div>
+                {isTix && openTix === i && f.config.tickets?.[i] && (
+                  <TicketSettings t={f.config.tickets[i]} onChange={(t) => edit((_, a) => { a.tix[i] = t; }, `tix${i}`)} />
+                )}
                 {rich && openOpt === i && (
                   <div className="b-opt-body form">
                     <span className="b-label">Artwork for this option</span>
                     <ArtUploader art={m?.art} assetBase={assetBase} upload={upload} compact
-                      onUploaded={(path, name) => edit((_, meta) => { meta[i] = { ...meta[i], art: { ...(meta[i].art ?? artDefaultFor("option")), src: { path }, name } }; })}
-                      onRemove={() => edit((_, meta) => { meta[i] = { ...meta[i], art: null }; })} />
-                    {m?.art && <ArtQuick art={m.art} set={(k, v) => edit((_, meta) => { const a = meta[i].art; if (a) meta[i] = { ...meta[i], art: { ...a, [k]: v } }; }, `oa${i}${k}`)} />}
+                      onUploaded={(path, name) => edit((_, { meta }) => { meta[i] = { ...meta[i], art: { ...(meta[i].art ?? artDefaultFor("option")), src: { path }, name } }; })}
+                      onRemove={() => edit((_, { meta }) => { meta[i] = { ...meta[i], art: null }; })} />
+                    {m?.art && <ArtQuick art={m.art} set={(k, v) => edit((_, { meta }) => { const a = meta[i].art; if (a) meta[i] = { ...meta[i], art: { ...a, [k]: v } }; }, `oa${i}${k}`)} />}
                     <span className="b-label">Colour swatches under this option</span>
                     {m?.swatches ? (
-                      <SwatchEditor value={m.swatches} onChange={(sw) => edit((_, meta) => { meta[i] = { ...meta[i], swatches: sw }; }, `os${i}`)}
-                        onRemoveAll={() => edit((_, meta) => { meta[i] = { ...meta[i], swatches: null }; })} />
+                      <SwatchEditor value={m.swatches} onChange={(sw) => edit((_, { meta }) => { meta[i] = { ...meta[i], swatches: sw }; }, `os${i}`)}
+                        onRemoveAll={() => edit((_, { meta }) => { meta[i] = { ...meta[i], swatches: null }; })} />
                     ) : (
-                      <button type="button" className="btn small" style={{ alignSelf: "flex-start" }} onClick={() => edit((_, meta) => { meta[i] = { ...meta[i], swatches: newSwatches() }; })}>+ Add colour swatches</button>
+                      <button type="button" className="btn small" style={{ alignSelf: "flex-start" }} onClick={() => edit((_, { meta }) => { meta[i] = { ...meta[i], swatches: newSwatches() }; })}>+ Add colour swatches</button>
                     )}
                     <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => openDesign(`${f.id}__o${i}`)}>Style this option in Design →</button>
                   </div>
@@ -319,8 +356,10 @@ function OptionsEditor({ f, patch, upload, assetBase, openDesign }: { f: FormFie
       {fixed && <p className="muted b-note">Guests pick one. The answers always mean yes, no and maybe, whatever you call them. Leave Maybe empty to offer only yes and no.</p>}
       {!bulk && !fixed && (
         <button type="button" className="btn small" style={{ alignSelf: "flex-start" }} disabled={f.options.length >= 100}
-          onClick={() => edit((o, m) => { o.push(`${noun[0].toUpperCase()}${noun.slice(1)} ${o.length + 1}`); m.push(emptyMeta()); })}>+ Add {noun}</button>
+          onClick={() => edit((o, a) => { o.push(`${Noun} ${o.length + 1}`); a.meta.push(emptyMeta()); a.prices.push(0); a.tix.push(newTicketType()); })}>+ Add {noun}</button>
       )}
+      {priced && !isTix && <p className="muted b-note">Leave a price empty for options that cost nothing extra.</p>}
+      {isTix && <p className="muted b-note">Guests choose how many of each type. Use ⚙ to set how many are available, the most per order and when sales end.</p>}
     </div>
   );
 }
@@ -355,5 +394,57 @@ function QuestionMedia({ f, patch, upload, assetBase, openDesign }: { f: FormFie
         </div>
       </details>
     </>
+  );
+}
+
+// ---------------------------------------------------------------- prices and ticket settings
+/** A price in dollars ("25" or "25.50"). Shows an error until what's typed is a price; empty means free. */
+function PriceBox({ cents, label, free, onChange }: { cents: number; label: string; free?: boolean; onChange: (c: number) => void }) {
+  const [text, setText] = useState(priceInput(cents));
+  const [bad, setBad] = useState(false);
+  // Follow outside changes (undo, moving options) unless the box already shows that price.
+  const [seen, setSeen] = useState(cents);
+  if (seen !== cents) {
+    setSeen(cents);
+    if (parsePrice(text) !== cents) { setText(priceInput(cents)); setBad(false); }
+  }
+  return (
+    <span className={`b-price${bad ? " bad" : ""}`}>
+      <span aria-hidden="true">$</span>
+      <input type="text" inputMode="decimal" value={text} aria-label={label} aria-invalid={bad || undefined} placeholder={free ? "Free" : "0"}
+        title={bad ? "Enter a price up to $10,000, like 25 or 25.50" : undefined}
+        onChange={(e) => {
+          setText(e.target.value);
+          const c = parsePrice(e.target.value);
+          setBad(c == null);
+          if (c != null) onChange(c);
+        }}
+        onBlur={() => { const c = parsePrice(text); if (c != null) setText(priceInput(c)); }} />
+    </span>
+  );
+}
+
+const toLocalInput = (iso: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+const optInt = (v: string, max: number) => { const n = Math.floor(Number(v)); return v.trim() && n > 0 ? Math.min(n, max) : null; };
+
+function TicketSettings({ t, onChange }: { t: TicketType; onChange: (t: TicketType) => void }) {
+  return (
+    <div className="b-opt-body form">
+      <TextInput label="How many are available" type="number" value={t.qty == null ? "" : String(t.qty)} placeholder="No limit"
+        hint="Sold out once this many are sold. Leave empty for no limit."
+        onChange={(v) => onChange({ ...t, qty: optInt(v, MAX_TICKET_QTY) })} />
+      <TextInput label="Most per order" type="number" value={t.max == null ? "" : String(t.max)} placeholder={String(DEFAULT_MAX_PER_ORDER)}
+        hint={`Up to ${MAX_PER_ORDER_CAP}. Leave empty for ${DEFAULT_MAX_PER_ORDER}.`}
+        onChange={(v) => onChange({ ...t, max: optInt(v, MAX_PER_ORDER_CAP) })} />
+      <TextInput label="Sales end (optional)" type="datetime-local" value={toLocalInput(t.ends)}
+        hint={t.ends ? `Ends ${new Date(t.ends).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}, your time.` : "Leave empty to sell until you close the form."}
+        onChange={(v) => onChange({ ...t, ends: v && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : null })} />
+      {t.price > 0 && <p className="muted b-note">Each ticket is {money(t.price, true)}.</p>}
+    </div>
   );
 }

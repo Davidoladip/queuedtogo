@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { adminClient } from "@/lib/supabase/admin";
 import { formFromPublished } from "@/lib/design/fromDb";
 import { UPLOAD_TYPES, checkSubmission, sniffMatches } from "@/lib/submission";
+import { formIsPaid } from "@/lib/pricing";
 import { siteUrl } from "@/lib/urls";
 import type { Json } from "@/types/database";
 import { dispatchQueued } from "@/server/messaging";
@@ -22,6 +23,7 @@ export type SubmitResult =
 const SLUG = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/;
 const OFF = "Online ordering isn't switched on for this form yet. Please check back soon.";
 const MAX_TOTAL = 25 * 1024 * 1024;
+const PAID_SOON = "Online payment for this form opens soon. Please check back shortly.";
 
 /** Receives a public form submission: checks it against the published form, stores files, creates the order. */
 export async function submitOrder(orgSlug: string, formSlug: string, fd: FormData): Promise<SubmitResult> {
@@ -46,6 +48,8 @@ export async function submitOrder(orgSlug: string, formSlug: string, fd: FormDat
   const model = formFromPublished(form.id, form.slug, form.published_config as Record<string, unknown>);
   const checked = checkSubmission(model, fd);
   if (!checked.ok) return { ok: false, message: checked.message, errors: checked.errors };
+  // Forms with prices or tickets are paid through checkout, never saved here as unpaid orders.
+  if (formIsPaid(model)) return { ok: false, message: PAID_SOON };
   const total = checked.uploads.reduce((n, u) => n + u.file.size, 0);
   if (total > MAX_TOTAL) return { ok: false, message: "Your files add up to more than 25 MB. Use smaller files." };
 

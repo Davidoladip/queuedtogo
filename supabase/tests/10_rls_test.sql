@@ -777,6 +777,35 @@ update public.payment_accounts set status = 'restricted' where org_id = tests.id
 select tests.ok(not public.payments_ready(tests.id('orgA')), 'a restricted account is not ready');
 delete from public.payment_accounts; delete from public.payment_secrets; update public.org_billing set payments_allowed = false;
 
+-- ---------------------------------------------------------------- Stage 10: prices and tickets need a ready payment account to publish
+insert into public.payment_accounts (org_id, provider, account_id, status, charges_enabled) values (tests.id('orgA'), 'stripe', 'acct_TESTA456', 'active', true);
+select tests.login('alice');
+insert into public.form_fields (form_id, org_id, type, label, options, config, position) values
+  (tests.id('formA'), tests.id('orgA'), 'choice', 'Add a shirt?', '["No", "Shirt"]', '{"prices": ["1800", 0]}', 97);
+select tests.ok(public.publish_form(tests.id('formA')) > 0, 'prices written as text are not prices (the app ignores them too), so the form publishes');
+update public.form_fields set config = '{"prices": [0, 1800]}' where form_id = tests.id('formA') and label = 'Add a shirt?';
+select tests.fails($$select public.publish_form(tests.id('formA'))$$, 'a form with prices cannot be published until payments are switched on');
+update public.form_fields set config = '{"prices": [0, 0.5]}' where form_id = tests.id('formA') and label = 'Add a shirt?';
+select tests.fails($$select public.publish_form(tests.id('formA'))$$, 'any price above zero counts, even one the app would ignore');
+delete from public.form_fields where form_id = tests.id('formA') and label = 'Add a shirt?';
+insert into public.form_fields (form_id, org_id, type, label, options, config, position) values
+  (tests.id('formA'), tests.id('orgA'), 'tickets', 'Tickets', '["General"]', '{"tickets": [{"id": "tt_general1", "price": 0}]}', 97);
+select tests.fails($$select public.publish_form(tests.id('formA'))$$, 'a form with a Tickets question cannot be published until payments are switched on, even with free tickets');
+reset role;
+update public.org_billing set payments_allowed = true where org_id = tests.id('orgA');
+select tests.login('alice');
+select tests.ok(public.publish_form(tests.id('formA')) > 0, 'with payments on and an approved account, the ticket form publishes');
+select tests.ok((select published_config #>> '{fields}' from public.forms where id = tests.id('formA')) like '%tt_general1%', 'ticket types are part of the published form');
+select tests.fails($$update public.org_billing set payments_allowed = false where org_id = tests.id('orgA')$$, 'a business cannot change its own payments switch');
+reset role;
+update public.payment_accounts set status = 'restricted', charges_enabled = false where org_id = tests.id('orgA');
+select tests.login('alice');
+select tests.fails($$select public.publish_form(tests.id('formA'))$$, 'a restricted payment account stops paid forms from being published again');
+reset role;
+select tests.fails($$insert into public.form_fields (form_id, org_id, type, label, position) values (tests.id('formA'), tests.id('orgA'), 'raffle', 'x', 98)$$, 'only known question types can be saved');
+delete from public.form_fields where form_id = tests.id('formA') and type = 'tickets';
+delete from public.payment_accounts; update public.org_billing set payments_allowed = false;
+
 -- ---------------------------------------------------------------- deleting a business (with a job in it)
 select tests.login('bob');
 select tests.affects($$delete from public.organizations where id = tests.id('orgB')$$, 1, 'an owner can delete their business');

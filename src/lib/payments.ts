@@ -21,6 +21,12 @@ export function platformFeeCents(cents: number, plan: PlanKey, comped = false): 
   return Math.round(cents * PLATFORM_FEE_RATE[plan]);
 }
 
+/** The platform fee rate a business pays (0 when comped). */
+export const feeRate = (plan: PlanKey, comped: boolean) => (comped ? 0 : PLATFORM_FEE_RATE[plan]);
+
+/** What the form builder needs to know about selling. */
+export type PaymentsStatus = { allowed: boolean; ready: boolean; rate: number };
+
 export const feePercentLabel = (plan: PlanKey) => `${+(PLATFORM_FEE_RATE[plan] * 100).toFixed(2)}%`;
 
 export type AccountStatus = "pending" | "active" | "restricted" | "disconnected";

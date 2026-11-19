@@ -7,6 +7,17 @@ import { assetBaseFor } from "@/lib/design/engine";
 import { formFromPublished } from "@/lib/design/fromDb";
 import { PublicOrderForm } from "./PublicOrderForm";
 import { rsvpTextsApproved } from "@/lib/rsvp-texts";
+import { formIsPaid } from "@/lib/pricing";
+import { loadPaymentsStatus } from "@/lib/payments-data";
+import { adminClient } from "@/lib/supabase/admin";
+
+/** The business's platform fee rate, for the fee line on paid forms. */
+async function feeRateFor(orgSlug: string): Promise<number> {
+  const admin = adminClient();
+  if (!admin) return 0;
+  const { data: org } = await admin.from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
+  return org ? (await loadPaymentsStatus(org.id)).rate : 0;
+}
 
 type PublicForm = {
   free_plan?: boolean;
@@ -57,6 +68,7 @@ export default async function PublicFormPage({ params }: { params: Promise<{ org
         closedMessage={closedMessage}
         rsvpTexts={rsvpTextsApproved()}
         freePlan={form.free_plan === true}
+        feeRate={form.config && formIsPaid(model) ? await feeRateFor(orgSlug) : 0}
       />
     </div>
   );
