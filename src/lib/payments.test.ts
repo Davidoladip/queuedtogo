@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import type Stripe from "stripe";
 import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
+vi.mock("@/server/messaging", () => ({ dispatchQueued: vi.fn(async () => ({})) }));
 import { PLATFORM_FEE_RATE, feePercentLabel, platformFeeCents, requirementLabel } from "@/lib/payments";
 import { openToken, sealToken } from "@/server/payments/secrets";
 import { stripeAccountState, syncStripeAccount } from "@/server/payments/stripe-connect";

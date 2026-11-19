@@ -21,6 +21,8 @@ async function feeRateFor(orgSlug: string): Promise<number> {
 
 type PublicForm = {
   free_plan?: boolean;
+  /** Paid forms: tickets left per limited ticket type. */
+  tickets_left?: Record<string, number> | null;
   form_id: string; org_name: string; org_slug: string; status: "live" | "closed"; version: number | null; config: Record<string, unknown> | null; title?: string;
   /** RSVP forms only: replies closed (deadline passed) or the event is full with no waitlist. */
   rsvp?: { closed: boolean; full: boolean } | null;
@@ -44,8 +46,9 @@ export async function generateMetadata({ params }: { params: Promise<{ orgSlug: 
 }
 
 /** Public order form. Renders only the published snapshot, never the draft. */
-export default async function PublicFormPage({ params }: { params: Promise<{ orgSlug: string; formSlug: string }> }) {
+export default async function PublicFormPage({ params, searchParams }: { params: Promise<{ orgSlug: string; formSlug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { orgSlug, formSlug } = await params;
+  const sp = await searchParams;
   const form = await load(orgSlug, formSlug);
   if (!form) notFound();
   // A closed form has no config in the response; show its heading from a minimal model.
@@ -69,6 +72,8 @@ export default async function PublicFormPage({ params }: { params: Promise<{ org
         rsvpTexts={rsvpTextsApproved()}
         freePlan={form.free_plan === true}
         feeRate={form.config && formIsPaid(model) ? await feeRateFor(orgSlug) : 0}
+        ticketsLeft={form.tickets_left ?? null}
+        checkoutCanceled={sp.checkout === "canceled"}
       />
     </div>
   );

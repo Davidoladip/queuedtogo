@@ -68,13 +68,16 @@ type Props = {
   onSubmitOrder?: (fd: FormData) => Promise<OrderResult>;
   /** Paid forms: the business's platform fee rate, for the fee line in the running total. */
   feeRate?: number;
+  /** Paid forms: tickets left per limited ticket type (by type id). */
+  ticketsLeft?: Record<string, number> | null;
 };
 
 /** What a guest sees after replying to an RSVP form. */
 export type RsvpDone = { status: RsvpStatus; waitlisted: boolean; party: number; name: string | null; manageUrl: string | null; googleUrl: string | null; icsUrl: string | null };
 export type OrderResult =
-  | { ok: true; number: number; trackingUrl: string; rsvp?: undefined }
-  | { ok: true; rsvp: RsvpDone }
+  | { ok: true; number: number; trackingUrl: string; rsvp?: undefined; redirect?: undefined }
+  | { ok: true; redirect: string; rsvp?: undefined }
+  | { ok: true; rsvp: RsvpDone; redirect?: undefined }
   | { ok: false; message: string; errors?: Record<string, string> };
 type Done = { number: number; trackingUrl: string } | { rsvp: RsvpDone };
 
@@ -92,10 +95,11 @@ const PHONE = (v: string) => {
 };
 const isLocked = (f: FormField) => LOCKABLE.has(f.type) && f.config.locked === true;
 
-export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp, rsvpTexts, showCover, showEnvelope, openSignal, onOpenPlayed, feeRate = 0 }: Props) {
+export function FormRenderer({ form, assetBase, mode, businessName, selected, onSelect, forced, onInsertArtwork, onResizeArt, showThanks, closedMessage, version, onSubmitOrder, previewRsvp, rsvpTexts, showCover, showEnvelope, openSignal, onOpenPlayed, feeRate = 0, ticketsLeft }: Props) {
   const E = mode === "edit";
   const paid = formIsPaid(form);
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const isRsvp = form.settings.mode === "rsvp";
   const t = form.design.theme;
   const art = srcOf(form.design.art, assetBase);
@@ -248,7 +252,15 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
     setNotice(null);
     try {
       const res = await onSubmitOrder(new FormData(formRef.current!));
-      if (res.ok) { setDone(res.rsvp ? { rsvp: res.rsvp } : { number: res.number, trackingUrl: res.trackingUrl }); window.scrollTo?.({ top: 0, behavior: "smooth" }); return; }
+      if (res.ok && "redirect" in res && res.redirect) {
+        // On to Stripe's or Square's secure payment page (the tickets are held meanwhile).
+        setLeaving(true);
+        if (/^https:\/\//.test(res.redirect) || res.redirect.startsWith("/")) window.location.assign(res.redirect);
+        return;
+      }
+      if (res.ok && "number" in res) { setDone({ number: res.number, trackingUrl: res.trackingUrl }); window.scrollTo?.({ top: 0, behavior: "smooth" }); return; }
+      if (res.ok && res.rsvp) { setDone({ rsvp: res.rsvp }); window.scrollTo?.({ top: 0, behavior: "smooth" }); return; }
+      if (res.ok) return;
       setNotice(res.message);
       if (res.errors && Object.keys(res.errors).length) {
         setErrors(res.errors);
@@ -448,12 +460,12 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
                   {notice && <div className="qf-closed" role="status">{notice}</div>}
                   <div className="qf-nav">
                     {i > 0 && prevBtn(i)}
-                    <button type="submit" className={`qf-btn qf-submit${fs("__submit", "button")}`} data-sid="__submit" data-kind="button" tabIndex={ti} disabled={blocked(i) || sending}>{sending ? "Sending…" : form.submitLabel || "Submit"}</button>
+                    <button type="submit" className={`qf-btn qf-submit${fs("__submit", "button")}`} data-sid="__submit" data-kind="button" tabIndex={ti} disabled={blocked(i) || sending || leaving}>{leaving ? "Taking you to secure payment…" : sending ? (paid ? "Holding your tickets…" : "Sending…") : form.submitLabel || "Submit"}</button>
                   </div>
                 </>
               ), last, f.id);
             }
-            const content = <Block f={f} editing={E} error={errors[f.id] ?? (E && forced?.state === "error" && fs(f.id, "input") ? "Please answer this question." : undefined)} fs={fs} art={artProps} />;
+            const content = <Block f={f} left={ticketsLeft} editing={E} error={errors[f.id] ?? (E && forced?.state === "error" && fs(f.id, "input") ? "Please answer this question." : undefined)} fs={fs} art={artProps} />;
             if (!E && f.type === "image" && !srcOf(merge(IMG_DEFAULT, f.config.img).src, assetBase)) return null;
             return blk(idx, content, last, f.id);
           })}
@@ -582,7 +594,7 @@ function Swatches({ sid, s, name, label, editing, fs }: { sid: string; s: Swatch
   );
 }
 
-function Block({ f: raw, editing, error, fs, art }: { f: FormField; editing: boolean; error?: string; fs: (sid: string, kind: string) => string; art: ArtCtx }) {
+function Block({ f: raw, editing, error, fs, art, left }: { f: FormField; editing: boolean; error?: string; fs: (sid: string, kind: string) => string; art: ArtCtx; left?: Record<string, number> | null }) {
   // Keep each option's original index, so per-option artwork, swatches and styles stay attached.
   const opts = raw.options.map((o, i) => ({ o: o.trim(), i })).filter((x) => x.o);
   const f = raw;
@@ -672,19 +684,24 @@ function Block({ f: raw, editing, error, fs, art }: { f: FormField; editing: boo
           {opts.map(({ o, i }) => {
             const t = f.config.tickets?.[i];
             if (!t) return null;
-            const ended = !editing && salesEnded(t);
+            const remaining = left && t.id in left ? left[t.id] : null;
+            const soldOut = !editing && remaining === 0;
+            const ended = (!editing && salesEnded(t)) || soldOut;
+            const max = remaining != null && !editing ? Math.min(maxPerOrder(t), remaining) : maxPerOrder(t);
             const qid = `q-${f.id}-t${i}`;
             return (
               <div key={i} className={`qf-tt${ended ? " ended" : ""}`}>
                 <label className="qf-tt-name" htmlFor={qid}>
                   <span>{o}</span>
                   <span className="qf-tt-price">{t.price > 0 ? money(t.price) : "Free"}</span>
-                  {ended ? <span className="qf-tt-note">Sales have ended</span>
+                  {soldOut ? <span className="qf-tt-note qf-tt-out">Sold out</span>
+                    : ended ? <span className="qf-tt-note">Sales have ended</span>
+                    : remaining != null && remaining <= 20 ? <span className="qf-tt-note">{remaining} left</span>
                     : t.ends ? <span className="qf-tt-note">Sales end {new Date(t.ends).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span> : null}
                 </label>
                 {/* Every type keeps its box (read-only once sales end), so the answers line up with the types on the server. */}
                 <span className="qf-tt-q">
-                  <input className="qf-in" id={qid} type="number" name={f.id} min={0} max={maxPerOrder(t)} step={1} inputMode="numeric" placeholder="0"
+                  <input className="qf-in" id={qid} type="number" name={f.id} min={0} max={max} step={1} inputMode="numeric" placeholder="0"
                     readOnly={ended} aria-label={`${o}: number of tickets`} tabIndex={ended ? -1 : ti} {...(ended ? { defaultValue: "0" } : {})} />
                 </span>
               </div>

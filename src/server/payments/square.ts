@@ -1,4 +1,5 @@
 import "server-only";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { adminClient } from "@/lib/supabase/admin";
 import { openToken, sealToken } from "@/server/payments/secrets";
 
@@ -37,7 +38,7 @@ export function squareAuthorizeUrl(state: string): string | null {
 
 type TokenResponse = { access_token?: string; refresh_token?: string; expires_at?: string; merchant_id?: string; message?: string; errors?: { detail?: string }[] };
 
-async function squareFetch<T>(path: string, init: RequestInit & { token?: string } = {}, fetchImpl: typeof fetch = fetch): Promise<{ ok: boolean; status: number; json: T }> {
+export async function squareFetch<T>(path: string, init: RequestInit & { token?: string } = {}, fetchImpl: typeof fetch = fetch): Promise<{ ok: boolean; status: number; json: T }> {
   const c = squareConfig();
   if (!c) throw new Error("Square isn't set up");
   const res = await fetchImpl(`${c.base}${path}`, {
@@ -127,4 +128,12 @@ export async function squareRevoke(admin: Admin, orgId: string, merchantId: stri
     body: JSON.stringify({ client_id: c.id, merchant_id: merchantId }),
   }).catch(() => undefined);
   await admin.from("payment_secrets").delete().eq("org_id", orgId);
+}
+
+/** Square signs each notification with HMAC-SHA256 over the notification URL plus the raw body (base64). */
+export function squareSignatureOk(body: string, signature: string | null, url: string, key: string): boolean {
+  if (!signature || !key) return false;
+  const want = Buffer.from(createHmac("sha256", key).update(url + body).digest("base64"));
+  const got = Buffer.from(signature);
+  return got.length === want.length && timingSafeEqual(got, want);
 }

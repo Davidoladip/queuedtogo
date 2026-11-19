@@ -46,11 +46,14 @@ with sync_playwright() as p:
     # A tampered total or price sent with the form has no effect on what's charged.
     pg.evaluate("""() => { const f = document.querySelector('form.qf-form');
       for (const [n, v] of [['__total', '1'], ['price', '0']]) { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; f.appendChild(i); } }""")
-    pg.get_by_role("button", name="Continue to payment").click(); pg.wait_for_selector(".qf-done")
-    q = pg.evaluate("() => window.__lastOrder.quote")
+    pg.get_by_role("button", name="Continue to payment").click()
+    pg.wait_for_url("**/dev/stop?checkout=13056", timeout=10000)
+    check("a paid order goes on to the payment page for the server's total", "checkout=13056" in pg.url, pg.url)
+    last = pg.evaluate("() => JSON.parse(sessionStorage.getItem('qtg:lastOrder'))")
+    q = last["quote"]
     check("the server prices the order the same as the screen, to the cent", q["subtotal"] == 12800 and q["fee"] == 256 and q["total"] == 13056, q)
     check("tickets are counted by type id", [l.get("ticket") for l in q["lines"] if l.get("ticket")] == ["tt_general01", "tt_vip000001"], q["lines"])
-    ans = pg.evaluate("() => window.__lastOrder.answers")
+    ans = last["answers"]
     check("the answers record what was bought", ans["a1f0c3d2-1111-4a1a-8a1a-000000000003"]["value"] == {"General admission": 2, "VIP": 1}, ans)
 
     pg.goto(f"{BASE}/dev/form?sample=paid&fee=business"); pg.wait_for_selector(".qf-tickets")
@@ -65,6 +68,12 @@ with sync_playwright() as p:
 
     pg.goto(f"{BASE}/dev/form"); pg.wait_for_selector(".qf-form")
     check("forms without prices show no total", pg.locator(".qf-total").count() == 0)
+
+    pg.goto(f"{BASE}/dev/form?sample=paid&left=low"); pg.wait_for_selector(".qf-tickets")
+    rows = pg.locator(".qf-tt")
+    check("a nearly sold-out type shows how many are left", "3 left" in rows.nth(0).inner_text(), rows.nth(0).inner_text())
+    check("the box allows no more than are left", rows.nth(0).locator("input").get_attribute("max") == "3")
+    check("a sold-out type says so and can't be bought", "Sold out" in rows.nth(1).inner_text() and rows.nth(1).locator("input").get_attribute("readonly") is not None)
 
     # ------------------------------------------------------------ the builder
     pg.goto(f"{BASE}/dev/builder"); pg.wait_for_selector(".b-rows")
@@ -108,6 +117,7 @@ with sync_playwright() as p:
     check("Settings has a Payments section with the fee on this plan", "2% of each sale" in pay and "Booking fee" in pay, pay)
     check("it warns the form can't be published yet", "Get paid" in pay)
     pg.get_by_label("Refund policy shown before payment").select_option("until")
+    check("no RSVP warning on an order form", "RSVP forms can't take payments" not in pg.locator("#payments").inner_text())
     pg.get_by_label("Days before the event").fill("3")
     pg.wait_for_timeout(150)
     check("the refund policy wording follows the choice", "until 3 days before the event" in pg.locator("#payments").inner_text())

@@ -137,6 +137,7 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
             <NumberInput label="Days before the event" value={form.settings.pay.refundDays} min={1} max={90} onChange={(v) => update((d) => { d.settings.pay.refundDays = v; }, { coalesce: "rdays" })} />
           )}
           <p className="muted b-note">Buyers see: “{refundText(form.settings.pay)}”</p>
+          {isRsvp && <span className="b-warn" role="alert">RSVP forms can&apos;t take payments. Make this an order form (Form type, above) to sell tickets or items.</span>}
           {!payments.ready && <span className="b-warn" role="alert">This form can be published once your payment account is approved on the <a href={`/w/${orgSlug}/payments`}>Get paid</a> page.</span>}
         </section>
       )}

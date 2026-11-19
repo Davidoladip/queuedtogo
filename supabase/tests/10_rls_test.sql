@@ -806,6 +806,83 @@ select tests.fails($$insert into public.form_fields (form_id, org_id, type, labe
 delete from public.form_fields where form_id = tests.id('formA') and type = 'tickets';
 delete from public.payment_accounts; update public.org_billing set payments_allowed = false;
 
+-- ---------------------------------------------------------------- Stage 10: checkout, holds and payment confirmation
+insert into public.payment_accounts (org_id, provider, account_id, status, charges_enabled) values (tests.id('orgA'), 'stripe', 'acct_TESTC789', 'active', true);
+update public.org_billing set payments_allowed = true where org_id = tests.id('orgA');
+select tests.login('alice');
+with x as (insert into public.forms (org_id, title, slug) values (tests.id('orgA'), 'Gala', 'gala-tix') returning id) insert into tests.ids select 'formT', id from x;
+insert into public.form_fields (org_id, form_id, position, type, label, options, config) values
+  (tests.id('orgA'), tests.id('formT'), 0, 'tickets', 'Tickets', '["General", "VIP"]',
+   '{"tickets": [{"id": "tt_general1", "price": 2500, "qty": 3}, {"id": "tt_vip000001", "price": 6000}]}'),
+  (tests.id('orgA'), tests.id('formT'), 1, 'submit', '', '[]', '{}');
+select public.publish_form(tests.id('formT'));
+update public.forms set status = 'live' where id = tests.id('formT');
+reset role;
+create function tests.checkout(p_id uuid, p_lines jsonb, p_sub integer, p_fee integer, p_total integer, p_key text default null, p_account_form text default 'formT')
+returns jsonb language sql as $$
+  select public.start_checkout(p_id, tests.id(p_account_form), (select published_version from public.forms where id = tests.id(p_account_form)), '{}'::jsonb,
+    '{"name": "Ada", "email": "ada@example.com", "channel": "email"}'::jsonb, false, 'Gala · Ada', 'Paid $51.50', '[]'::jsonb, null, null, p_key,
+    p_lines, p_sub, p_fee, p_total, 'guest', 31);
+$$;
+insert into tests.ids values ('po1', gen_random_uuid()), ('po2', gen_random_uuid()), ('po3', gen_random_uuid()), ('po4', gen_random_uuid());
+
+select tests.anon();
+select tests.fails($$select public.start_checkout(gen_random_uuid(), gen_random_uuid(), 1, '{}', '{}', false, 'x', null, '[]', null, null, null, '[]', 0, 0, 0, 'guest', 30)$$, 'visitors cannot start a checkout directly');
+reset role;
+select tests.login('alice');
+select tests.fails($$select public.confirm_paid_order(gen_random_uuid(), 100, 'usd', 'acct_x', 'pi_x')$$, 'signed-in users cannot confirm a payment');
+select tests.fails($$select public.tickets_left(gen_random_uuid())$$, 'ticket counts are read through the public form, not directly');
+reset role;
+
+select tests.ok((tests.checkout(tests.id('po1'), '[{"ticket": "tt_general1", "qty": 2, "unit": 2500, "amount": 5000}]', 5000, 150, 5150, 'key-po1-aaaaaaaaaaaa') ->> 'status') = 'pending', 'a checkout holds the tickets as a pending paid order');
+select tests.ok((select provider = 'stripe' and account_id = 'acct_TESTC789' and hold_expires_at between now() + interval '30 minutes' and now() + interval '32 minutes'
+  from public.paid_orders where id = tests.id('po1')), 'it is on the business''s own account, held for about 30 minutes');
+select tests.ok(public.tickets_left(tests.id('formT')) = '{"tt_general1": 1}', 'held tickets count as taken');
+select tests.ok((public.get_public_form((select slug from public.organizations where id = tests.id('orgA')), 'gala-tix') -> 'tickets_left') = '{"tt_general1": 1}', 'the public form shows how many are left');
+select tests.fails($$select tests.checkout(tests.id('po2'), '[{"ticket": "tt_general1", "qty": 2, "unit": 2500, "amount": 5000}]', 5000, 150, 5150)$$, 'no overselling: a second buyer can''t take held tickets');
+select tests.fails($$select tests.checkout(tests.id('po2'), '[{"ticket": "tt_vip000001", "qty": 1, "unit": 6000, "amount": 6000}]', 6000, 120, 1)$$, 'a total that doesn''t add up is refused');
+select tests.fails($$select tests.checkout(tests.id('po2'), '[{"ticket": "tt_vip000001", "qty": 1, "unit": 6000, "amount": 1}]', 1, 0, 1)$$, 'a line whose amount isn''t price × quantity is refused');
+select tests.fails($$select tests.checkout(tests.id('po2'), '[{"ticket": "tt_vip000001", "qty": 1.5, "unit": 6000, "amount": 9000}]', 9000, 0, 9000)$$, 'fractional quantities are refused');
+select tests.ok((tests.checkout(tests.id('po2'), '[{"ticket": "tt_general1", "qty": 2, "unit": 2500, "amount": 5000}]', 5000, 150, 5150, 'key-po1-aaaaaaaaaaaa') ->> 'repeat')::boolean
+  and (select count(*) from public.paid_orders) = 1, 'a double tap returns the open checkout instead of holding more tickets');
+
+update public.paid_orders set hold_expires_at = now() - interval '1 minute' where id = tests.id('po1');
+select tests.ok(public.tickets_left(tests.id('formT')) = '{"tt_general1": 3}', 'a lapsed hold releases the tickets');
+select tests.ok((tests.checkout(tests.id('po2'), '[{"ticket": "tt_general1", "qty": 3, "unit": 2500, "amount": 7500}]', 7500, 225, 7725) ->> 'status') = 'pending', 'someone else can then buy them');
+select tests.ok((public.confirm_paid_order(tests.id('po1'), 5150, 'usd', 'acct_TESTC789', 'pi_late') ->> 'status') = 'refund', 'a payment that arrives after its tickets were resold must be refunded');
+select tests.ok((select status from public.paid_orders where id = tests.id('po1')) = 'refund_due', 'and the order is marked for a full refund');
+select tests.ok((public.confirm_paid_order(tests.id('po2'), 7725, 'usd', 'acct_EVIL', 'pi_evil') ->> 'status') = 'review', 'a payment on another account is flagged for review');
+select tests.ok(not exists (select 1 from public.form_submissions where id = tests.id('po2')), 'a payment on another account does not confirm the order');
+select tests.ok((tests.checkout(tests.id('po3'), '[{"ticket": "tt_vip000001", "qty": 1, "unit": 6000, "amount": 6000}]', 6000, 120, 6120) ->> 'status') = 'pending', 'unlimited ticket types sell without a cap');
+select tests.ok((public.confirm_paid_order(tests.id('po3'), 6000, 'usd', 'acct_TESTC789', 'pi_short') ->> 'status') = 'review', 'a payment for less than the total does not confirm the order');
+select tests.ok((tests.checkout(tests.id('po4'), '[{"ticket": "tt_vip000001", "qty": 2, "unit": 6000, "amount": 12000}]', 12000, 240, 12240) ->> 'status') = 'pending', 'another checkout');
+insert into tests.vals values ('c1', public.confirm_paid_order(tests.id('po4'), 12240, 'USD', 'acct_TESTC789', 'pi_good')::text);
+select tests.ok((tests.val('c1')::jsonb ->> 'status') = 'paid' and (tests.val('c1')::jsonb ->> 'number') is not null, 'a matching payment confirms the order and gives it an order number');
+select tests.ok(exists (select 1 from public.jobs j join public.form_submissions s on s.id = j.submission_id
+  where s.id = tests.id('po4') and j.form_id = tests.id('formT') and j.summary like 'Paid%'), 'it becomes a real order on the production board, marked Paid');
+select tests.ok((select status = 'paid' and paid_at is not null and payment_ref = 'pi_good' and submission_id = tests.id('po4') from public.paid_orders where id = tests.id('po4')), 'the paid order records the payment');
+select tests.ok((select c.email from public.customers c join public.form_submissions s on s.customer_id = c.id where s.id = tests.id('po4')) = 'ada@example.com', 'the buyer is saved as a customer');
+select tests.ok((public.confirm_paid_order(tests.id('po4'), 12240, 'usd', 'acct_TESTC789', 'pi_good') ->> 'repeat')::boolean, 'confirming the same payment again is recognised as a repeat');
+select tests.ok((select count(*) from public.jobs where submission_id = tests.id('po4')) = 1, 'the same payment confirmed twice makes one order');
+
+select tests.login('alice');
+select tests.ok((select count(*) from public.paid_orders) = 4, 'members see their business''s paid orders');
+select tests.fails($$update public.paid_orders set status = 'paid', total_cents = 1 where id = tests.id('po2')$$, 'members cannot mark an order paid or change its amount');
+select tests.fails($$insert into public.paid_orders (org_id, form_id, form_version, provider, account_id, subtotal_cents, fee_cents, total_cents, fee_payer, lines, answers, title, hold_expires_at)
+  values (tests.id('orgA'), tests.id('formT'), 1, 'stripe', 'acct_x', 0, 0, 0, 'guest', '[{}]', '{}', 'x', now())$$, 'members cannot create paid orders');
+update public.forms set settings = jsonb_set(settings, '{mode}', '"rsvp"') where id = tests.id('formT');
+select tests.fails($$select public.publish_form(tests.id('formT'))$$, 'an RSVP form with tickets cannot be published');
+update public.forms set settings = jsonb_set(settings, '{mode}', '"order"') where id = tests.id('formT');
+select tests.login('bob');
+select tests.ok((select count(*) from public.paid_orders) = 0, 'other businesses cannot see the paid orders');
+reset role;
+update public.forms set status = 'closed' where id = tests.id('formT');
+select tests.fails($$select tests.checkout(gen_random_uuid(), '[{"ticket": "tt_vip000001", "qty": 1, "unit": 6000, "amount": 6000}]', 6000, 120, 6120)$$, 'a closed form takes no new checkouts');
+update public.payment_accounts set status = 'restricted', charges_enabled = false where org_id = tests.id('orgA');
+update public.forms set status = 'live' where id = tests.id('formT');
+select tests.fails($$select tests.checkout(gen_random_uuid(), '[{"ticket": "tt_vip000001", "qty": 1, "unit": 6000, "amount": 6000}]', 6000, 120, 6120)$$, 'no checkouts once the payment account is restricted');
+delete from public.payment_accounts; update public.org_billing set payments_allowed = false;
+
 -- ---------------------------------------------------------------- deleting a business (with a job in it)
 select tests.login('bob');
 select tests.affects($$delete from public.organizations where id = tests.id('orgB')$$, 1, 'an owner can delete their business');

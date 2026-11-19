@@ -6,7 +6,12 @@ import { after } from "next/server";
 import { adminClient } from "@/lib/supabase/admin";
 import { formFromPublished } from "@/lib/design/fromDb";
 import { UPLOAD_TYPES, checkSubmission, sniffMatches } from "@/lib/submission";
-import { formIsPaid } from "@/lib/pricing";
+import { formIsPaid, money, quoteLines } from "@/lib/pricing";
+import { HOLD_MINUTES } from "@/lib/payments";
+import { loadPaymentsStatus } from "@/lib/payments-data";
+import { stripeClient } from "@/server/billing";
+import { createSquareCheckout, createStripeCheckout, type CheckoutResult } from "@/server/payments/checkout";
+import { applyPayment, loadOrder, removeOrderFiles } from "@/server/payments/settle";
 import { siteUrl } from "@/lib/urls";
 import type { Json } from "@/types/database";
 import { dispatchQueued } from "@/server/messaging";
@@ -16,14 +21,16 @@ import { eventTimes, googleCalendarUrl, type RsvpStatus } from "@/lib/rsvp";
 import type { RsvpDone } from "@/components/form/FormRenderer";
 
 export type SubmitResult =
-  | { ok: true; number: number; trackingUrl: string; rsvp?: undefined }
-  | { ok: true; rsvp: RsvpDone }
+  | { ok: true; number: number; trackingUrl: string; rsvp?: undefined; redirect?: undefined }
+  | { ok: true; redirect: string; rsvp?: undefined }
+  | { ok: true; rsvp: RsvpDone; redirect?: undefined }
   | { ok: false; message: string; errors?: Record<string, string> };
 
 const SLUG = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/;
 const OFF = "Online ordering isn't switched on for this form yet. Please check back soon.";
 const MAX_TOTAL = 25 * 1024 * 1024;
-const PAID_SOON = "Online payment for this form opens soon. Please check back shortly.";
+const PAY_OFF = "This business isn't taking payments right now. Please try again later.";
+const PAY_FAILED = "We couldn't start the secure payment. Nothing was charged. Please try again in a moment.";
 
 /** Receives a public form submission: checks it against the published form, stores files, creates the order. */
 export async function submitOrder(orgSlug: string, formSlug: string, fd: FormData): Promise<SubmitResult> {
@@ -48,8 +55,6 @@ export async function submitOrder(orgSlug: string, formSlug: string, fd: FormDat
   const model = formFromPublished(form.id, form.slug, form.published_config as Record<string, unknown>);
   const checked = checkSubmission(model, fd);
   if (!checked.ok) return { ok: false, message: checked.message, errors: checked.errors };
-  // Forms with prices or tickets are paid through checkout, never saved here as unpaid orders.
-  if (formIsPaid(model)) return { ok: false, message: PAID_SOON };
   const total = checked.uploads.reduce((n, u) => n + u.file.size, 0);
   if (total > MAX_TOTAL) return { ok: false, message: "Your files add up to more than 25 MB. Use smaller files." };
 
@@ -81,6 +86,81 @@ export async function submitOrder(orgSlug: string, formSlug: string, fd: FormDat
     const a = answers[u.fieldId];
     const v = a?.value;
     if (a && v && typeof v === "object" && !Array.isArray(v) && "file" in v) a.value = { file: String(v.file), size: Number(v.size), type: String(v.type), path };
+  }
+
+  // Forms with prices or tickets go through checkout: never saved as unpaid orders.
+  if (formIsPaid(model)) {
+    const pay = await loadPaymentsStatus(form.org_id);
+    if (!pay.ready) { await removeFiles(admin, stored); return { ok: false, message: PAY_OFF }; }
+    // Priced again here from the published form; nothing the browser sent about prices or totals is used.
+    const quote = quoteLines(checked.lines, pay.rate, model.settings.pay.feePayer);
+    const orderId = randomUUID();
+    const { data: started, error: sErr } = await admin.rpc("start_checkout", {
+      p_order: orderId,
+      p_form: form.id,
+      p_version: form.published_version,
+      p_answers: answers as unknown as Json,
+      p_customer: checked.customer as unknown as Json,
+      p_consent: checked.consent,
+      p_title: checked.title,
+      p_summary: `Paid ${money(quote.total, true)}${checked.summary ? ` · ${checked.summary}` : ""}`.slice(0, 500),
+      p_files: stored as unknown as Json,
+      p_ip_hash: ipHash as string,
+      p_user_agent: (h.get("user-agent") ?? "").slice(0, 400),
+      p_client_key: /^[A-Za-z0-9_-]{16,80}$/.test(clientKey) ? clientKey : (null as unknown as string),
+      p_lines: quote.lines as unknown as Json,
+      p_subtotal: quote.subtotal,
+      p_fee: quote.fee,
+      p_total: quote.total,
+      p_fee_payer: quote.feePayer,
+      // A minute longer than the 30 minutes shown, because Stripe's checkout can't expire sooner than 30 minutes.
+      p_hold_minutes: HOLD_MINUTES + 1,
+    });
+    if (sErr) {
+      await removeFiles(admin, stored);
+      const shown = ["QTG01", "QTG02", "QTG03", "QTG30", "QTG31"].includes(sErr.code ?? "");
+      if (!shown) console.error("start_checkout", sErr.code, sErr.message);
+      return { ok: false, message: shown ? (sErr.code === "QTG01" ? "This form isn't taking orders right now." : sErr.message) : PAY_FAILED };
+    }
+    const st = started as { order_id: string; status: string; checkout_url: string | null; repeat: boolean; provider?: string; account_id?: string; location_id?: string | null; hold_expires_at?: string };
+    const site = await siteUrl();
+    const returnUrl = `${site}/pay/${st.order_id}`;
+    if (st.repeat) {
+      // A double tap: send the buyer to the checkout that's already open (or to their finished order).
+      if (stored.length) await removeFiles(admin, stored);
+      if (st.status === "paid" || !st.checkout_url) return { ok: true, redirect: returnUrl };
+      return { ok: true, redirect: st.checkout_url };
+    }
+    const order = await loadOrder(admin, st.order_id);
+    if (!order) return { ok: false, message: PAY_FAILED };
+    // Free tickets: nothing to pay, so the order is confirmed straight away (tickets still counted against the limits).
+    if (st.provider === "none") {
+      const done = await applyPayment(admin, order, { amount: 0, currency: "usd", account: order.account_id, paymentRef: null });
+      return done.status === "paid" ? { ok: true, number: done.number, trackingUrl: `${site}/t/${done.trackingToken}` } : { ok: false, message: PAY_FAILED };
+    }
+    const co = {
+      id: order.id, orgId: form.org_id, accountId: st.account_id!, locationId: st.location_id ?? null, lines: quote.lines,
+      feeCents: quote.fee, feePayer: quote.feePayer, totalCents: quote.total, holdExpiresAt: st.hold_expires_at!,
+      email: checked.customer.email, title: model.title,
+    };
+    let res: CheckoutResult;
+    try {
+      if (st.provider === "stripe") {
+        const stripe = stripeClient();
+        if (!stripe) throw new Error("Stripe isn't connected");
+        res = await createStripeCheckout(stripe, co, { success: returnUrl, cancel: `${returnUrl}/cancel` });
+      } else {
+        res = await createSquareCheckout(admin, co, returnUrl);
+      }
+    } catch (e) {
+      console.error("checkout", st.provider, e instanceof Error ? e.message : e);
+      // Release the hold at once so the tickets go back on sale.
+      await admin.from("paid_orders").update({ status: "canceled" }).eq("id", order.id).eq("status", "pending");
+      await removeOrderFiles(admin, order);
+      return { ok: false, message: PAY_FAILED };
+    }
+    await admin.from("paid_orders").update({ checkout_id: res.checkoutId, checkout_url: res.url, payment_ref: res.paymentRef }).eq("id", order.id);
+    return { ok: true, redirect: res.url };
   }
 
   if (model.settings.mode === "rsvp" && checked.rsvp) {

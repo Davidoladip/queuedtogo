@@ -18,7 +18,7 @@ export const config = {
   matcher: [
     // Everything except static files, images, and webhooks (and link prefetches, which don't render HTML).
     {
-      source: "/((?!_next/static|_next/image|favicon.ico|api/twilio/|api/cron/|api/stripe/|api/csp-report|api/auth/email|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+      source: "/((?!_next/static|_next/image|favicon.ico|api/twilio/|api/cron/|api/stripe/|api/payments/square/webhook|api/csp-report|api/auth/email|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
       missing: [{ type: "header", key: "next-router-prefetch" }, { type: "header", key: "purpose", value: "prefetch" }],
     },
   ],

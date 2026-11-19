@@ -7,9 +7,10 @@ import type { FormModel } from "@/lib/design/engine";
 import { submitOrder } from "@/server/actions/submit";
 
 /** The customer-facing form, sending orders through the server (never straight to the database). */
-export function PublicOrderForm({ form, orgSlug, formSlug, orgName, assetBase, version, orderingOn, closedMessage, rsvpTexts, freePlan, feeRate }: {
+export function PublicOrderForm({ form, orgSlug, formSlug, orgName, assetBase, version, orderingOn, closedMessage, rsvpTexts, freePlan, feeRate, ticketsLeft, checkoutCanceled }: {
   form: FormModel; orgSlug: string; formSlug: string; orgName: string; assetBase: string; version: number | undefined;
   orderingOn: boolean; closedMessage: string | null; rsvpTexts: boolean; freePlan: boolean; feeRate: number;
+  ticketsLeft: Record<string, number> | null; checkoutCanceled: boolean;
 }) {
   const bot = useRef<{ token: () => string; reset: () => void } | null>(null);
   const onReady = useCallback((api: { token: () => string; reset: () => void }) => { bot.current = api; }, []);
@@ -25,6 +26,7 @@ export function PublicOrderForm({ form, orgSlug, formSlug, orgName, assetBase, v
   const reportHref = `mailto:hello@threadtogo.com?subject=${encodeURIComponent(`Report a form: /f/${orgSlug}/${formSlug}`)}&body=${encodeURIComponent("Tell us what's wrong with this form:\n\n")}`;
   return (
     <>
+      {checkoutCanceled && <p className="pf-note" role="status">Payment canceled. Nothing was charged, and the tickets you picked were released.</p>}
       <FormRenderer
         form={form}
         assetBase={assetBase}
@@ -35,6 +37,7 @@ export function PublicOrderForm({ form, orgSlug, formSlug, orgName, assetBase, v
         version={version}
         onSubmitOrder={orderingOn ? send : undefined}
         feeRate={feeRate}
+        ticketsLeft={ticketsLeft}
       />
       {orderingOn && <div className="pf-bot"><BotCheck onReady={onReady} /></div>}
       {freePlan && (

@@ -748,6 +748,108 @@ export type Database = {
         }
         Relationships: []
       }
+      paid_orders: {
+        Row: {
+          id: string
+          org_id: string
+          form_id: string
+          form_version: number
+          status: string
+          provider: string
+          account_id: string
+          currency: string
+          subtotal_cents: number
+          fee_cents: number
+          total_cents: number
+          fee_payer: string
+          lines: Json
+          answers: Json
+          customer: Json
+          consent: boolean
+          title: string
+          summary: string | null
+          files: Json
+          source_ip_hash: string | null
+          user_agent: string | null
+          client_key: string | null
+          checkout_id: string | null
+          checkout_url: string | null
+          payment_ref: string | null
+          hold_expires_at: string
+          submission_id: string | null
+          paid_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          form_id: string
+          form_version: number
+          status?: string
+          provider: string
+          account_id: string
+          currency?: string
+          subtotal_cents: number
+          fee_cents: number
+          total_cents: number
+          fee_payer: string
+          lines: Json
+          answers: Json
+          customer?: Json
+          consent?: boolean
+          title: string
+          summary?: string | null
+          files?: Json
+          source_ip_hash?: string | null
+          user_agent?: string | null
+          client_key?: string | null
+          checkout_id?: string | null
+          checkout_url?: string | null
+          payment_ref?: string | null
+          hold_expires_at: string
+          submission_id?: string | null
+          paid_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          form_id?: string
+          form_version?: number
+          status?: string
+          provider?: string
+          account_id?: string
+          currency?: string
+          subtotal_cents?: number
+          fee_cents?: number
+          total_cents?: number
+          fee_payer?: string
+          lines?: Json
+          answers?: Json
+          customer?: Json
+          consent?: boolean
+          title?: string
+          summary?: string | null
+          files?: Json
+          source_ip_hash?: string | null
+          user_agent?: string | null
+          client_key?: string | null
+          checkout_id?: string | null
+          checkout_url?: string | null
+          payment_ref?: string | null
+          hold_expires_at?: string
+          submission_id?: string | null
+          paid_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "paid_orders_form_id_org_id_fkey"; columns: ["form_id", "org_id"]; isOneToOne: false; referencedRelation: "forms"; referencedColumns: ["id", "org_id"] },
+          { foreignKeyName: "paid_orders_org_id_fkey"; columns: ["org_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
+        ]
+      }
       payment_oauth_states: {
         Row: {
           expires_at: string
@@ -1119,6 +1221,16 @@ export type Database = {
       save_form_draft: { Args: { p_data: Json; p_fields: Json; p_form: string }; Returns: string };
       seed_default_stages: { Args: { p_org: string }; Returns: undefined };
       payments_ready: { Args: { p_org: string }; Returns: boolean };
+      start_checkout: {
+        Args: {
+          p_order: string; p_form: string; p_version: number; p_answers: Json; p_customer: Json; p_consent: boolean; p_title: string; p_summary: string;
+          p_files: Json; p_ip_hash: string; p_user_agent: string; p_client_key: string; p_lines: Json; p_subtotal: number; p_fee: number; p_total: number;
+          p_fee_payer: string; p_hold_minutes: number;
+        };
+        Returns: Json;
+      };
+      confirm_paid_order: { Args: { p_order: string; p_amount: number; p_currency: string; p_account: string; p_payment_ref: string }; Returns: Json };
+      tickets_left: { Args: { p_form: string }; Returns: Json };
       rate_limit_take: { Args: { p_key: string; p_max: number; p_window_seconds: number }; Returns: boolean };
       sensitive_field_label: { Args: { p_label: string }; Returns: boolean };
       storage_org_id: { Args: { p_name: string }; Returns: string };
