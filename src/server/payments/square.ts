@@ -8,7 +8,7 @@ type Admin = NonNullable<ReturnType<typeof adminClient>>;
 /**
  * Square: the business signs in to its own Square account (OAuth) and lets QueuedToGo take payments on its behalf
  * with an app fee. Square is the processor and the business is the seller; Square holds the money and handles
- * disputes. Set up with SQUARE_APPLICATION_ID, SQUARE_APPLICATION_SECRET and SQUARE_ENV (sandbox or production).
+ * disputes. Set up with SQUARE_APPLICATION_ID and SQUARE_APPLICATION_SECRET (sandbox or production, told apart by the id).
  */
 export const SQUARE_SCOPES = [
   "MERCHANT_PROFILE_READ", "PAYMENTS_READ", "PAYMENTS_WRITE", "PAYMENTS_WRITE_ADDITIONAL_RECIPIENTS",
@@ -18,8 +18,10 @@ export const SQUARE_SCOPES = [
 export function squareConfig() {
   const id = process.env.SQUARE_APPLICATION_ID?.trim() ?? "";
   const secret = process.env.SQUARE_APPLICATION_SECRET?.trim() ?? "";
-  const sandbox = (process.env.SQUARE_ENV ?? "sandbox") !== "production";
   if (!id || !secret) return null;
+  // Square's sandbox application ids start with "sandbox-"; production ids don't. The id decides, so a missing or
+  // mistyped SQUARE_ENV can't point live credentials at the sandbox (or the reverse).
+  const sandbox = id.startsWith("sandbox-");
   return { id, secret, sandbox, base: sandbox ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com" };
 }
 export const squareConnected = () => squareConfig() !== null;

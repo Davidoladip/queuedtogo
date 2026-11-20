@@ -82,7 +82,7 @@ describe("Stripe Checkout on the business's account", () => {
 describe("Square payment links", () => {
   afterEach(() => vi.unstubAllEnvs());
   const env = () => {
-    vi.stubEnv("SQUARE_APPLICATION_ID", "sandbox-sq0idb-TEST"); vi.stubEnv("SQUARE_APPLICATION_SECRET", "sandbox-sq0csb-SECRET"); vi.stubEnv("SQUARE_ENV", "sandbox");
+    vi.stubEnv("SQUARE_APPLICATION_ID", "sandbox-sq0idb-TEST"); vi.stubEnv("SQUARE_APPLICATION_SECRET", "sandbox-sq0csb-SECRET"); 
     vi.stubEnv("PAYMENT_TOKEN_KEY", randomBytes(32).toString("base64"));
   };
   const secrets = () => ({ payment_secrets: [{ org_id: "org1", access_token_enc: sealToken("EAAA-merchant"), refresh_token_enc: null, expires_at: "2099-01-01T00:00:00Z" }] });

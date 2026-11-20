@@ -122,7 +122,7 @@ describe("Connect webhooks", () => {
 
 describe("Square sign-in", () => {
   afterEach(() => vi.unstubAllEnvs());
-  const env = () => { vi.stubEnv("SQUARE_APPLICATION_ID", "sandbox-sq0idb-TEST"); vi.stubEnv("SQUARE_APPLICATION_SECRET", "sandbox-sq0csb-SECRET"); vi.stubEnv("SQUARE_ENV", "sandbox"); };
+  const env = () => { vi.stubEnv("SQUARE_APPLICATION_ID", "sandbox-sq0idb-TEST"); vi.stubEnv("SQUARE_APPLICATION_SECRET", "sandbox-sq0csb-SECRET");  };
   it("asks only for payment permissions, with a one-time state", () => {
     env();
     const u = new URL(squareAuthorizeUrl("STATE123")!);
