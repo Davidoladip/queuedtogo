@@ -44,8 +44,10 @@ async function squareProbe(base: string, id: string, secret: string) {
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
     });
-    const j = (await r.json().catch(() => ({}))) as { errors?: { code?: string; category?: string }[]; type?: string; message?: string };
-    return { status: r.status, codes: (j.errors ?? []).map((e) => `${e.category ?? ""}:${e.code ?? ""}`), type: j.type ?? null };
+    const j = (await r.json().catch(() => ({}))) as { errors?: { code?: string; category?: string; detail?: string }[]; type?: string; message?: string };
+    // Square's error wording names the problem ("code not found" vs "invalid client"); it never echoes credentials.
+    const words = (t: string | undefined) => (t ?? "").replace(/[A-Za-z0-9_-]{20,}/g, "…").slice(0, 160);
+    return { status: r.status, codes: (j.errors ?? []).map((e) => `${e.category ?? ""}:${e.code ?? ""}:${words(e.detail)}`), type: j.type ?? null, message: words(j.message) };
   } catch {
     return { status: 0, codes: ["unreachable"], type: null };
   }
@@ -74,6 +76,8 @@ export async function GET(req: Request) {
         webhookSignatureKey: !!process.env.SQUARE_WEBHOOK_SIGNATURE_KEY,
         tokenKey: (process.env.PAYMENT_TOKEN_KEY ?? "").length > 0,
         probe: await squareProbe(c.base, c.id, c.secret),
+        // The same request with a deliberately wrong secret: if Square answers differently, the real secret is accepted.
+        wrongSecretProbe: await squareProbe(c.base, c.id, "qtg-wrong-secret"),
         otherEnvironmentProbe: await squareProbe(c.sandbox ? "https://connect.squareup.com" : "https://connect.squareupsandbox.com", c.id, c.secret),
       }
     : null;
