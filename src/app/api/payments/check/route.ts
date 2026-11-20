@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
 function authorized(req: Request): boolean {
   const want = process.env.PAYMENTS_CHECK_TOKEN ?? "";
   if (want.length < 32) return false;
-  const got = Buffer.from(req.headers.get("x-check-token") ?? "");
+  // Header or ?token= (the token is temporary and removed after the check).
+  const got = Buffer.from(req.headers.get("x-check-token") ?? new URL(req.url).searchParams.get("token") ?? "");
   return got.length === want.length && timingSafeEqual(got, Buffer.from(want));
 }
 
