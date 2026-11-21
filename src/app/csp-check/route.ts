@@ -2,9 +2,13 @@ import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
-/** Temporary diagnostic: which proxy-set request headers reach the renderer (names only, no values). */
+/** Temporary diagnostic: shape of the proxy-set CSP request headers (directive names only). */
 export async function GET() {
   const h = await headers();
-  const names = [...h.keys()].filter((k) => /nonce|security-policy|middleware/i.test(k));
-  return Response.json({ xNonce: !!h.get("x-nonce"), csp: !!h.get("content-security-policy"), cspRO: !!h.get("content-security-policy-report-only"), names });
+  const shape = (v: string | null) => v && v.split(/[;,]/).map((d) => d.trim().split(/\s+/)[0]);
+  return Response.json({
+    csp: shape(h.get("content-security-policy")),
+    cspRO: shape(h.get("content-security-policy-report-only")),
+    hasNonceInCsp: /'nonce-/.test(h.get("content-security-policy") ?? ""),
+  });
 }
