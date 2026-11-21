@@ -7,6 +7,8 @@ import { safeNext, siteUrl } from "@/lib/urls";
 import { forgotSchema, resetSchema, signInSchema, signUpSchema } from "@/lib/validation/auth";
 import { fieldErrors, formValues, type FormState } from "@/lib/validation/form-state";
 import { BOT_MESSAGE, SLOW_DOWN, clientIp, passesBotCheck, takeRateLimit } from "@/server/abuse";
+import { env } from "@/lib/env";
+import { logSecurityEvent } from "@/server/security-log";
 
 export async function signIn(_prev: FormState, fd: FormData): Promise<FormState> {
   const values = formValues(fd, ["email"]);
@@ -19,7 +21,10 @@ export async function signIn(_prev: FormState, fd: FormData): Promise<FormState>
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { error: authErrorMessage(error), values };
+  if (error) {
+    await logSecurityEvent("auth.signin_failed", { ip, email: parsed.data.email, detail: error.code ?? "error" });
+    return { error: authErrorMessage(error), values };
+  }
 
   redirect(safeNext(fd.get("next")));
 }
@@ -113,4 +118,37 @@ export async function signOut(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login?signed_out=1");
+}
+
+/**
+ * "Continue with Google" (Google Identity Services): the browser hands over Google's signed ID token and the raw
+ * nonce; the server signs in with them, so the session cookie is set by the server and stays out of reach of
+ * page scripts (httpOnly).
+ */
+export async function googleSignIn(credential: string, rawNonce: string, next: string): Promise<{ ok: true; next: string } | { ok: false; error: string }> {
+  const failed = "Google sign-in didn't finish. Try again, or use your email below.";
+  if (typeof credential !== "string" || credential.length > 8192 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(credential)) return { ok: false, error: failed };
+  if (typeof rawNonce !== "string" || !/^[0-9a-f]{32,128}$/.test(rawNonce)) return { ok: false, error: failed };
+  const ip = await clientIp();
+  if (!(await takeRateLimit("google-ip", ip, 30, 600))) return { ok: false, error: SLOW_DOWN };
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithIdToken({ provider: "google", token: credential, nonce: rawNonce });
+  if (error) {
+    await logSecurityEvent("auth.google_failed", { ip, detail: error.message.slice(0, 120) });
+    return { ok: false, error: failed };
+  }
+  return { ok: true, next: safeNext(next) };
+}
+
+/** Google's redirect flow (used when Google Identity Services isn't configured): the server starts it and keeps the PKCE verifier in an httpOnly cookie. */
+export async function googleRedirectStart(next: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const ip = await clientIp();
+  if (!(await takeRateLimit("google-ip", ip, 30, 600))) return { ok: false, error: SLOW_DOWN };
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${await siteUrl()}/auth/confirm?next=${encodeURIComponent(safeNext(next))}`, queryParams: { prompt: "select_account" }, skipBrowserRedirect: true },
+  });
+  if (error || !data?.url || !data.url.startsWith(env.supabaseUrl.replace(/\/$/, "") + "/")) return { ok: false, error: "We couldn't reach Google. Try again, or use your email below." };
+  return { ok: true, url: data.url };
 }

@@ -66,7 +66,7 @@ with sync_playwright() as p:
     pg.goto(BASE + "/signup")
     pg.fill("#f-fullName", "Alice"); pg.fill("#f-email", "alice@example.com"); pg.fill("#f-password", "short")
     pg.get_by_role("button", name="Create account").click(); pg.wait_for_timeout(1500)
-    check("sign-up requires 8+ character passwords", "Use at least 8 characters" in pg.inner_text("main"))
+    check("sign-up requires 10+ character passwords", "Use at least 10 characters" in pg.inner_text("main"))
     check("invalid fields are marked for screen readers", pg.locator('#f-password[aria-invalid="true"]').count() == 1 and pg.locator("#f-password").get_attribute("aria-describedby") is not None)
     pg.screenshot(path=f"{SHOTS}/signup.png")
 

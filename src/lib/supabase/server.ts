@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/database";
 import { env } from "@/lib/env";
+import { SESSION_COOKIE_OPTIONS } from "@/lib/supabase/cookie-options";
 
 /**
  * Supabase client for Server Components, Server Actions and Route Handlers.
@@ -12,6 +13,7 @@ import { env } from "@/lib/env";
 export async function createClient() {
   const cookieStore = await cookies();
   return createServerClient<Database>(env.supabaseUrl, env.supabasePublishableKey, {
+    cookieOptions: SESSION_COOKIE_OPTIONS,
     cookies: {
       getAll() {
         return cookieStore.getAll();

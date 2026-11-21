@@ -8,8 +8,10 @@ export async function proxy(request: NextRequest) {
     framable: /^\/demo(\/|$)/.test(request.nextUrl.pathname),
   });
   const name = cspHeaderName();
-  // Next.js reads the nonce from the request's policy header and puts it on its own scripts.
-  const response = await updateSession(request, { "x-nonce": nonce, [name]: csp });
+  // Next.js reads the nonce from the request's policy header and puts it on its own scripts. The request always
+  // carries it as Content-Security-Policy (the name Next reads first; the report-only name alone was not reaching
+  // the renderer on Vercel, so pages went out without nonces); the browser gets the header named by CSP_ENFORCE.
+  const response = await updateSession(request, { "x-nonce": nonce, "content-security-policy": csp });
   response.headers.set(name, csp);
   return response;
 }

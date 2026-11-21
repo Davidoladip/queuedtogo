@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
+import { SESSION_COOKIE_OPTIONS } from "@/lib/supabase/cookie-options";
 
 /** Paths that need a signed-in user. Pages check again on the server; this only redirects early. */
 const PROTECTED = [/^\/w(\/|$)/, /^\/onboarding(\/|$)/, /^\/reset-password(\/|$)/];
@@ -19,6 +20,7 @@ export async function updateSession(request: NextRequest, extraRequestHeaders: R
   let response = NextResponse.next({ request: forward() });
 
   const supabase = createServerClient(env.supabaseUrl, env.supabasePublishableKey, {
+    cookieOptions: SESSION_COOKIE_OPTIONS,
     cookies: {
       getAll() {
         return request.cookies.getAll();

@@ -150,3 +150,22 @@ export async function getFormDesign(formId: string): Promise<{ ok: true; design:
   if (!data) return { ok: false, error: "That form no longer exists, or you no longer have access to it." };
   return { ok: true, design: data.design };
 }
+
+/**
+ * A one-time upload link for a form image, so the browser can upload without holding a session token.
+ * The path is chosen here (the business's own folder); storage rules check membership again, and the bucket
+ * itself only accepts PNG, JPEG and WebP images up to 10 MB.
+ */
+export async function formAssetUploadTicket(orgId: string, formId: string, ext: string): Promise<{ ok: true; path: string; token: string } | { ok: false; error: string }> {
+  await requireUser();
+  if (!idSchema.safeParse(orgId).success || !idSchema.safeParse(formId).success) return { ok: false, error: "That form isn't valid." };
+  const e = String(ext).toLowerCase();
+  if (!["png", "jpg", "jpeg", "webp"].includes(e)) return { ok: false, error: "That file type isn't allowed. Use a PNG, JPG or WebP image." };
+  const supabase = await createClient();
+  const { data: form } = await supabase.from("forms").select("id").eq("id", formId).eq("org_id", orgId).maybeSingle();
+  if (!form) return { ok: false, error: "That form no longer exists, or you no longer have access to it." };
+  const path = `${orgId}/forms/${formId}/${crypto.randomUUID()}.${e === "jpeg" ? "jpg" : e}`;
+  const { data, error } = await supabase.storage.from("form-assets").createSignedUploadUrl(path);
+  if (error || !data) return { ok: false, error: "The upload didn't go through. Check your connection and try again." };
+  return { ok: true, path: data.path, token: data.token };
+}

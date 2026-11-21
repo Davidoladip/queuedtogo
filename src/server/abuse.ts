@@ -28,6 +28,10 @@ export async function takeRateLimit(scope: string, value: string, max: number, w
     console.error("rate limit", scope, error.message);
     return true;
   }
+  if (data !== true && scope !== "csp-ip") {
+    const { logSecurityEvent } = await import("@/server/security-log");
+    await logSecurityEvent("rate_limit.hit", { detail: scope, ...(scope.endsWith("-email") ? { email: value } : { ip: value }) });
+  }
   return data === true;
 }
 
@@ -52,6 +56,10 @@ export async function passesBotCheck(fd: FormData, ip: string): Promise<boolean>
     });
     if (!res.ok) return true;
     const j = (await res.json()) as { success?: boolean };
+    if (j.success !== true) {
+      const { logSecurityEvent } = await import("@/server/security-log");
+      await logSecurityEvent("bot_check.failed", { ip });
+    }
     return j.success === true;
   } catch (e) {
     console.error("bot check unreachable", e instanceof Error ? e.message : e);

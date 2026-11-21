@@ -19,7 +19,7 @@ export function authErrorMessage(err: MaybeError, fallback = "Something went wro
     case "email_exists":
       return "An account with that email already exists. Sign in instead.";
     case "weak_password":
-      return "Choose a stronger password: at least 8 characters, mixing letters and numbers.";
+      return "Choose a stronger password: at least 10 characters that are hard to guess.";
     case "same_password":
       return "Choose a password you haven't used for this account.";
     case "over_email_send_rate_limit":

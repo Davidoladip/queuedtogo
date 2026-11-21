@@ -2,6 +2,7 @@ import { adminClient } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/urls";
 import { squareConfig, squareSignatureOk } from "@/server/payments/square";
 import { checkWithProvider, loadOrder } from "@/server/payments/settle";
+import { logSecurityEvent } from "@/server/security-log";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,10 @@ export async function POST(req: Request) {
   if (!key || !admin || !squareConfig()) return new Response("Square isn't connected.", { status: 503 });
   const body = await req.text();
   const url = `${await siteUrl()}/api/payments/square/webhook`;
-  if (!squareSignatureOk(body, req.headers.get("x-square-hmacsha256-signature"), url, key)) return new Response("Bad signature.", { status: 400 });
+  if (!squareSignatureOk(body, req.headers.get("x-square-hmacsha256-signature"), url, key)) {
+    await logSecurityEvent("webhook.bad_signature", { detail: "square" });
+    return new Response("Bad signature.", { status: 400 });
+  }
   let n: Notification;
   try { n = JSON.parse(body) as Notification; } catch { return new Response("Bad body.", { status: 400 }); }
   const p = n.data?.object?.payment;

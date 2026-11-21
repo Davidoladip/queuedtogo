@@ -883,6 +883,18 @@ update public.forms set status = 'live' where id = tests.id('formT');
 select tests.fails($$select tests.checkout(gen_random_uuid(), '[{"ticket": "tt_vip000001", "qty": 1, "unit": 6000, "amount": 6000}]', 6000, 120, 6120)$$, 'no checkouts once the payment account is restricted');
 delete from public.payment_accounts; update public.org_billing set payments_allowed = false;
 
+-- ---------------------------------------------------------------- security log is server-only
+insert into public.security_events (kind, ip_hash, detail) values ('rate_limit.hit', 'abcdef0123456789abcdef0123456789', 'signin-ip');
+select tests.anon();
+select tests.fails($$select count(*) from public.security_events$$, 'visitors cannot read the security log');
+select tests.fails($$insert into public.security_events (kind) values ('auth.signin_failed')$$, 'visitors cannot write to the security log');
+reset role;
+select tests.login('alice');
+select tests.fails($$select count(*) from public.security_events$$, 'business members cannot read the security log');
+select tests.fails($$delete from public.security_events$$, 'business members cannot erase the security log');
+reset role;
+select tests.fails($$insert into public.security_events (kind, ip_hash) values ('rate_limit.hit', '203.0.113.9')$$, 'raw IP addresses cannot be stored, only hashes');
+
 -- ---------------------------------------------------------------- deleting a business (with a job in it)
 select tests.login('bob');
 select tests.affects($$delete from public.organizations where id = tests.id('orgB')$$, 1, 'an owner can delete their business');

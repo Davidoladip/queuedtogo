@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { authEmail, emailConfig, isEmail, sendEmail, type AuthEmailKind } from "@/lib/email";
 import { safeNext } from "@/lib/urls";
+import { logSecurityEvent } from "@/server/security-log";
 
 /**
  * Supabase "Send Email" hook: Supabase Auth calls this instead of sending its own emails, so sign-up confirmations
@@ -33,7 +34,10 @@ const fail = (status: number, message: string) => NextResponse.json({ error: { h
 
 export async function POST(req: Request) {
   const body = await req.text();
-  if (body.length > 20_000 || !verify(body, req.headers)) return fail(401, "Bad signature");
+  if (body.length > 20_000 || !verify(body, req.headers)) {
+    await logSecurityEvent("webhook.bad_signature", { detail: "auth email hook" });
+    return fail(401, "Bad signature");
+  }
   let p: { user?: { email?: string }; email_data?: { token?: string; token_hash?: string; redirect_to?: string; email_action_type?: string } };
   try { p = JSON.parse(body); } catch { return fail(400, "Bad payload"); }
   const to = p.user?.email ?? "";

@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/payments-cleanup",
       "schedule": "43 7 * * *"
+    },
+    {
+      "path": "/api/cron/security-digest",
+      "schedule": "17 11 * * *"
     }
   ]
 }

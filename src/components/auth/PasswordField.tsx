@@ -16,7 +16,7 @@ export function PasswordField({ label, name, error, rule, id, ...input }: Props)
   const [shown, setShown] = useState(false);
   const [len, setLen] = useState(0);
   const ruleId = useId();
-  const ok = len >= 8;
+  const ok = len >= 10;
   const describedBy = [rule ? ruleId : null, error ? `${inputId}-err` : null].filter(Boolean).join(" ") || undefined;
   return (
     <div className="field">
@@ -28,7 +28,7 @@ export function PasswordField({ label, name, error, rule, id, ...input }: Props)
           {shown ? "Hide" : "Show"}<span className="sr-only"> password</span>
         </button>
       </div>
-      {rule && <small id={ruleId} className={`au-rule${ok ? " ok" : ""}`}>{ok ? "✓ " : ""}At least 8 characters</small>}
+      {rule && <small id={ruleId} className={`au-rule${ok ? " ok" : ""}`}>{ok ? "✓ " : ""}At least 10 characters</small>}
       {error && <span className="err" id={`${inputId}-err`}>{error}</span>}
     </div>
   );

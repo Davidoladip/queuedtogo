@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("@/server/security-log", () => ({ logSecurityEvent: async () => undefined }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 import { POST } from "@/app/api/auth/email/route";

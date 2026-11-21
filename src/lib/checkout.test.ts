@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 import type Stripe from "stripe";
 import { afterEach, describe, expect, it, vi } from "vitest";
+vi.mock("@/server/security-log", () => ({ logSecurityEvent: async () => undefined }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/server/messaging", () => ({ dispatchQueued: vi.fn(async () => ({})) }));
 import { createSquareCheckout, createStripeCheckout, squareOrderPaid, type CheckoutOrder } from "@/server/payments/checkout";

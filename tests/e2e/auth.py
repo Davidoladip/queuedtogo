@@ -39,7 +39,7 @@ with sync_playwright() as p:
 
     pg.goto(BASE + "/signup")
     rule = pg.locator(".au-rule")
-    check("password rule shown", rule.inner_text() == "At least 8 characters" and "ok" not in (rule.get_attribute("class") or ""))
+    check("password rule shown", rule.inner_text() == "At least 10 characters" and "ok" not in (rule.get_attribute("class") or ""))
     check("the rule is read out with the password field", rule.get_attribute("id") in (pg.locator("#f-password").get_attribute("aria-describedby") or ""))
     pg.fill("#f-password", "short")
     check("rule not met yet", "ok" not in (rule.get_attribute("class") or ""))

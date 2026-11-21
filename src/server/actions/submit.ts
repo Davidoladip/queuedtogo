@@ -12,6 +12,7 @@ import { loadPaymentsStatus } from "@/lib/payments-data";
 import { stripeClient } from "@/server/billing";
 import { createSquareCheckout, createStripeCheckout, type CheckoutResult } from "@/server/payments/checkout";
 import { applyPayment, loadOrder, removeOrderFiles } from "@/server/payments/settle";
+import { logSecurityEvent } from "@/server/security-log";
 import { siteUrl } from "@/lib/urls";
 import type { Json } from "@/types/database";
 import { dispatchQueued } from "@/server/messaging";
@@ -73,6 +74,7 @@ export async function submitOrder(orgSlug: string, formSlug: string, fd: FormDat
   for (const u of checked.uploads) {
     const buf = new Uint8Array(await u.file.arrayBuffer());
     if (!sniffMatches(u.file.type, buf.subarray(0, 16))) {
+      await logSecurityEvent("upload.rejected", { ip, orgId: form.org_id, detail: `content did not match ${u.file.type}` });
       await removeFiles(admin, stored);
       return { ok: false, message: "Check the highlighted answers.", errors: { [u.fieldId]: "That file doesn't look like a real PNG, JPG, WebP or PDF." } };
     }

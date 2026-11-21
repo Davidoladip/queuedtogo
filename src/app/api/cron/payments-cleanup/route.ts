@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { adminClient } from "@/lib/supabase/admin";
 import { squareAccessToken, squareFetch } from "@/server/payments/square";
 import { checkWithProvider, expireOrder, loadOrder } from "@/server/payments/settle";
+import { logSecurityEvent } from "@/server/security-log";
 
 // Daily (see vercel.json): closes checkouts that were never paid. Each is checked with Stripe or Square first, so a
 // payment whose webhook went missing still becomes an order; Square payment links are deleted so they can't be paid
@@ -18,7 +19,10 @@ function authorized(req: Request): boolean {
 }
 
 export async function GET(req: Request) {
-  if (!authorized(req)) return Response.json({ error: "Not allowed" }, { status: 401 });
+  if (!authorized(req)) {
+    await logSecurityEvent("cron.unauthorized", { detail: "payments-cleanup" });
+    return Response.json({ error: "Not allowed" }, { status: 401 });
+  }
   const admin = adminClient();
   if (!admin) return Response.json({ error: "Server not configured" }, { status: 503 });
   const cutoff = new Date(Date.now() - 2 * 3600_000).toISOString();

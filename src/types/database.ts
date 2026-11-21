@@ -850,6 +850,12 @@ export type Database = {
           { foreignKeyName: "paid_orders_org_id_fkey"; columns: ["org_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
         ]
       }
+      security_events: {
+        Row: { id: number; kind: string; ip_hash: string | null; email_hash: string | null; org_id: string | null; detail: string | null; created_at: string }
+        Insert: { id?: never; kind: string; ip_hash?: string | null; email_hash?: string | null; org_id?: string | null; detail?: string | null; created_at?: string }
+        Update: { kind?: string; ip_hash?: string | null; email_hash?: string | null; org_id?: string | null; detail?: string | null; created_at?: string }
+        Relationships: []
+      }
       payment_oauth_states: {
         Row: {
           expires_at: string

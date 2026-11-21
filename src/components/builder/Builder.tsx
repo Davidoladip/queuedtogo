@@ -8,7 +8,7 @@ import { IMG_DEFAULT, blankField, newId, normalizeDesign, type FormModel } from 
 import { processImage, type ProcessedImage } from "@/lib/design/image";
 import { createClient } from "@/lib/supabase/client";
 import { toDraftInput } from "@/lib/validation/form";
-import { getFormDesign, publishForm, saveDraft, setFormStatus, updateBrandColors } from "@/server/actions/forms";
+import { formAssetUploadTicket, getFormDesign, publishForm, saveDraft, setFormStatus, updateBrandColors } from "@/server/actions/forms";
 import type { PreviewState } from "./design/context";
 import { applyPath } from "./design/paths";
 import { QuestionsPanel } from "./QuestionsPanel";
@@ -116,10 +116,12 @@ export function Builder(props: BuilderProps) {
       if (!res.ok) throw new Error("The upload didn't go through.");
       return { path };
     }
-    const supabase = createClient();
-    const { error } = await supabase.storage.from("form-assets").upload(path, img.blob, { contentType: img.contentType, cacheControl: "31536000", upsert: false });
+    // The server hands out a one-time upload link; the browser holds no session token (session cookies are httpOnly).
+    const ticket = await formAssetUploadTicket(orgId, formId, img.ext);
+    if (!ticket.ok) throw new Error(ticket.error);
+    const { error } = await createClient().storage.from("form-assets").uploadToSignedUrl(ticket.path, ticket.token, img.blob, { contentType: img.contentType, cacheControl: "31536000", upsert: false });
     if (error) throw new Error(/mime|type/i.test(error.message) ? "That file type isn't allowed. Use a PNG, JPG or WebP image." : /size|large/i.test(error.message) ? "That image is too large. Images can be up to 10 MB." : "The upload didn't go through. Check your connection and try again.");
-    return { path };
+    return { path: ticket.path };
   }, [orgId, formId, props.demo, assetBase]);
 
   const setBrand = useCallback(async (colors: string[]): Promise<string | null> => {

@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import type { adminClient } from "@/lib/supabase/admin";
 import { stripeClient } from "@/server/billing";
 import { dispatchQueued } from "@/server/messaging";
+import { logSecurityEvent } from "@/server/security-log";
 import { squareOrderPaid, squareRefund, stripeCheckoutPaid, stripeRefund } from "@/server/payments/checkout";
 
 type Admin = NonNullable<ReturnType<typeof adminClient>>;
@@ -40,11 +41,12 @@ export async function applyPayment(admin: Admin, o: OrderRow, proof: { amount: n
     if (!r.repeat) await dispatchQueued({ orgId: o.org_id }).catch(() => undefined);
     return { status: "paid", number: r.number!, trackingToken: r.tracking_token!, repeat: !!r.repeat };
   }
+  if (r.status === "refund") await logSecurityEvent("payment.refund_due", { orgId: o.org_id, detail: o.id });
   if (r.status === "refund" && proof.paymentRef) {
     await refundInFull(admin, { ...o, payment_ref: proof.paymentRef }, stripe);
     return { status: "refunded" };
   }
-  if (r.status === "review") console.error("paid order needs review: amount, currency or account did not match", o.id);
+  if (r.status === "review") await logSecurityEvent("payment.review", { orgId: o.org_id, detail: `amount, currency or account did not match: ${o.id}` });
   return { status: r.status as Unsettled };
 }
 

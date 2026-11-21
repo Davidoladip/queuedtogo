@@ -5,12 +5,16 @@ import { adminClient } from "@/lib/supabase/admin";
 import { isE164, isStartWord, isStopWord } from "@/lib/sms";
 import { optBackIn, optOut } from "@/server/messaging";
 import { readTwilioWebhook } from "../webhook";
+import { logSecurityEvent } from "@/server/security-log";
 
 const EMPTY = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
 
 export async function POST(req: Request) {
   const p = await readTwilioWebhook(req, "/api/twilio/inbound");
-  if (!p) return new Response("Forbidden", { status: 403 });
+  if (!p) {
+    await logSecurityEvent("webhook.bad_signature", { detail: "twilio inbound" });
+    return new Response("Forbidden", { status: 403 });
+  }
   const admin = adminClient();
   const from = p.From ?? "";
   const body = p.Body ?? "";

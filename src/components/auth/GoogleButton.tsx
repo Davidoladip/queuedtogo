@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { googleRedirectStart, googleSignIn } from "@/server/actions/auth";
 
 /** Shown only once Google sign-in is set up in Supabase (NEXT_PUBLIC_GOOGLE_AUTH=on). */
 export const googleAuthOn = process.env.NEXT_PUBLIC_GOOGLE_AUTH === "on";
@@ -54,9 +54,9 @@ export function GoogleButton({ next, label = "Continue with Google" }: { next: s
           use_fedcm_for_button: true,
           callback: async ({ credential }: { credential: string }) => {
             setBusy(true); setError(null);
-            const { error: e } = await createClient().auth.signInWithIdToken({ provider: "google", token: credential, nonce: raw });
-            if (e) { setBusy(false); setError("Google sign-in didn't finish. Try again, or use your email below."); return; }
-            window.location.assign(next);
+            const r = await googleSignIn(credential, raw, next).catch(() => ({ ok: false as const, error: "Google sign-in didn't finish. Try again, or use your email below." }));
+            if (!r.ok) { setBusy(false); setError(r.error); return; }
+            window.location.assign(r.next);
           },
         });
         g.accounts.id.renderButton(slot.current, {
@@ -76,11 +76,9 @@ export function GoogleButton({ next, label = "Continue with Google" }: { next: s
   const redirect = async () => {
     setBusy(true);
     setError(null);
-    const { error: e } = await createClient().auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`, queryParams: { prompt: "select_account" } },
-    });
-    if (e) { setBusy(false); setError("We couldn't reach Google. Try again, or use your email below."); }
+    const r = await googleRedirectStart(next).catch(() => ({ ok: false as const, error: "We couldn't reach Google. Try again, or use your email below." }));
+    if (!r.ok) { setBusy(false); setError(r.error); return; }
+    window.location.assign(r.url);
   };
 
   return (

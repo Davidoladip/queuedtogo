@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import { adminClient } from "@/lib/supabase/admin";
 import { stripeClient } from "@/server/billing";
 import { handleConnectEvent } from "@/server/payments/connect-events";
+import { logSecurityEvent } from "@/server/security-log";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export async function POST(req: Request) {
   try {
     event = await stripe.webhooks.constructEventAsync(body, sig, secret);
   } catch {
+    await logSecurityEvent("webhook.bad_signature", { detail: "stripe connect" });
     return new Response("Bad signature.", { status: 400 });
   }
   try {

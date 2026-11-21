@@ -3,10 +3,14 @@ import { adminClient } from "@/lib/supabase/admin";
 import { STATUS_RANK, explainError, mapStatus } from "@/lib/sms";
 import { optOut } from "@/server/messaging";
 import { readTwilioWebhook } from "../webhook";
+import { logSecurityEvent } from "@/server/security-log";
 
 export async function POST(req: Request) {
   const p = await readTwilioWebhook(req, "/api/twilio/status");
-  if (!p) return new Response("Forbidden", { status: 403 });
+  if (!p) {
+    await logSecurityEvent("webhook.bad_signature", { detail: "twilio status" });
+    return new Response("Forbidden", { status: 403 });
+  }
   const admin = adminClient();
   const sid = p.MessageSid ?? p.SmsSid ?? "";
   const next = mapStatus(p.MessageStatus ?? p.SmsStatus ?? "");

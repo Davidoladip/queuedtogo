@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { adminClient } from "@/lib/supabase/admin";
 import { dispatchQueued } from "@/server/messaging";
+import { logSecurityEvent } from "@/server/security-log";
 
 // Daily (see vercel.json): queues and sends the day-before RSVP reminders (emails and texts), and sends
 // RSVP texts that were held back overnight.
@@ -17,7 +18,10 @@ function authorized(req: Request): boolean {
 }
 
 export async function GET(req: Request) {
-  if (!authorized(req)) return Response.json({ error: "Not allowed" }, { status: 401 });
+  if (!authorized(req)) {
+    await logSecurityEvent("cron.unauthorized", { detail: "rsvp-reminders" });
+    return Response.json({ error: "Not allowed" }, { status: 401 });
+  }
   const admin = adminClient();
   if (!admin) return Response.json({ error: "Server not configured" }, { status: 503 });
   const { data, error } = await admin.rpc("queue_rsvp_reminders");
