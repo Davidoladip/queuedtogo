@@ -17,10 +17,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      // Nothing can be framed, except the demo forms, which the homepage shows inside phone frames.
-      { source: "/:path((?!demo(?:/|$)).*)", headers: [{ key: "X-Frame-Options", value: "DENY" }, { key: "Content-Security-Policy", value: "frame-ancestors 'none'" }] },
-      { source: "/demo", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }, { key: "Content-Security-Policy", value: "frame-ancestors 'self'" }] },
-      { source: "/demo/:path*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }, { key: "Content-Security-Policy", value: "frame-ancestors 'self'" }] },
+      // Nothing can be framed, except the demo forms, which the homepage shows inside phone frames. The page policy
+      // (frame-ancestors) is set per request by the proxy: a static Content-Security-Policy here would replace it on
+      // Vercel, both the request header Next reads the nonce from and the policy the browser gets.
+      { source: "/:path((?!demo(?:/|$)).*)", headers: [{ key: "X-Frame-Options", value: "DENY" }] },
+      { source: "/demo", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
+      { source: "/demo/:path*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
     ];
   },
 };
