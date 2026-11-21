@@ -47,3 +47,5 @@
 .bl-yearly { margin: -4px 0 8px; font-size: 13px; color: var(--good); font-weight: 500; }
 .bl-current-act { display: flex; gap: 8px; flex-wrap: wrap; }
 .bl-due { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; width: 100%; }
+
+.bl-renew { color: var(--text, inherit); background: var(--soft, #F4F4F5); border-radius: 10px; padding: 10px 12px; }

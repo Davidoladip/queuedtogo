@@ -4,8 +4,7 @@ import { normalizeDesign } from "./design/engine";
 import { checkSubmission } from "./submission";
 import {
   DEFAULT_MAX_PER_ORDER, MAX_PER_ORDER_CAP, formIsPaid, maxPerOrder, money, normalizePay, normalizePrices, normalizeTickets,
-  parsePrice, priceInput, quoteForm, quoteLines, refundText,
-} from "./pricing";
+  parsePrice, priceInput, quoteForm, quoteLines, refundText, shownPrice, unitFee } from "./pricing";
 import { feeRate } from "./payments";
 
 /** FormData-like test double that keeps repeated keys in order. */
@@ -84,6 +83,13 @@ describe("quotes", () => {
     const form = formOf([name, tickets], { pay: { feePayer: "business" } });
     const q = quoteForm(form, fd([["tix", "1"], ["tix", "0"], ["tix", "0"]]), 0.03);
     expect(q).toMatchObject({ subtotal: 2500, fee: 75, total: 2500, feePayer: "business" });
+  });
+  it("charges a fee that adds up exactly to the all-in prices shown on the form", () => {
+    const lines = [{ fieldId: "a", option: 0, name: "x", unit: 1999, qty: 3, amount: 5997 }, { fieldId: "b", option: 0, name: "y", unit: 1250, qty: 1, amount: 1250 }];
+    const q = quoteLines(lines, 0.03, "guest");
+    expect(q.total).toBe(shownPrice(1999, 0.03, "guest") * 3 + shownPrice(1250, 0.03, "guest"));
+    expect(shownPrice(1999, 0.03, "business")).toBe(1999);
+    expect(unitFee(1999, 0)).toBe(0);
   });
   it("rounds the fee to the nearest cent and charges none on free orders or for comped businesses", () => {
     expect(quoteLines([{ fieldId: "a", option: 0, name: "x", unit: 1999, qty: 1, amount: 1999 }], 0.005, "guest").fee).toBe(10);

@@ -11,7 +11,7 @@ export function LegalPage({ title, updated, children }: { title: string; updated
         {children}
       </article>
       <p className="muted" style={{ fontSize: 13, marginTop: 14 }}>
-        <Link href="/terms">Texting terms</Link> · <Link href="/privacy">Privacy policy</Link>
+        <Link href="/terms-of-service">Terms of Service</Link> · <Link href="/privacy">Privacy policy</Link> · <Link href="/terms">Texting terms</Link>
       </p>
     </div>
   );

@@ -172,3 +172,9 @@ dl.answers dd { margin: 0; overflow-wrap: anywhere; }
 .demo-bar a:focus-visible { outline: 2px solid #FFD84D; outline-offset: 2px; }
 .bot-check:empty { display: none; }
 .bot-check { margin: 4px 0; min-height: 0; }
+
+/* Terms of Service acceptance prompt (workspace) */
+.terms-prompt { background: #FFF7E0; border-bottom: 1px solid #F0DFA8; }
+.terms-prompt-in { display: flex; gap: 12px 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding-block: 10px; }
+.terms-prompt p { margin: 0; font-size: 14px; line-height: 1.45; flex: 1 1 420px; }
+.terms-prompt-act { display: flex; gap: 8px; }

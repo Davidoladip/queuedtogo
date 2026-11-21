@@ -38,7 +38,7 @@ export async function createStripeCheckout(stripe: Stripe, o: CheckoutOrder, url
     price_data: { currency: "usd", unit_amount: l.unit, product_data: { name: lineName(l) } },
   }));
   if (o.feePayer === "guest" && o.feeCents > 0) {
-    items.push({ quantity: 1, price_data: { currency: "usd", unit_amount: o.feeCents, product_data: { name: "Booking fee" } } });
+    items.push({ quantity: 1, price_data: { currency: "usd", unit_amount: o.feeCents, product_data: { name: "Online booking fee (QueuedToGo)" } } });
   }
   const s = await stripe.checkout.sessions.create(
     {
@@ -91,7 +91,7 @@ export async function createSquareCheckout(admin: Admin, o: CheckoutOrder, redir
   const line_items = o.lines.filter((l) => l.unit > 0).map((l) => ({
     name: lineName(l), quantity: String(l.qty), base_price_money: { amount: l.unit, currency: "USD" },
   }));
-  if (o.feePayer === "guest" && o.feeCents > 0) line_items.push({ name: "Booking fee", quantity: "1", base_price_money: { amount: o.feeCents, currency: "USD" } });
+  if (o.feePayer === "guest" && o.feeCents > 0) line_items.push({ name: "Online booking fee (QueuedToGo)", quantity: "1", base_price_money: { amount: o.feeCents, currency: "USD" } });
   const r = await squareFetch<SquareLink>("/v2/online-checkout/payment-links", {
     method: "POST",
     token,

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { canManage, requireWorkspace } from "@/lib/auth";
 import { adminClient } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/urls";
-import { KEEPS_PLAN, PASSES, PASS_ORDER, PLANS, TRIAL_DAYS, type Interval, type PaidPlan, type PassTier } from "@/lib/plans";
+import { KEEPS_PLAN, PASSES, PASS_ORDER, PLANS, TRIAL_DAYS, renewalDisclosure, type Interval, type PaidPlan, type PassTier } from "@/lib/plans";
 import { checkoutTaxOptions, ensurePrice, markPassPaid, stripeClient, syncSubscription } from "@/server/billing";
 
 export type BillingResult = { ok: true; url?: string; message?: string } | { ok: false; error: string };
@@ -79,6 +79,8 @@ export async function choosePlan(orgSlug: string, plan: PaidPlan, interval: Inte
         ...(s.billing.had_trial ? {} : { trial_period_days: TRIAL_DAYS }),
       },
       ...checkoutTaxOptions(),
+      // The renewal terms, right above Stripe's Subscribe button.
+      custom_text: { submit: { message: renewalDisclosure(p.data, iv.data, !s.billing.had_trial, new Date(Date.now() + TRIAL_DAYS * 86_400_000)) } },
       success_url: `${base}?checkout={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}?checkout=cancelled`,
     });
@@ -200,6 +202,7 @@ export async function buyEventPass(orgSlug: string, formId: string, tier: PassTi
       metadata: meta,
       ...checkoutTaxOptions(),
       payment_intent_data: { metadata: meta, description: `Event pass (${pass.name}) for "${form.title}"`.slice(0, 200) },
+      custom_text: { submit: { message: "A one-time payment for this invitation. It does not renew. By paying you agree to the QueuedToGo Terms of Service (queuedtogo.com/terms-of-service)." } },
       success_url: `${base}?checkout={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}?checkout=cancelled`,
     });

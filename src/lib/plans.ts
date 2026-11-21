@@ -89,3 +89,16 @@ export function usage(used: number, max: number | null): { text: string; ratio: 
   if (max === null) return { text: `${used.toLocaleString("en-US")} (no limit)`, ratio: null };
   return { text: `${used.toLocaleString("en-US")} of ${max.toLocaleString("en-US")}`, ratio: max === 0 ? 1 : Math.min(used / max, 1) };
 }
+
+/**
+ * The automatic-renewal terms, stated next to the button that starts a plan (and on Stripe's checkout page), as
+ * ROSCA and state auto-renewal laws (e.g. California's) require: price, how often, when charging starts, and how to cancel.
+ */
+export function renewalDisclosure(plan: PaidPlan, interval: Interval, withTrial: boolean, trialEnds?: Date): string {
+  const price = `$${planPrice(plan, interval).toLocaleString("en-US")}`;
+  const every = interval === "year" ? "year" : "month";
+  const start = withTrial
+    ? `Your ${TRIAL_DAYS}-day free trial starts today. Unless you cancel before it ends${trialEnds ? ` on ${trialEnds.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}` : ""}, your card will be charged ${price} (plus any tax) automatically when it ends`
+    : `Your card will be charged ${price} (plus any tax) today`;
+  return `${start}, and again every ${every} until you cancel. The ${PLANS[plan].name} plan renews automatically. Cancel any time in Billing > Manage billing; you keep the plan until the end of the period you paid for. By subscribing you agree to the QueuedToGo Terms of Service (queuedtogo.com/terms-of-service).`;
+}

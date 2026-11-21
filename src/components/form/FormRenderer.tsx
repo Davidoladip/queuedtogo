@@ -24,7 +24,7 @@ import {
 } from "@/lib/design/engine";
 import { googleFontsUrls } from "@/lib/design/fonts";
 import { DEFAULT_THANKS, fillMessage, type ArtSettings, type SwatchSettings } from "@/lib/design/media";
-import { formIsPaid, maxPerOrder, money, optionPrice, quoteForm, refundText, salesEnded, type Quote } from "@/lib/pricing";
+import { formIsPaid, maxPerOrder, money, optionPrice, quoteForm, refundText, salesEnded, shownPrice, unitFee, type Quote } from "@/lib/pricing";
 import { DEFAULT_RSVP_THANKS, RSVP_KEYS, guestsText, rsvpHeadline, whenText, type RsvpStatus } from "@/lib/rsvp";
 
 type Mode = "edit" | "live";
@@ -362,9 +362,10 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
   const coverPage = <section className={coverCls} aria-label={fillMessage(cover.heading, coverVars)}>{coverInner}</section>;
   const envSeal = env.seal === "emblem" && caSrc ? <img src={srcOf(ca!.src, assetBase)!} alt="" />
     : env.seal === "plain" ? null : <span>{env.initials || initialsOf(form.title)}</span>;
+  const envSealText = env.seal === "emblem" && caSrc ? "" : env.seal === "plain" ? "" : env.initials || initialsOf(form.title);
   const envFrontFont = fontStack(String(computed(form, { sid: "__ctitle", kind: "heading", name: "", title: true, cover: true }).font), form);
   const envelope = envShown && (
-    <Envelope label={fillMessage(cover.heading, coverVars)} stage={E && play !== "env" ? "sealed" : envStage} env={env} seal={envSeal} frontFont={envFrontFont} editing={E}
+    <Envelope label={fillMessage(cover.heading, coverVars)} stage={E && play !== "env" ? "sealed" : envStage} env={env} seal={envSeal} sealText={envSealText} frontFont={envFrontFont} editing={E}
       onOpen={() => openEnvelope(() => requestAnimationFrame(() => document.querySelector<HTMLElement>(`.qf-wrap[data-qf="${form.id}"] .qf-cover-btn`)?.focus()))}>
       <div className="qf-env-card">{coverPage}</div>
     </Envelope>
@@ -456,7 +457,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
                   {askConsent && legalReady() && (
                     <p className="qf-legal">See the <a href="/terms" target="_blank" rel="noopener">texting terms</a> and <a href="/privacy" target="_blank" rel="noopener">privacy policy</a>.</p>
                   )}
-                  {paid && <TotalBox quote={quote} businessName={businessName} refund={refundText(form.settings.pay)} />}
+                  {paid && <TotalBox quote={quote} rate={feeRate} businessName={businessName} refund={refundText(form.settings.pay)} />}
                   {notice && <div className="qf-closed" role="status">{notice}</div>}
                   <div className="qf-nav">
                     {i > 0 && prevBtn(i)}
@@ -465,7 +466,7 @@ export function FormRenderer({ form, assetBase, mode, businessName, selected, on
                 </>
               ), last, f.id);
             }
-            const content = <Block f={f} left={ticketsLeft} editing={E} error={errors[f.id] ?? (E && forced?.state === "error" && fs(f.id, "input") ? "Please answer this question." : undefined)} fs={fs} art={artProps} />;
+            const content = <Block f={f} left={ticketsLeft} price={(unit) => money(shownPrice(unit, feeRate, form.settings.pay.feePayer))} editing={E} error={errors[f.id] ?? (E && forced?.state === "error" && fs(f.id, "input") ? "Please answer this question." : undefined)} fs={fs} art={artProps} />;
             if (!E && f.type === "image" && !srcOf(merge(IMG_DEFAULT, f.config.img).src, assetBase)) return null;
             return blk(idx, content, last, f.id);
           })}
@@ -594,7 +595,7 @@ function Swatches({ sid, s, name, label, editing, fs }: { sid: string; s: Swatch
   );
 }
 
-function Block({ f: raw, editing, error, fs, art, left }: { f: FormField; editing: boolean; error?: string; fs: (sid: string, kind: string) => string; art: ArtCtx; left?: Record<string, number> | null }) {
+function Block({ f: raw, editing, error, fs, art, left, price: showPrice = money }: { f: FormField; editing: boolean; error?: string; fs: (sid: string, kind: string) => string; art: ArtCtx; left?: Record<string, number> | null; /** Formats a unit price as shown to buyers (fee included when they pay it). */ price?: (unit: number) => string }) {
   // Keep each option's original index, so per-option artwork, swatches and styles stay attached.
   const opts = raw.options.map((o, i) => ({ o: o.trim(), i })).filter((x) => x.o);
   const f = raw;
@@ -647,7 +648,7 @@ function Block({ f: raw, editing, error, fs, art, left }: { f: FormField; editin
     }
     case "long": return wrap("input", <>{lab}{help}<textarea className="qf-in" placeholder={f.placeholder || undefined} {...common} /></>);
     case "dropdown":
-      return wrap("input", <>{lab}{help}<select className="qf-in" defaultValue="" {...common}><option value="">Choose…</option>{opts.map(({ o, i }) => <option key={i} value={o}>{optionPrice(f, i) > 0 ? `${o} · ${money(optionPrice(f, i))}` : o}</option>)}</select></>);
+      return wrap("input", <>{lab}{help}<select className="qf-in" defaultValue="" {...common}><option value="">Choose…</option>{opts.map(({ o, i }) => <option key={i} value={o}>{optionPrice(f, i) > 0 ? `${o} · ${showPrice(optionPrice(f, i))}` : o}</option>)}</select></>);
     case "choice": case "multi": {
       const ty = f.type === "choice" ? "radio" : "checkbox", list = f.config.display === "list";
       return wrap("choice", <>{glab}{help}
@@ -655,7 +656,7 @@ function Block({ f: raw, editing, error, fs, art, left }: { f: FormField; editin
           {opts.map(({ o, i }) => {
             const sid = `${f.id}__o${i}`, m = f.config.optMeta?.[i];
             const oArt = m?.art ? <ArtBlock sid={`${sid}__art`} a={m.art} alt={m.art.alt || o} {...art} /> : null;
-            const price = optionPrice(f, i) > 0 ? <span className="qf-price"> {money(optionPrice(f, i))}</span> : null;
+            const price = optionPrice(f, i) > 0 ? <span className="qf-price"> {showPrice(optionPrice(f, i))}</span> : null;
             const text = oArt ? <span className={`qf-opt-c ${m!.art!.pos}`}>{oArt}<span className="qf-opt-t">{o}{price}</span></span> : <>{o}{price}</>;
             const optLabel = (
               <label key={i} className={`${list ? "qf-li" : "qf-opt"}${fs(sid, "option")}`} data-sid={sid} data-kind="option">
@@ -676,7 +677,7 @@ function Block({ f: raw, editing, error, fs, art, left }: { f: FormField; editin
     case "sizes":
       return wrap("input", <>{glab}{help}
         <div className="qf-sizes" role="group" aria-labelledby={`ql-${f.id}`}>
-          {opts.map(({ o, i }) => <label key={i}>{o}{optionPrice(f, i) > 0 && <span className="qf-price"> {money(optionPrice(f, i))}</span>}<input className="qf-in" type="number" min={0} inputMode="numeric" name={f.id} data-size={o} placeholder="0" tabIndex={ti} /></label>)}
+          {opts.map(({ o, i }) => <label key={i}>{o}{optionPrice(f, i) > 0 && <span className="qf-price"> {showPrice(optionPrice(f, i))}</span>}<input className="qf-in" type="number" min={0} inputMode="numeric" name={f.id} data-size={o} placeholder="0" tabIndex={ti} /></label>)}
         </div></>);
     case "tickets":
       return wrap("input", <>{glab}{help}
@@ -693,7 +694,7 @@ function Block({ f: raw, editing, error, fs, art, left }: { f: FormField; editin
               <div key={i} className={`qf-tt${ended ? " ended" : ""}`}>
                 <label className="qf-tt-name" htmlFor={qid}>
                   <span>{o}</span>
-                  <span className="qf-tt-price">{t.price > 0 ? money(t.price) : "Free"}</span>
+                  <span className="qf-tt-price">{t.price > 0 ? showPrice(t.price) : "Free"}</span>
                   {soldOut ? <span className="qf-tt-note qf-tt-out">Sold out</span>
                     : ended ? <span className="qf-tt-note">Sales have ended</span>
                     : remaining != null && remaining <= 20 ? <span className="qf-tt-note">{remaining} left</span>
@@ -776,8 +777,8 @@ function Sparkles() {
  * A sealed envelope holding the invitation card. Tapping the seal lifts the flap, the card slides up
  * out of the envelope, and the envelope falls away; then the real cover card takes its place.
  */
-function Envelope({ label, stage, env, seal, frontFont, editing, onOpen, children }: {
-  label: string; stage: "sealed" | "opening" | "open"; env: EnvelopeSettings; seal: ReactNode; frontFont: string; editing: boolean; onOpen: () => void; children: ReactNode;
+function Envelope({ label, stage, env, seal, sealText, frontFont, editing, onOpen, children }: {
+  label: string; stage: "sealed" | "opening" | "open"; env: EnvelopeSettings; seal: ReactNode; sealText: string; frontFont: string; editing: boolean; onOpen: () => void; children: ReactNode;
 }) {
   const scene = useRef<HTMLDivElement>(null);
   const [vars, setVars] = useState<Record<string, string>>({});
@@ -801,7 +802,7 @@ function Envelope({ label, stage, env, seal, frontFont, editing, onOpen, childre
           {env.front && <div className="qf-env-addr" style={{ fontFamily: frontFont }}>{env.front}</div>}
         </div>
         <div className="qf-env-flap"><div className="qf-env-flap-out"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0 L50 100 L100 0" /></svg></div><div className="qf-env-flap-in" /></div>
-        <button type="button" className="qf-env-seal" onClick={editing ? undefined : onOpen} tabIndex={editing ? -1 : undefined} aria-label={env.prompt || "Open your invitation"} disabled={stage !== "sealed"}>
+        <button type="button" className="qf-env-seal" onClick={editing ? undefined : onOpen} tabIndex={editing ? -1 : undefined} aria-label={`${sealText ? `${sealText}: ` : ""}${env.prompt || "Open your invitation"}`} disabled={stage !== "sealed"}>
           <span className="qf-env-wax">{seal}</span>
         </button>
       </div>
@@ -810,20 +811,25 @@ function Envelope({ label, stage, env, seal, frontFont, editing, onOpen, childre
   );
 }
 
-/** The running total above the pay button: each priced line, the platform fee when the buyer pays it, and the total. */
-function TotalBox({ quote, businessName, refund }: { quote: Quote | null; businessName: string; refund: string }) {
+/**
+ * The running total above the pay button. When the buyer pays the booking fee, each line shows its all-in amount
+ * (matching the prices on the form), the fee is itemized underneath, and the total is the most prominent figure.
+ */
+function TotalBox({ quote, rate, businessName, refund }: { quote: Quote | null; rate: number; businessName: string; refund: string }) {
   const lines = quote?.lines.filter((l) => l.qty > 0) ?? [];
+  const guestFee = quote?.feePayer === "guest" ? quote.fee : 0;
+  const allIn = (l: Quote["lines"][number]) => l.amount + (quote?.feePayer === "guest" ? unitFee(l.unit, rate) * l.qty : 0);
   return (
     <div className="qf-total" aria-live="polite">
       {lines.length > 0 ? (
         <ul className="qf-total-lines">
           {lines.map((l, k) => (
-            <li key={k}><span>{l.name}{l.qty > 1 ? ` × ${l.qty}` : ""}</span><span>{l.amount > 0 ? money(l.amount, true) : "Free"}</span></li>
+            <li key={k}><span>{l.name}{l.qty > 1 ? ` × ${l.qty}` : ""}</span><span>{l.amount > 0 ? money(allIn(l), true) : "Free"}</span></li>
           ))}
-          {quote && quote.feePayer === "guest" && quote.fee > 0 && <li className="qf-total-fee"><span>Booking fee</span><span>{money(quote.fee, true)}</span></li>}
         </ul>
       ) : <p className="qf-help">Your total appears here as you choose.</p>}
       <div className="qf-total-sum"><span>Total</span><b>{money(quote?.total ?? 0, true)}</b></div>
+      {guestFee > 0 && <p className="qf-help qf-total-fee">Includes a {money(guestFee, true)} online booking fee charged by QueuedToGo for taking this order online.</p>}
       <p className="qf-help">Paid securely to {businessName}. {refund}</p>
     </div>
   );

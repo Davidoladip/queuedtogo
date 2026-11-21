@@ -127,7 +127,7 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
             onChange={(v) => update((d) => { d.settings.pay.feePayer = v; })} />
           <p className="muted b-pay-fee">
             {payments.rate > 0
-              ? <>The fee on your plan is {+(payments.rate * 100).toFixed(2)}% of each sale. {form.settings.pay.feePayer === "guest" ? "Buyers see it as a separate “Booking fee” line." : "Buyers pay the listed prices; the fee comes out of what you receive."}</>
+              ? <>The fee on your plan is {+(payments.rate * 100).toFixed(2)}% of each sale. {form.settings.pay.feePayer === "guest" ? "It is included in every price buyers see, and itemized at checkout, as the law requires for ticket sales." : "Buyers pay the listed prices; the fee comes out of what you receive."}</>
               : "Your business pays no QueuedToGo booking fee."}{" "}Card processing fees from Stripe or Square are taken from your payout as usual.
           </p>
           <Select<RefundPolicy> label="Refund policy shown before payment" value={form.settings.pay.refund}

@@ -4,7 +4,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/admin", () => ({ adminClient: () => null }));
 
 import {
-  explainError, isStartWord, isStopWord, mapStatus, renderSms, sendSms, smsSegments, twilioConfig, twilioSetupStatus,
+  explainError, isOptOutRequest, isStartWord, isStopWord, mapStatus, renderSms, sendSms, smsSegments, twilioConfig, twilioSetupStatus,
   twilioSignature, validTwilioSignature, type TwilioConfig,
 } from "./sms";
 import { dispatchQueued } from "@/server/messaging";
@@ -106,6 +106,11 @@ describe("webhooks", () => {
     expect(isStopWord("Unsubscribe.")).toBe(true);
     expect(isStopWord("please stop by later")).toBe(false);
     expect(isStartWord("START")).toBe(true);
+  });
+  it("treats stop requests in plain words as opt-outs (TCPA: any reasonable means)", () => {
+    for (const t of ["Please stop texting me", "STOP!!", "remove me from this list", "Don’t text me again", "no more messages", "wrong number", "opt-out", "leave me alone"])
+      expect(isOptOutRequest(t), t).toBe(true);
+    for (const t of ["Thanks! See you there", "Is my order ready?", "yes", "START"]) expect(isOptOutRequest(t), t).toBe(false);
   });
 });
 

@@ -4,7 +4,7 @@
 // enums whitelisted, colours parsed), so the design JSON can come from anywhere and still only
 // produce safe CSS. Images are referenced by storage path only, never by arbitrary URL.
 
-import { alphaMul, bestOn, cc, lum, mix, over, rgbOf, shade } from "./color";
+import { alphaMul, bestOn, cc, lum, mix, over, rgbOf, shade, readableOn } from "./color";
 import { FONT_CATALOG, FONT_GROUPS } from "./fonts";
 import { PRICEABLE, normalizePay, normalizePrices, normalizeTickets, type PaySettings, type TicketType } from "../pricing";
 import { PARTY_LIMIT, RSVP_DEFAULT_OPTIONS, RSVP_DEFAULT_PARTY_LABEL, normalizeRsvp, type RsvpSettings } from "../rsvp";
@@ -596,6 +596,8 @@ export function themeVars(t: Theme): Record<string, string> {
     "--p": cc(t.page) || "#2B2F4A", "--c": cc(t.card) || "#FFFFFF", "--t": cc(t.text) || "#1A1D2E", "--a": cc(t.accent) || "#3346D3",
     "--at": cc(t.accentText) || "#FFFFFF", "--r": `${RADII[t.radius] ?? 12}px`, "--hf": FONT_STACKS[f.head], "--bf": FONT_STACKS[f.body],
     "--pt": bestOn(over(t.page, "#FFFFFF")),
+    // The accent used as text on the card (prices): kept readable whatever accent the business picks.
+    "--ax": readableOn(cc(t.accent) || "#3346D3", over(cc(t.card) || "#FFFFFF", "#FFFFFF")),
   };
 }
 

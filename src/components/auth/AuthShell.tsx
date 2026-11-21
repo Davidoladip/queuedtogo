@@ -19,6 +19,7 @@ export function AuthShell({ panel, children, wide }: { panel?: PanelKind; childr
         <header className="au-top"><Logo /></header>
         <main id="main" className={`au-main${wide ? " au-wide" : ""}`}>{children}</main>
         <footer className="au-legal">
+          <Link href="/terms-of-service">Terms</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Texting terms</Link>
           <a href={`mailto:${LEGAL.contactEmail}`}>Help: {LEGAL.contactEmail}</a>

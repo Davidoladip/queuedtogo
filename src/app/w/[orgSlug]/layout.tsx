@@ -5,6 +5,8 @@ import { Logo } from "@/components/ui/Logo";
 import { SectionTabs } from "@/components/shell/SectionTabs";
 import { OrgSwitcher } from "@/components/shell/OrgSwitcher";
 import { UserMenu } from "@/components/shell/UserMenu";
+import { TermsPrompt } from "@/components/legal/TermsPrompt";
+import { hasAcceptedTerms } from "@/server/terms";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -14,6 +16,7 @@ export default async function WorkspaceLayout({ children, params }: { children: 
   const workspaces = await getMyWorkspaces();
   const supabase = await createClient();
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+  const termsOk = await hasAcceptedTerms(user.id);
 
   return (
     <>
@@ -27,6 +30,7 @@ export default async function WorkspaceLayout({ children, params }: { children: 
           </div>
         </div>
       </header>
+      {!termsOk && <TermsPrompt />}
       <main className="page wrap">{children}</main>
     </>
   );

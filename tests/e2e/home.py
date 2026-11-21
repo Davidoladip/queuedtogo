@@ -59,7 +59,7 @@ with sync_playwright() as p:
     first = pg.locator(".hm-faq details").first
     first.locator("summary").click()
     check("questions open", first.get_attribute("open") is not None and "browser" in first.inner_text())
-    check("contact and legal links in the footer", pg.locator('footer a[href="/terms"]').count() == 1 and pg.locator('footer a[href="/privacy"]').count() == 1
+    check("contact and legal links in the footer", pg.locator('footer a[href="/terms"]').count() == 1 and pg.locator('footer a[href="/terms-of-service"]').count() == 1 and pg.locator('footer a[href="/privacy"]').count() == 1
           and pg.locator('footer a[href="mailto:hello@threadtogo.com"]').count() == 1)
     pg.keyboard.press("Home"); pg.mouse.move(0, 0)
     pg.goto(BASE + "/"); pg.keyboard.press("Tab")
@@ -105,12 +105,24 @@ with sync_playwright() as p:
     hdr = pg.request.get(BASE + "/demonstration-not-a-demo").headers
     check("only the demo paths are framable", hdr.get("x-frame-options") == "DENY", hdr)
 
+    # Legal pages: Terms of Service with the clauses that matter, linked from the footer and the sitemap
+    pg.goto(BASE + "/terms-of-service")
+    tos = pg.locator("article").inner_text()
+    check("Terms of Service page states auto-renewal, cancellation, arbitration and the class waiver",
+          all(x in tos for x in ["renew automatically", "cancel online at any time", "binding individual arbitration", "No class actions", "Opting out", "Limitation of liability", "Copyright complaints"]), tos[:200])
+    check("Terms of Service names the operator and governing law", "ThreadToGo LLC" in tos and "laws of the State of Maryland" in tos)
+    pg.goto(BASE + "/privacy")
+    pv = pg.locator("article").inner_text()
+    check("privacy policy lists every provider that handles personal data", all(x in pv for x in ["Stripe", "Square", "Twilio", "Supabase", "Vercel", "Google", "Cloudflare"]), pv[:200])
+    check("privacy policy covers cookies, children and state privacy rights", all(x in pv for x in ["Cookies", "Children", "Appeal", "do not sell"]), pv[:200])
+    pg.goto(BASE + "/")
+
     # Search engines: robots.txt, sitemap, structured data, and private pages kept out of results
     import json as _json, re as _re
     txt = pg.request.get(BASE + "/robots.txt").text()
     check("robots.txt allows the site, blocks API routes and points to the sitemap", "Allow: /" in txt and "Disallow: /api/" in txt and "Sitemap: " in txt and "Disallow: /\n" not in txt, txt)
     sm = pg.request.get(BASE + "/sitemap.xml").text()
-    check("sitemap lists the public pages and no private ones", all(f"/{p}</loc>" in sm for p in ["", "signup", "privacy", "terms"]) and "/w/" not in sm and "/demo" not in sm, sm[:300])
+    check("sitemap lists the public pages and no private ones", all(f"/{p}</loc>" in sm for p in ["", "signup", "privacy", "terms", "terms-of-service"]) and "/w/" not in sm and "/demo" not in sm, sm[:300])
     home = pg.request.get(BASE + "/").text()
     m = _re.search(r'<script type="application/ld\+json"[^>]*>(.*?)</script>', home, _re.S)
     types = [g["@type"] for g in _json.loads(m.group(1))["@graph"]] if m else []

@@ -52,7 +52,7 @@
 .au-tk i { font-style: normal; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 99px; background: #E4E7EF; color: #3D4460; }
 .au-tk-making i { background: #E2E6FF; color: #3346D3; }
 .au-tk-ready { border-left: 5px solid #1D8657; }
-.au-tk-ready i { background: #DDF3E8; color: #1D8657; }
+.au-tk-ready i { background: #DDF3E8; color: #146B44; }
 .au-tk:nth-child(2) { margin-left: 28px; }
 .au-tk:nth-child(3) { margin-left: 56px; }
 .au-tk-key { grid-template-columns: auto 1fr; }
@@ -84,3 +84,7 @@
 .au-or::before, .au-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .au-gsi { display: grid; justify-items: center; min-height: 44px; }
 .au-gsi-slot { width: 100%; max-width: 400px; display: flex; justify-content: center; }
+
+/* Terms of Service agreement (onboarding) */
+.au-terms { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; font-weight: 400; cursor: pointer; }
+.au-terms input { width: 18px; height: 18px; margin-top: 2px; flex: none; accent-color: var(--accent, #3346D3); }

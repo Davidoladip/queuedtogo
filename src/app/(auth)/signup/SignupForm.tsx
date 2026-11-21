@@ -30,7 +30,7 @@ export function SignupForm({ next }: { next: string }) {
         <PasswordField label="Password" name="password" autoComplete="new-password" required minLength={8} rule error={state.fieldErrors?.password} />
         <BotCheck resetKey={state} />
         <SubmitButton className="btn primary block" pendingText="Creating your account…">Create account</SubmitButton>
-        <p className="au-small">We&apos;ll only email you about your account. See our <Link href="/privacy">privacy policy</Link>.</p>
+        <p className="au-small">By creating an account you agree to our <Link href="/terms-of-service">Terms of Service</Link> and confirm you have read our <Link href="/privacy">Privacy Policy</Link>. We&apos;ll only email you about your account.</p>
       </form>
       <p className="au-switch">Already have an account? <Link href={loginHref}>Sign in</Link></p>
     </>

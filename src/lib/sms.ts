@@ -136,6 +136,20 @@ const STOP_WORDS = new Set(["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "
 const START_WORDS = new Set(["START", "UNSTOP", "YES"]);
 const word = (body: string) => body.trim().toUpperCase().replace(/[^A-Z]/g, "");
 export const isStopWord = (body: string) => STOP_WORDS.has(word(body));
+
+/**
+ * Opt-outs in plain words ("please stop texting me", "remove me from this list"). The FCC's TCPA rules treat any
+ * reasonable request to stop as revoking consent, honoured within 10 business days; we honour it at once.
+ * Deliberately broad: wrongly stopping updates is harmless, wrongly sending them is not.
+ */
+const OPT_OUT_PHRASES = [
+  /\bstop\b/, /\bunsubscribe\b/, /\bopt\s*-?\s*out\b/, /\bremove me\b/, /\btake me off\b/,
+  /\b(do not|dont|don't|no more|quit|stop) (text|txt|messag|contact)/, /\bleave me alone\b/, /\bwrong number\b/,
+];
+export const isOptOutRequest = (body: string) => {
+  const t = body.toLowerCase().replace(/[’`]/g, "'").replace(/\s+/g, " ").trim();
+  return isStopWord(body) || (t.length <= 320 && OPT_OUT_PHRASES.some((re) => re.test(t)));
+};
 export const isStartWord = (body: string) => START_WORDS.has(word(body));
 
 export const isE164 = (v: string) => E164.test(v);

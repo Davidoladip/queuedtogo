@@ -1,5 +1,6 @@
 "use server";
 
+import { recordTermsAcceptance } from "@/server/terms";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -17,10 +18,12 @@ import { fieldErrors, formValues, type FormState } from "@/lib/validation/form-s
 import { z } from "zod";
 
 export async function createOrganization(_prev: FormState, fd: FormData): Promise<FormState> {
-  await requireUser("/onboarding");
+  const user = await requireUser("/onboarding");
   const values = formValues(fd, ["name", "slug"]);
   const parsed = createOrgSchema.safeParse({ name: fd.get("name"), slug: fd.get("slug") });
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error), values };
+  // Clickwrap: a business can only be created by someone who ticks the Terms box (checked here, not just in the browser).
+  if (fd.get("terms") !== "on") return { fieldErrors: { terms: "Tick the box to agree to the Terms of Service." }, values };
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("create_organization", { p_name: parsed.data.name, p_slug: parsed.data.slug });
@@ -28,7 +31,14 @@ export async function createOrganization(_prev: FormState, fd: FormData): Promis
     if (error.code === "23505") return { fieldErrors: { slug: "That address is taken. Try another." }, values };
     return { error: dbErrorMessage(error, "We couldn't create the business. Try again."), values };
   }
+  await recordTermsAcceptance(user.id, "onboarding", data.id ?? null);
   redirect(`/w/${data.slug}`);
+}
+
+/** Accepting new or updated Terms of Service from inside the app (people who signed up before they existed). */
+export async function acceptTerms(): Promise<{ ok: boolean }> {
+  const user = await requireUser();
+  return { ok: await recordTermsAcceptance(user.id, "update") };
 }
 
 export async function updateOrganization(_prev: FormState, fd: FormData): Promise<FormState> {

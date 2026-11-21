@@ -166,9 +166,19 @@ export function quoteForm(form: FormModel, fd: Fields, rate: number): Quote {
   return quoteLines(lines, rate, form.settings.pay.feePayer);
 }
 
+/** The booking fee on one unit, in cents. Rounded per unit so an advertised all-in price always adds up to the total. */
+export const unitFee = (unit: number, rate: number) => (unit > 0 && rate > 0 ? Math.round(unit * rate) : 0);
+
+/**
+ * The price to show for one item or ticket. When the buyer pays the booking fee it is included, as the FTC's fee
+ * rule (16 CFR 464, live-event tickets) and Maryland's all-in ticket pricing law require: no fee appears for the
+ * first time at checkout.
+ */
+export const shownPrice = (unit: number, rate: number, feePayer: FeePayer) => unit + (feePayer === "guest" ? unitFee(unit, rate) : 0);
+
 export function quoteLines(lines: Line[], rate: number, feePayer: FeePayer): Quote {
   const subtotal = lines.reduce((n, l) => n + l.amount, 0);
-  const fee = subtotal > 0 && rate > 0 ? Math.round(subtotal * rate) : 0;
+  const fee = lines.reduce((n, l) => n + unitFee(l.unit, rate) * l.qty, 0);
   return { lines, subtotal, fee, feePayer, total: subtotal + (feePayer === "guest" ? fee : 0), currency: "usd" };
 }
 

@@ -46,8 +46,8 @@ textarea.qf-in{resize:vertical}
 .qf-tt{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1.5px solid color-mix(in srgb,var(--t) 16%,transparent);border-radius:10px}
 .qf-tt.ended{opacity:.55}
 .qf-tt-name{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;font-weight:600}
-.qf-tt-price{font-weight:700;color:var(--a)}
-.qf-tt-note{flex-basis:100%;font-size:12.5px;font-weight:500;opacity:.75}
+.qf-tt-price{font-weight:700;color:var(--ax,var(--a))}
+.qf-tt-note{flex-basis:100%;font-size:12.5px;font-weight:500;color:color-mix(in srgb,var(--t) 82%,var(--c))}
 .qf-tt-out{font-weight:700;opacity:1}
 .qf-tt-q{width:80px;flex:none}
 .qf-tt-q .qf-in{text-align:center}

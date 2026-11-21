@@ -178,7 +178,16 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
             );
           })}
         </div>
-        {!view.comped && !view.hadTrial && <p className="muted bl-small">The {TRIAL_DAYS}-day free trial needs a card; you won&apos;t be charged until it ends, and you can cancel any time. Annual plans are charged for the year when the trial ends.</p>}
+        {!view.comped && !subscribed && (
+          <p className="bl-small bl-renew">
+            <b>Plans renew automatically.</b>{" "}
+            {view.hadTrial
+              ? <>You&apos;re charged the price shown for the period you choose ({periodName(period)}) when you subscribe, and again every {period === "year" ? "year" : "month"} until you cancel.</>
+              : <>The {TRIAL_DAYS}-day free trial needs a card. Unless you cancel before it ends, you&apos;re charged the price shown for the period you choose ({periodName(period)}) when it ends, and again every {period === "year" ? "year" : "month"} until you cancel.</>}{" "}
+            Cancel any time here in Billing (Manage billing); you keep the plan until the end of the period you paid for. Prices exclude any sales tax.
+            By starting a plan you agree to the <a href="/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>.
+          </p>
+        )}
         {subscribed && !view.comped && <p className="muted bl-small">Moving to annual charges the year now, less what&apos;s left of this month. Moving from annual to monthly starts when your year ends.</p>}
       </section>
 

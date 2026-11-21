@@ -895,6 +895,18 @@ select tests.fails($$delete from public.security_events$$, 'business members can
 reset role;
 select tests.fails($$insert into public.security_events (kind, ip_hash) values ('rate_limit.hit', '203.0.113.9')$$, 'raw IP addresses cannot be stored, only hashes');
 
+-- ---------------------------------------------------------------- terms acceptances: server-written, owner-readable
+insert into public.terms_acceptances (user_id, org_id, version, context) values (tests.id('alice'), tests.id('orgA'), '2026-11-21', 'onboarding');
+insert into public.terms_acceptances (user_id, version, context) values (tests.id('bob'), '2026-11-21', 'update');
+select tests.login('alice');
+select tests.ok((select count(*) from public.terms_acceptances) = 1, 'people see only their own terms acceptances');
+select tests.fails($$insert into public.terms_acceptances (user_id, version, context) values (tests.id('alice'), '2026-11-21', 'update')$$, 'people cannot record acceptances themselves');
+select tests.fails($$update public.terms_acceptances set version = '2020-01-01'$$, 'people cannot alter their acceptance record');
+reset role;
+select tests.anon();
+select tests.fails($$select count(*) from public.terms_acceptances$$, 'visitors cannot read terms acceptances');
+reset role;
+
 -- ---------------------------------------------------------------- deleting a business (with a job in it)
 select tests.login('bob');
 select tests.affects($$delete from public.organizations where id = tests.id('orgB')$$, 1, 'an owner can delete their business');

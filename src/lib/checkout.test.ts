@@ -67,7 +67,7 @@ describe("Stripe Checkout on the business's account", () => {
     expect(params.metadata).toEqual({ qtg_order: "6f1c1d1e-0000-4000-8000-000000000001", qtg_org: "org1" });
     // Free tickets aren't charged lines; the fee is its own line when the buyer pays it.
     expect(params.line_items!.map((l) => [l.price_data!.product_data!.name, l.price_data!.unit_amount, l.quantity]))
-      .toEqual([["General admission ticket", 2500, 2], ["Event tee", 1800, 1], ["Booking fee", 136, 1]]);
+      .toEqual([["General admission ticket", 2500, 2], ["Event tee", 1800, 1], ["Online booking fee (QueuedToGo)", 136, 1]]);
     const total = params.line_items!.reduce((n, l) => n + l.price_data!.unit_amount! * l.quantity!, 0);
     expect(total).toBe(6936);
   });
@@ -75,7 +75,7 @@ describe("Stripe Checkout on the business's account", () => {
     const create = vi.fn(async () => ({ id: "cs_2", url: "https://checkout.stripe.com/c/pay/cs_2" }));
     await createStripeCheckout({ checkout: { sessions: { create } } } as unknown as Stripe, order({ feePayer: "business", totalCents: 6800 }), { success: "https://a/s", cancel: "https://a/c" });
     const [params] = create.mock.calls[0] as unknown as [Stripe.Checkout.SessionCreateParams];
-    expect(params.line_items!.some((l) => l.price_data!.product_data!.name === "Booking fee")).toBe(false);
+    expect(params.line_items!.some((l) => l.price_data!.product_data!.name === "Online booking fee (QueuedToGo)")).toBe(false);
     expect(params.payment_intent_data?.application_fee_amount).toBe(136);
   });
 });

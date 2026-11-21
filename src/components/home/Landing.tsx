@@ -190,7 +190,7 @@ export function Landing() {
                   <article key={k} className={`hm-plan${k === "pro" ? " hm-plan-pick" : ""}`} aria-labelledby={`hm-p-${k}`}>
                     <h3 id={`hm-p-${k}`}>{p.name}</h3>
                     <p className="hm-price"><b>${p.price}</b> a month</p>
-                    <p className="hm-annual">{p.annual ? `or $${p.annual.toLocaleString("en-US")} a year (2 months free)` : "Free forever"}</p>
+                    <p className="hm-annual">{p.annual ? `or $${p.annual.toLocaleString("en-US")} a year (2 months free)` : "No card needed"}</p>
                     <p className="hm-plan-blurb">{p.blurb}</p>
                     <ul className="hm-ticks">{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
                     <Link href="/signup" className={`hm-btn hm-btn-block${k === "pro" ? "" : " hm-btn-ghost"}`}>
@@ -243,7 +243,8 @@ export function Landing() {
           <nav aria-label="Footer">
             <Link href="/demo">Demo</Link>
             <a href="#pricing">Pricing</a>
-            <Link href="/terms">Terms</Link>
+            <Link href="/terms-of-service">Terms of Service</Link>
+            <Link href="/terms">Texting terms</Link>
             <Link href="/privacy">Privacy</Link>
             <a href={`mailto:${LEGAL.contactEmail}`}>{LEGAL.contactEmail}</a>
             <Link href="/login">Sign in</Link>

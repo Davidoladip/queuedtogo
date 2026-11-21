@@ -62,6 +62,15 @@ export function sat(h: unknown) {
   return (mx - mn) / (1 - Math.abs(2 * l - 1));
 }
 export const bestOn = (bg: unknown) => (contrast(bg, "#FFFFFF") >= contrast(bg, "#141414") ? "#FFFFFF" : "#141414");
+/** The colour, darkened or lightened just enough to be readable as text on `bg` (WCAG AA, 4.5:1 by default). */
+export function readableOn(fg: unknown, bg: unknown, min = 4.5): string {
+  const towards = contrast(bg, "#000000") >= contrast(bg, "#FFFFFF") ? "#000000" : "#FFFFFF";
+  for (let t = 0; t <= 1; t += 0.05) {
+    const c = t === 0 ? (cc(fg) ?? "#000000") : mix(fg, towards, t);
+    if (contrast(c, bg) >= min) return c;
+  }
+  return towards;
+}
 export const shade = (c: unknown, t: number) => (lum(c) > 0.2 ? mix(c, "#000000", t) : mix(c, "#FFFFFF", t));
 
 /** Up to 6 distinct dominant colours from raw RGBA pixel data (e.g. a small canvas of the artwork). */
