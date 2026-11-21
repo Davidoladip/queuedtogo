@@ -28,9 +28,13 @@ export default async function PaymentsPage({ params, searchParams }: {
   const { orgSlug } = await params;
   const sp = await searchParams;
   const { org } = await requireWorkspace(orgSlug);
-  // Back from Stripe's sign-up: get the latest status now rather than waiting for the webhook.
-  if (sp.connect === "done") await refreshPaymentAccount(org.slug);
-  const data = await loadPayments(org.id);
+  // Back from Stripe's sign-up, or a Stripe account still being checked: ask Stripe for the latest status now rather
+  // than relying on the webhook alone (Stripe can approve an account well after the owner returns).
+  let data = await loadPayments(org.id);
+  if (sp.connect === "done" || (data.account?.provider === "stripe" && (data.account.status === "pending" || data.account.status === "restricted"))) {
+    await refreshPaymentAccount(org.slug).catch(() => undefined);
+    data = await loadPayments(org.id);
+  }
   const key = sp.square ? `square=${sp.square}` : sp.connect ? `connect=${sp.connect}` : "";
   const notice = sp.connect === "done"
     ? (data.account?.status === "active" ? { tone: "success" as const, text: "Your Stripe account is ready to take payments." } : { tone: "info" as const, text: "Thanks. Stripe is checking your details; this page updates when it's done." })

@@ -55,7 +55,8 @@ export function stripeAccountState(a: Stripe.Account): {
     details_submitted: !!a.details_submitted,
     requirements: [...new Set(due)].slice(0, 50).map((r) => r.slice(0, 120)),
     display_name: (a.business_profile?.name ?? a.settings?.dashboard?.display_name ?? null)?.slice(0, 120) ?? null,
-    livemode: !!(a as { livemode?: boolean }).livemode,
+    // Account objects don't say whether they're live; the platform key does (live keys contain "_live_").
+    livemode: (process.env.STRIPE_SECRET_KEY ?? "").includes("_live_"),
   };
 }
 
