@@ -6,7 +6,7 @@ import { LegalPage } from "@/components/legal/LegalPage";
 import { connection } from "next/server";
 import { rsvpTextsApproved } from "@/lib/rsvp-texts";
 
-export const metadata: Metadata = { title: "Texting terms and conditions" };
+export const metadata: Metadata = { title: "Texting terms and conditions", description: "Terms for QueuedToGo Order Updates text messages: what you receive, how often, costs, and how to reply STOP or HELP.", alternates: { canonical: "/terms" } };
 
 export default async function TermsPage() {
   await connection();

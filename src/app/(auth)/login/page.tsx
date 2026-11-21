@@ -7,7 +7,7 @@ import { Notice } from "@/components/ui/Notice";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { LoginForm } from "./LoginForm";
 
-export const metadata: Metadata = { title: "Sign in" };
+export const metadata: Metadata = { title: "Sign in", description: "Sign in to QueuedToGo to see your event orders, production board and customer updates.", alternates: { canonical: "/login" } };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;

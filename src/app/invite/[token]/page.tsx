@@ -6,7 +6,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { Notice } from "@/components/ui/Notice";
 import { AcceptInvite } from "./AcceptInvite";
 
-export const metadata: Metadata = { title: "Join a business" };
+export const metadata: Metadata = { title: "Join a business", robots: { index: false, follow: false } };
 
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

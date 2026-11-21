@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { NOINDEX_PATHS } from "./src/lib/site";
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -23,6 +24,8 @@ const nextConfig: NextConfig = {
       { source: "/:path((?!demo(?:/|$)).*)", headers: [{ key: "X-Frame-Options", value: "DENY" }] },
       { source: "/demo", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
       { source: "/demo/:path*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
+      // Private and one-off pages stay out of search results (pages also say so in their metadata).
+      ...NOINDEX_PATHS.map((source) => ({ source, headers: [{ key: "X-Robots-Tag", value: "noindex" }] })),
     ];
   },
 };

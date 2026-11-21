@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { getMyWorkspaces, requireWorkspace } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Logo } from "@/components/ui/Logo";
 import { SectionTabs } from "@/components/shell/SectionTabs";
 import { OrgSwitcher } from "@/components/shell/OrgSwitcher";
 import { UserMenu } from "@/components/shell/UserMenu";
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function WorkspaceLayout({ children, params }: { children: React.ReactNode; params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = await params;

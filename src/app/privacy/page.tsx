@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { LEGAL, legalReady } from "@/lib/legal";
 import { LegalPage } from "@/components/legal/LegalPage";
 
-export const metadata: Metadata = { title: "Privacy policy" };
+export const metadata: Metadata = { title: "Privacy policy", description: "How QueuedToGo, operated by ThreadToGo LLC, collects, uses and protects the information of businesses and their customers.", alternates: { canonical: "/privacy" } };
 
 export default function PrivacyPage() {
   if (!legalReady()) notFound();

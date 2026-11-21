@@ -95,14 +95,30 @@ with sync_playwright() as p:
     check("the live-embroidery form loads inside its frame", f2.locator(".qf-title").inner_text(timeout=10000) == "LIVE EMBROIDERY FORM")
     check("frames have titles for screen readers", all("working demo" in (frames.nth(i).get_attribute("title") or "") for i in range(2)))
     hdr = pg.request.get(BASE + "/demo?frame=1").headers
-    csp = hdr.get("content-security-policy", "")
+    # The page policy goes out enforced or report-only (CSP_ENFORCE); X-Frame-Options blocks framing either way.
+    csp = hdr.get("content-security-policy", "") or hdr.get("content-security-policy-report-only", "")
     check("demo pages may be framed by this site only", hdr.get("x-frame-options") == "SAMEORIGIN" and "frame-ancestors 'self'" in csp and "frame-ancestors 'none'" not in csp, csp)
     hdr = pg.request.get(BASE + "/login").headers
-    check("every other page refuses to be framed", hdr.get("x-frame-options") == "DENY" and "frame-ancestors 'none'" in hdr.get("content-security-policy", ""), hdr.get("content-security-policy"))
+    check("every other page refuses to be framed", hdr.get("x-frame-options") == "DENY" and "frame-ancestors 'none'" in (hdr.get("content-security-policy", "") or hdr.get("content-security-policy-report-only", "")), hdr)
     pol = hdr.get("content-security-policy", "") + " " + hdr.get("content-security-policy-report-only", "")
     check("pages carry a script policy with a per-request nonce", "'nonce-" in pol and "object-src 'none'" in pol, pol[:200])
     hdr = pg.request.get(BASE + "/demonstration-not-a-demo").headers
     check("only the demo paths are framable", hdr.get("x-frame-options") == "DENY", hdr)
+
+    # Search engines: robots.txt, sitemap, structured data, and private pages kept out of results
+    import json as _json, re as _re
+    txt = pg.request.get(BASE + "/robots.txt").text()
+    check("robots.txt allows the site, blocks API routes and points to the sitemap", "Allow: /" in txt and "Disallow: /api/" in txt and "Sitemap: " in txt and "Disallow: /\n" not in txt, txt)
+    sm = pg.request.get(BASE + "/sitemap.xml").text()
+    check("sitemap lists the public pages and no private ones", all(f"/{p}</loc>" in sm for p in ["", "signup", "privacy", "terms"]) and "/w/" not in sm and "/demo" not in sm, sm[:300])
+    home = pg.request.get(BASE + "/").text()
+    m = _re.search(r'<script type="application/ld\+json"[^>]*>(.*?)</script>', home, _re.S)
+    types = [g["@type"] for g in _json.loads(m.group(1))["@graph"]] if m else []
+    check("homepage has Organization, WebSite, SoftwareApplication and FAQPage data", types == ["Organization", "WebSite", "SoftwareApplication", "FAQPage"], types)
+    check("homepage has a canonical link and a description", 'rel="canonical"' in home and 'name="description"' in home)
+    check("homepage is indexable", "noindex" not in home and not pg.request.get(BASE + "/").headers.get("x-robots-tag"))
+    for path in ["/w/anything", "/f/a/b", "/t/x", "/r/x", "/pay/x", "/onboarding", "/forgot-password", "/demo"]:
+        check(f"{path} is kept out of search results", pg.request.get(BASE + path, max_redirects=0).headers.get("x-robots-tag") == "noindex")
 
     # Demo order forms: work like real ones, save nothing
     posts = []

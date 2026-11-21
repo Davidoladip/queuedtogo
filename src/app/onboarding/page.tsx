@@ -4,7 +4,7 @@ import { getMyWorkspaces, requireUser } from "@/lib/auth";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { CreateOrgForm } from "./CreateOrgForm";
 
-export const metadata: Metadata = { title: "Set up your business" };
+export const metadata: Metadata = { title: "Set up your business", robots: { index: false, follow: false } };
 
 export default async function OnboardingPage() {
   const user = await requireUser("/onboarding");

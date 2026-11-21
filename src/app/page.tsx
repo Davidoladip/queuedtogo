@@ -5,6 +5,8 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { Notice } from "@/components/ui/Notice";
 import { Landing } from "@/components/home/Landing";
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { homepageStructuredData } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
   title: { absolute: "QueuedToGo: order forms and updates for live events" },
@@ -38,5 +40,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     );
   }
 
-  return <Landing />;
+  return (
+    <>
+      <JsonLd data={homepageStructuredData()} />
+      <Landing />
+    </>
+  );
 }

@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { ResetForm } from "./ResetForm";
 
-export const metadata: Metadata = { title: "Choose a new password" };
+export const metadata: Metadata = { title: "Choose a new password", robots: { index: false, follow: false } };
 
 export default async function ResetPasswordPage() {
   const user = await requireUser("/reset-password");
