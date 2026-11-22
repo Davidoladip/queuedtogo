@@ -32,12 +32,10 @@ with sync_playwright() as p:
     check("sign in link", pg.get_by_role("link", name="Sign in").first.get_attribute("href") == "/login")
     for anchor in ("#how", "#examples", "#invitations", "#pricing"):
         check(f"menu link {anchor} has a target", pg.locator(anchor).count() == 1)
-    stage = pg.get_by_role("img", name="An order, QTG-1042")
-    check("the animation is described for screen readers", stage.count() == 1)
-    pg.wait_for_timeout(5200)
-    mover_x = pg.locator(".hm-mover").bounding_box()["x"]; ready_x = pg.locator(".hm-col").nth(2).bounding_box()["x"]
-    check("the order ends up in Ready", abs(mover_x - ready_x - 10) < 3, (mover_x, ready_x))
-    check("the ready text arrives", float(pg.locator(".hm-sms-2").evaluate("e => getComputedStyle(e).opacity")) == 1)
+    reel = pg.locator(".hm-hero .hm-stage .hr")
+    check("the moving cards sit in the hero's picture spot, beside the headline", reel.count() == 1 and abs(reel.bounding_box()["y"] - pg.locator(".hm-hero-copy").bounding_box()["y"]) < 160, reel.bounding_box() if reel.count() else None)
+    check("two rows drift in opposite directions", pg.locator(".hr-window").count() == 2 and pg.evaluate("() => [...document.querySelectorAll('.hr-track')].map(t => getComputedStyle(t).animationDirection).join()") == "normal,reverse")
+    check("screen readers get one plain list of all six", pg.locator('.hr ul.sr-only li').count() == 6 and all(w.get_attribute("aria-hidden") == "true" for w in pg.locator(".hr-window").all()))
     check("steps are an ordered list", pg.locator("ol.hm-steps > li").count() == 3)
 
     imgs = pg.locator("main img")
@@ -69,19 +67,15 @@ with sync_playwright() as p:
     # Reduced motion: the final state shows straight away
     rm = b.new_context(viewport={"width": 1366, "height": 860}, reduced_motion="reduce").new_page()
     rm.goto(BASE + "/")
-    mx = rm.locator(".hm-mover").bounding_box()["x"]; rx = rm.locator(".hm-col").nth(2).bounding_box()["x"]
-    check("with reduced motion the order is already in Ready", abs(mx - rx - 10) < 3, (mx, rx))
-    check("with reduced motion the text is already there", float(rm.locator(".hm-sms-2").evaluate("e => getComputedStyle(e).opacity")) == 1)
+    check("with reduced motion the cards stand still", rm.evaluate("() => [...document.querySelectorAll('.hr-track')].every(t => getComputedStyle(t).animationName === 'none')"))
 
     # Phone
     ph = b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True).new_page()
     ph.goto(BASE + "/"); ph.wait_for_timeout(5200)
     check("no sideways scrolling on a phone", ph.evaluate("document.documentElement.scrollWidth") <= 390)
     check("menu links are hidden on a phone but Start free stays", not ph.locator(".hm-nav").is_visible() and ph.locator(".hm-top .hm-btn").is_visible())
-    m = ph.locator(".hm-mover").bounding_box(); r = ph.locator(".hm-col").nth(2).bounding_box()
-    check("on a phone the order ends inside Ready", m["x"] >= r["x"] and m["x"] + m["width"] <= r["x"] + r["width"] + 1, (m, r))
-    phone = ph.locator(".hm-phone").bounding_box()
-    check("the phone doesn't cover the moving order", phone["y"] >= m["y"] + m["height"] - 1, (phone, m))
+    hb = ph.locator(".hm-stage").bounding_box(); cb = ph.locator(".hm-hero-copy").bounding_box()
+    check("on a phone the moving cards come after the headline and buttons", hb["y"] >= cb["y"] + cb["height"] - 1, (hb, cb))
     ph.screenshot(path=f"{SHOTS}/home-phone.png", full_page=True)
 
     # The real event forms, shown live in phone frames
@@ -108,16 +102,16 @@ with sync_playwright() as p:
     # Hero summary and ticket sales
     pg.goto(BASE + "/")
     does = pg.locator(".hr-list:not(.hr-copy) .hr-card b").all_inner_texts()
-    check("the hero reel sums up everything QueuedToGo does", does == ["Take orders", "Sell tickets", "Send invitations", "Track every order", "Keep people posted", "Run the day"], does)
+    check("the hero cards sum up everything QueuedToGo does", does == ["Take orders", "Sell tickets", "Send invitations", "Track every order", "Keep people posted", "Run the day"], does)
     check("each item has an illustration", pg.locator(".hr-list:not(.hr-copy) .hr-art svg").count() == 6)
-    check("the repeated copy that makes the loop seamless is hidden from screen readers", pg.locator(".hr-copy").get_attribute("aria-hidden") == "true")
+    check("the repeated copies that make the loops seamless sit inside hidden rows", pg.locator(".hr-window[aria-hidden=true] .hr-copy").count() == 2)
     pos = lambda: pg.evaluate("() => new DOMMatrix(getComputedStyle(document.querySelector('.hr-track')).transform).m41")
     a = pos(); pg.wait_for_timeout(700); b2 = pos()
     check("the reel scrolls by itself", b2 < a - 5, (a, b2))
-    pg.get_by_role("button", name="Pause the scrolling list").click()
+    pg.get_by_role("button", name="Pause the moving cards").click()
     a = pos(); pg.wait_for_timeout(700); b2 = pos()
-    check("Pause stops it, and says so", abs(a - b2) < 0.5 and pg.locator(".hr-toggle").get_attribute("aria-pressed") == "true" and "Play" in pg.locator(".hr-toggle").inner_text(), (a, b2))
-    pg.get_by_role("button", name="Play the scrolling list").click()
+    check("Pause stops them, and says so", abs(a - b2) < 0.5 and pg.locator(".hr-toggle").get_attribute("aria-pressed") == "true" and "Play" in pg.locator(".hr-toggle").inner_text(), (a, b2))
+    pg.get_by_role("button", name="Play the moving cards").click()
     a = pos(); pg.wait_for_timeout(500)
     check("Play starts it again", pos() < a - 3)
     rm = b.new_page(viewport={"width": 1280, "height": 900}, reduced_motion="reduce")

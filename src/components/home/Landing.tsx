@@ -35,7 +35,7 @@ export function Landing() {
       </header>
 
       <main id="main">
-        {/* Hero: the product doing its one job, an order moving to ready and the customer being told */}
+        {/* Hero: the headline, and everything QueuedToGo does drifting past as illustrated cards */}
         <section className="hm-hero" aria-labelledby="hm-title">
           <div className="hm-in hm-hero-in">
             <div className="hm-hero-copy">
@@ -50,27 +50,10 @@ export function Landing() {
               <p className="hm-fine">Free plan, no card needed. Paid plans from ${PLANS.starter.price} a month.</p>
             </div>
 
-            <div className="hm-stage" role="img" aria-label="An order, QTG-1042 for a tote bag, moves from New to Making to Ready, and the customer gets a text saying it's ready to pick up.">
-              <div className="hm-board" aria-hidden="true">
-                <div className="hm-col"><span className="hm-col-h"><i style={{ background: "#8A90A6" }} />New</span>
-                  <div className="hm-tk"><b>QTG-1043</b><span>Toiletry bag, red</span></div>
-                </div>
-                <div className="hm-col"><span className="hm-col-h"><i style={{ background: "#3346D3" }} />Making</span>
-                  <div className="hm-tk"><b>QTG-1039</b><span>Tote bag × 2</span></div>
-                </div>
-                <div className="hm-col"><span className="hm-col-h"><i style={{ background: "#1D8657" }} />Ready</span>
-                  <div className="hm-tk hm-tk-done"><b>QTG-1037</b><span>Toiletry bag, blue</span></div>
-                </div>
-                <div className="hm-tk hm-mover"><b>QTG-1042</b><em>Lena O.</em><span>Tote bag, gold thread</span></div>
-              </div>
-              <div className="hm-phone" aria-hidden="true">
-                <div className="hm-phone-top">ThreadToGo</div>
-                <div className="hm-sms hm-sms-1">Thanks Lena! Order QTG-1042 is in. We&apos;ll text you when it&apos;s ready.</div>
-                <div className="hm-sms hm-sms-2">Your order QTG-1042 is ready to pick up at our table. queuedtogo.com/t/…</div>
-              </div>
+            <div className="hm-stage">
+              <HeroReel />
             </div>
           </div>
-          <div className="hm-in"><HeroReel /></div>
         </section>
 
         <section id="how" className="hm-sec" aria-labelledby="hm-how">

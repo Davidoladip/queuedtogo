@@ -13,9 +13,10 @@ const ITEMS: { title: string; text: string; art: React.ReactNode; tint: string }
 ];
 
 /**
- * A slowly scrolling strip of what QueuedToGo does. It pauses while hovered, and has a Pause button (moving
- * content must be stoppable). With reduced motion it stands still and scrolls by hand. Screen readers get the
- * list once; the repeated copy that makes the loop seamless is hidden from them.
+ * What QueuedToGo does, as two rows of illustrated cards drifting in opposite directions (the hero's picture).
+ * Hovering the cards pauses them, and a Pause button stops them (moving content must be stoppable). With reduced
+ * motion the rows stand still and scroll by hand. Screen readers get one plain list of all six; the drifting
+ * rows, and the repeated copies that make each loop seamless, are hidden from them.
  */
 export function HeroReel() {
   const [paused, setPaused] = useState(false);
@@ -26,19 +27,28 @@ export function HeroReel() {
       <span>{it.text}</span>
     </li>
   );
+  const row = (items: typeof ITEMS, dir: "left" | "right") => (
+    <div className={`hr-window hr-${dir}`} aria-hidden="true">
+      <div className="hr-track">
+        <ul className="hr-list">{items.map(card)}</ul>
+        <ul className="hr-list hr-copy">{items.map(card)}</ul>
+      </div>
+    </div>
+  );
   return (
     <div className={`hr${paused ? " hr-paused" : ""}`}>
       <div className="hr-head">
         <h2 id="hr-h" className="hr-title">Everything your event needs, in one place</h2>
         <button type="button" className="hr-toggle" aria-pressed={paused} onClick={() => setPaused((p) => !p)}>
-          <span className={`hr-icon ${paused ? "play" : "pause"}`} aria-hidden="true" />{paused ? "Play" : "Pause"}<span className="sr-only"> the scrolling list</span>
+          <span className={`hr-icon ${paused ? "play" : "pause"}`} aria-hidden="true" />{paused ? "Play" : "Pause"}<span className="sr-only"> the moving cards</span>
         </button>
       </div>
-      <div className="hr-window">
-        <div className="hr-track">
-          <ul className="hr-list" aria-labelledby="hr-h">{ITEMS.map(card)}</ul>
-          <ul className="hr-list hr-copy" aria-hidden="true">{ITEMS.map(card)}</ul>
-        </div>
+      <ul className="sr-only" aria-labelledby="hr-h">
+        {ITEMS.map((it) => <li key={it.title}>{it.title}: {it.text}</li>)}
+      </ul>
+      <div className="hr-rows">
+        {row(ITEMS.slice(0, 3), "left")}
+        {row(ITEMS.slice(3), "right")}
       </div>
     </div>
   );
