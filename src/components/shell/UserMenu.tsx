@@ -5,7 +5,7 @@ export function UserMenu({ email, name, orgSlug }: { email: string; name: string
   const initials = (name || email).split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join("");
   return (
     <details className="menu">
-      <summary className="avatar" aria-label="Account menu" title={email}>{initials}</summary>
+      <summary className="avatar avatar-btn" aria-label="Account menu" title={email}><span aria-hidden="true">{initials}</span></summary>
       <div className="menu-pop">
         <div className="who"><b style={{ color: "var(--fg)" }}>{name || "Your account"}</b><br />{email}</div>
         {orgSlug && <Link href={`/w/${orgSlug}/settings#account`}>Account settings</Link>}

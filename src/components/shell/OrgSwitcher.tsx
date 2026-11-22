@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 
 export function OrgSwitcher({ current, orgs }: { current: string; orgs: { slug: string; name: string }[] }) {
   const router = useRouter();
-  if (orgs.length < 2) return <span className="muted" style={{ fontSize: 13 }}>{orgs[0]?.name}</span>;
+  if (orgs.length < 2) return <span className="muted org-switch" style={{ fontSize: 13 }}>{orgs[0]?.name}</span>;
   return (
     <select
+      className="org-switch"
       aria-label="Switch business"
       value={current}
       onChange={(e) => router.push(`/w/${e.target.value}`)}

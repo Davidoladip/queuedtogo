@@ -45,6 +45,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .tab:hover { background: var(--surface-2); color: var(--fg); }
 .tab[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
 .top-tools { display: flex; align-items: center; gap: 8px; }
+/* Phones: logo and account button share the first row; business switcher, then the section tabs, below. */
+@media (max-width: 760px) {
+  .top-inner { gap: 8px 12px; }
+  .top-tools { order: 1; margin-left: auto; }
+  .org-switch { order: 2; }
+  .tabs { order: 3; flex-basis: 100%; margin-left: 0; }
+}
 
 /* ---------- Layout ---------- */
 main.page { padding-block: 24px 56px; max-width: 1240px; margin-inline: auto; }
@@ -133,7 +140,14 @@ table.list { border-collapse: collapse; width: 100%; font-size: 14px; }
 .menu { position: relative; }
 .menu > summary { list-style: none; cursor: pointer; }
 .menu > summary::-webkit-details-marker { display: none; }
-.menu-pop { position: absolute; right: 0; top: calc(100% + 6px); min-width: 240px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.15); padding: 6px; z-index: 30; display: flex; flex-direction: column; }
+.menu > summary::marker { content: ""; }
+/* The account button: a <summary> can't be a grid or flex container in Safari, so the initials are centred as a
+   plain block with a fixed line height instead. */
+.avatar-btn { display: block; text-align: center; line-height: 30px; padding: 0; overflow: hidden; white-space: nowrap; user-select: none; -webkit-tap-highlight-color: transparent; }
+.avatar-btn > span { display: inline; }
+.avatar-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 760px) { .avatar-btn { width: 36px; height: 36px; line-height: 36px; font-size: 13px; } }
+.menu-pop { position: absolute; right: 0; top: calc(100% + 6px); min-width: 240px; max-width: calc(100vw - 24px); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.15); padding: 6px; z-index: 30; display: flex; flex-direction: column; }
 .menu-pop a, .menu-pop button { text-align: left; padding: 8px 10px; border-radius: 8px; border: 0; background: none; cursor: pointer; text-decoration: none; color: var(--fg); font-size: 14px; }
 .menu-pop a:hover, .menu-pop button:hover { background: var(--surface-2); }
 .menu-pop hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
