@@ -27,7 +27,7 @@ export function homepageStructuredData() {
         applicationCategory: "BusinessApplication",
         operatingSystem: "Web",
         url: `${SITE_URL}/`,
-        description: "Take orders at your event with a QR-code form, work through them on a production board, and text customers when they're ready. RSVP invitations too.",
+        description: "Take orders at your event with a QR-code form, sell tickets to paid events, and send RSVP invitations. Work through orders on a production board and text customers when they're ready.",
         publisher: { "@id": ORG_ID },
         image: `${SITE_URL}/og.png`,
         offers: [

@@ -189,22 +189,39 @@ span.qf-sw-i{cursor:default}
 .qf-env-scene{position:relative;z-index:2;max-width:620px;margin:0 auto;padding:clamp(36px,11vh,110px) 0 16px;--env:color-mix(in srgb,var(--c) 90%,var(--t));--liner:var(--a)}
 .qf-env{position:relative;width:min(92%,560px);margin:0 auto;aspect-ratio:3/2;perspective:1600px;container-type:inline-size}
 .qf-env-back{position:absolute;inset:0;border-radius:6px;background:linear-gradient(180deg,color-mix(in srgb,var(--env) 90%,#000),var(--env));box-shadow:0 26px 60px rgba(0,0,0,.4),0 2px 6px rgba(0,0,0,.2);overflow:hidden}
-.qf-env-liner{position:absolute;left:3%;right:3%;top:2.5%;height:52%;clip-path:polygon(0 0,100% 0,50% 100%);background:repeating-linear-gradient(45deg,rgba(255,255,255,.1) 0 1px,transparent 1px 7px),linear-gradient(135deg,color-mix(in srgb,var(--liner) 70%,#000),color-mix(in srgb,var(--liner) 50%,#fff) 40%,var(--liner) 60%,color-mix(in srgb,var(--liner) 70%,#000))}
+.qf-env-liner{position:absolute;left:3%;right:3%;top:2.5%;height:52%;clip-path:polygon(0 0,100% 0,50% 100%);background:var(--liner-pat,repeating-linear-gradient(45deg,rgba(255,255,255,.1) 0 1px,transparent 1px 7px)),linear-gradient(135deg,color-mix(in srgb,var(--liner) 70%,#000),color-mix(in srgb,var(--liner) 50%,#fff) 40%,var(--liner) 60%,color-mix(in srgb,var(--liner) 70%,#000));background-size:var(--liner-pat-s,auto),auto}
 .qf-env-slot{position:absolute;left:6%;right:6%;top:4%;bottom:0;z-index:2;clip-path:inset(-500% -40% 0 -40%)}
 .qf-env-card{background-color:var(--c);color:var(--t);border-radius:min(var(--r),16px);padding:24px clamp(14px,5cqi,30px);box-shadow:0 2px 12px rgba(0,0,0,.18);transform-origin:top center}
 .qf-env-front{position:absolute;inset:0;z-index:3;border-radius:6px;background:linear-gradient(170deg,var(--env),color-mix(in srgb,var(--env) 93%,#000));clip-path:polygon(0 0,50% 54%,100% 0,100% 100%,0 100%)}
 .qf-env svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .qf-env svg path{fill:none;stroke:color-mix(in srgb,var(--liner) 75%,transparent);stroke-width:1.2;vector-effect:non-scaling-stroke}
-.qf-env-addr{position:absolute;left:8%;right:8%;bottom:11%;text-align:center;font-size:clamp(18px,7cqi,36px);line-height:1.2;color:color-mix(in srgb,var(--liner) 75%,#000)}
+.qf-env-addr{position:absolute;left:8%;right:8%;bottom:11%;text-align:center;font-size:clamp(18px,7cqi,36px);line-height:1.2;color:var(--env-ink,color-mix(in srgb,var(--liner) 75%,#000))}
 .qf-env-flap{position:absolute;left:0;right:0;top:0;height:56%;z-index:4;transform-origin:top center;transform-style:preserve-3d}
 .qf-env-flap-out,.qf-env-flap-in{position:absolute;inset:0;clip-path:polygon(0 0,100% 0,50% 100%);backface-visibility:hidden}
 .qf-env-flap-out{background:linear-gradient(180deg,color-mix(in srgb,var(--env) 96%,#000),color-mix(in srgb,var(--env) 86%,#000))}
-.qf-env-flap-in{transform:rotateX(180deg);background:repeating-linear-gradient(45deg,rgba(255,255,255,.1) 0 1px,transparent 1px 7px),linear-gradient(135deg,color-mix(in srgb,var(--liner) 70%,#000),color-mix(in srgb,var(--liner) 50%,#fff) 45%,color-mix(in srgb,var(--liner) 75%,#000))}
-.qf-env-seal{position:absolute;left:50%;top:56%;z-index:5;width:clamp(58px,17%,98px);aspect-ratio:1;transform:translate(-50%,-50%);border:0;padding:0;border-radius:50%;background:none;cursor:pointer;transition:transform .2s}
+.qf-env-flap-in{transform:rotateX(180deg);background:var(--liner-pat,repeating-linear-gradient(45deg,rgba(255,255,255,.1) 0 1px,transparent 1px 7px)),linear-gradient(135deg,color-mix(in srgb,var(--liner) 70%,#000),color-mix(in srgb,var(--liner) 50%,#fff) 45%,color-mix(in srgb,var(--liner) 75%,#000));background-size:var(--liner-pat-s,auto),auto}
+.qf-env-seal{position:absolute;left:50%;top:var(--seal-y,56%);z-index:5;width:clamp(58px,17%,98px);aspect-ratio:1;transform:translate(-50%,-50%);border:0;padding:0;border-radius:50%;background:none;cursor:pointer;transition:transform .2s}
 .qf-env-seal:hover:not(:disabled){transform:translate(-50%,-50%) scale(1.06)}
 .qf-env-seal:focus-visible{outline:3px solid color-mix(in srgb,var(--liner) 60%,#fff);outline-offset:4px}
-.qf-env-wax{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--liner) 35%,#fff),var(--liner) 48%,color-mix(in srgb,var(--liner) 55%,#000));box-shadow:0 5px 14px rgba(0,0,0,.4),inset 0 0 0 3px color-mix(in srgb,var(--liner) 60%,#fff),inset 0 0 0 6px color-mix(in srgb,var(--liner) 80%,#000);font:700 clamp(15px,5cqi,26px)/1 'Cinzel',Georgia,serif;letter-spacing:.04em;color:color-mix(in srgb,var(--liner) 30%,#000)}
-.qf-env-wax img{width:76%;height:76%;object-fit:cover;border-radius:50%;box-shadow:0 0 0 2px color-mix(in srgb,var(--liner) 70%,#000)}
+.qf-env-wax{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--seal,var(--liner)) 35%,#fff),var(--seal,var(--liner)) 48%,color-mix(in srgb,var(--seal,var(--liner)) 55%,#000));box-shadow:0 5px 14px rgba(0,0,0,.4),inset 0 0 0 3px color-mix(in srgb,var(--seal,var(--liner)) 60%,#fff),inset 0 0 0 6px color-mix(in srgb,var(--seal,var(--liner)) 80%,#000);font:700 clamp(15px,5cqi,26px)/1 'Cinzel',Georgia,serif;letter-spacing:.04em;color:var(--seal-ink,color-mix(in srgb,var(--seal,var(--liner)) 30%,#000))}
+.qf-env-wax img{width:76%;height:76%;object-fit:cover;border-radius:50%;box-shadow:0 0 0 2px color-mix(in srgb,var(--seal,var(--liner)) 70%,#000)}
+/* Envelope design options: paper texture, flap shapes, seal shape, size and glow (see EnvelopeSettings). */
+.qf-env-paper{position:absolute;inset:0;background-image:var(--paper,none);background-size:var(--paper-s,14px) var(--paper-s,14px);pointer-events:none}
+.env-flap-rounded{--seal-y:50%}
+.env-flap-rounded .qf-env-flap{height:50%}
+.env-flap-rounded :is(.qf-env-flap-out,.qf-env-flap-in){clip-path:polygon(0 0,5% 19.0%,10% 36.0%,15% 51.0%,20% 64.0%,25% 75.0%,30% 84.0%,35% 91.0%,40% 96.0%,45% 99.0%,50% 100.0%,55% 99.0%,60% 96.0%,65% 91.0%,70% 84.0%,75% 75.0%,80% 64.0%,85% 51.0%,90% 36.0%,95% 19.0%,100% 0)}
+.env-flap-rounded .qf-env-liner{height:47%;clip-path:polygon(0 0,5% 19.0%,10% 36.0%,15% 51.0%,20% 64.0%,25% 75.0%,30% 84.0%,35% 91.0%,40% 96.0%,45% 99.0%,50% 100.0%,55% 99.0%,60% 96.0%,65% 91.0%,70% 84.0%,75% 75.0%,80% 64.0%,85% 51.0%,90% 36.0%,95% 19.0%,100% 0)}
+.env-flap-rounded .qf-env-front{clip-path:polygon(0 0,5% 8.7%,10% 16.6%,15% 23.5%,20% 29.4%,25% 34.5%,30% 38.6%,35% 41.9%,40% 44.2%,45% 45.5%,50% 46.0%,55% 45.5%,60% 44.2%,65% 41.9%,70% 38.6%,75% 34.5%,80% 29.4%,85% 23.5%,90% 16.6%,95% 8.7%,100% 0,100% 100%,0 100%)}
+.env-flap-straight{--seal-y:40%}
+.env-flap-straight .qf-env-flap{height:40%}
+.env-flap-straight :is(.qf-env-flap-out,.qf-env-flap-in){clip-path:polygon(0 0,100% 0,100% 86%,97% 100%,3% 100%,0 86%)}
+.env-flap-straight .qf-env-liner{height:37%;clip-path:none;border-radius:0 0 6px 6px}
+.env-flap-straight .qf-env-front{clip-path:polygon(0 33%,100% 33%,100% 100%,0 100%)}
+.env-seal-scalloped .qf-env-wax{clip-path:polygon(50.0% 0.0%,55.9% 4.9%,62.9% 1.7%,67.4% 8.0%,75.0% 6.7%,77.7% 13.9%,85.4% 14.6%,86.1% 22.3%,93.3% 25.0%,92.0% 32.6%,98.3% 37.1%,95.1% 44.1%,100.0% 50.0%,95.1% 55.9%,98.3% 62.9%,92.0% 67.4%,93.3% 75.0%,86.1% 77.7%,85.4% 85.4%,77.7% 86.1%,75.0% 93.3%,67.4% 92.0%,62.9% 98.3%,55.9% 95.1%,50.0% 100.0%,44.1% 95.1%,37.1% 98.3%,32.6% 92.0%,25.0% 93.3%,22.3% 86.1%,14.6% 85.4%,13.9% 77.7%,6.7% 75.0%,8.0% 67.4%,1.7% 62.9%,4.9% 55.9%,0.0% 50.0%,4.9% 44.1%,1.7% 37.1%,8.0% 32.6%,6.7% 25.0%,13.9% 22.3%,14.6% 14.6%,22.3% 13.9%,25.0% 6.7%,32.6% 8.0%,37.1% 1.7%,44.1% 4.9%);border-radius:0}
+.env-seal-scalloped .qf-env-seal{border-radius:0;filter:drop-shadow(0 5px 8px rgba(0,0,0,.35))}
+.env-size-small .qf-env{width:min(78%,420px)}
+.env-size-large .qf-env{width:min(98%,640px)}
+.env-glow::before{content:"";position:absolute;left:50%;top:44%;width:min(120%,760px);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--liner) 45%,transparent),transparent);pointer-events:none;z-index:-1}
 .qf-env-scene.sealed .qf-env-wax{animation:qf-seal-glow 2.8s ease-in-out infinite}
 @keyframes qf-seal-glow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.12) drop-shadow(0 0 10px color-mix(in srgb,var(--liner) 60%,transparent))}}
 .qf-env-prompt{text-align:center;margin:20px 0 0;color:var(--pt);opacity:.85;letter-spacing:.2em;text-transform:uppercase;font-size:12px;font-family:var(--bf)}

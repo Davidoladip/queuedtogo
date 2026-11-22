@@ -5,10 +5,14 @@ import { LEGAL } from "@/lib/legal";
 import { PASSES, PASS_ORDER, PLANS, PLAN_ORDER, TRIAL_DAYS } from "@/lib/plans";
 import { SAMPLE_FORMS, type SampleKey } from "@/lib/demo";
 import { FAQ } from "@/lib/faq";
+import { PLATFORM_FEE_RATE } from "@/lib/payments";
 import "./home.css";
 
 
 /** The public homepage (signed-out visitors). */
+const pct = (r: number) => `${+(r * 100).toFixed(1)}%`;
+const feeRange = `${pct(Math.min(...Object.values(PLATFORM_FEE_RATE)))} to ${pct(Math.max(...Object.values(PLATFORM_FEE_RATE)))}`;
+
 export function Landing() {
   return (
     <div className="hm">
@@ -18,6 +22,7 @@ export function Landing() {
           <Logo />
           <nav aria-label="Main" className="hm-nav">
             <a href="#how">How it works</a>
+            <a href="#tickets">Tickets</a>
             <a href="#invitations">Invitations</a>
             <a href="#pricing">Pricing</a>
           </nav>
@@ -35,9 +40,16 @@ export function Landing() {
             <div className="hm-hero-copy">
               <h1 id="hm-title">Take orders at your event. Text customers when they&apos;re ready.</h1>
               <p className="hm-lede">
-                QueuedToGo gives your stand a QR-code order form, a board to work through every order, and automatic
-                updates, so customers keep shopping instead of standing in line.
+                Give your event its own online form, and QueuedToGo handles everything after someone fills it in.
               </p>
+              <ul className="hm-does" aria-label="What QueuedToGo does">
+                <li><b>Take orders</b><span>A QR-code order form for your stall or table</span></li>
+                <li><b>Sell tickets</b><span>Paid events, with card payments straight to your Stripe or Square</span></li>
+                <li><b>Send invitations</b><span>RSVPs in a sealed envelope guests tap to open</span></li>
+                <li><b>Track every order</b><span>A production board from new to ready</span></li>
+                <li><b>Keep people posted</b><span>Automatic texts and emails when it&apos;s ready</span></li>
+                <li><b>Run the day</b><span>Pickup search, door check-in and end-of-day totals</span></li>
+              </ul>
               <div className="hm-cta">
                 <Link href="/signup" className="hm-btn">Start free</Link>
                 <a href="#examples" className="hm-btn hm-btn-ghost">See real event forms</a>
@@ -147,6 +159,41 @@ export function Landing() {
                 </ul>
               </div>
               <figure className="hm-shot hm-shot-wide"><Image src="/home/pickup.webp" alt="The pickup screen: a search for 100 lists orders QTG-1001 to QTG-1003, each with a Mark collected button." width={980} height={470} sizes="(max-width: 900px) 100vw, 640px" /></figure>
+            </div>
+          </div>
+        </section>
+
+        <section id="tickets" className="hm-sec hm-tix" aria-labelledby="hm-tix-h">
+          <div className="hm-in hm-tix-in">
+            <div className="hm-tix-copy">
+              <h2 id="hm-tix-h" className="hm-h2">Host paid events and sell tickets</h2>
+              <p>
+                Add tickets to any form: general admission, VIP, early bird, each with its own price and how many you have. Guests pay by
+                card on their phone, and the money goes straight to your own Stripe or Square account.
+              </p>
+              <ul className="hm-ticks">
+                <li>Ticket types with their own prices and limits</li>
+                <li>Sold out and &ldquo;only a few left&rdquo; shown automatically, with an end date for sales</li>
+                <li>Prices shown with all fees included, so there are no surprises at checkout</li>
+                <li>Every ticket order gets a number, on your board and at the door</li>
+              </ul>
+              <div className="hm-cta" style={{ marginTop: 22 }}>
+                <Link href="/signup" className="hm-btn">Start selling tickets</Link>
+              </div>
+              <p className="hm-tix-fine">
+                QueuedToGo adds a small booking fee to each paid order, from {feeRange}, depending on your plan. You choose whether guests pay it or you do.
+              </p>
+            </div>
+            <div className="hm-tix-art" role="img" aria-label="A ticket form for Friday Night Live: two general admission tickets at $25.50 each, VIP at $61.20 with 8 left, and a total of $51.00 including a $1.00 booking fee.">
+              <div className="hm-tix-card" aria-hidden="true">
+                <h3>Friday Night Live</h3>
+                <p className="hm-tix-when">Sat, Dec 6 at The Warehouse</p>
+                <div className="hm-tix-row"><b>General admission</b><span className="hm-tix-qty">2</span><small><span className="hm-tix-p">$25.50</span> each</small></div>
+                <div className="hm-tix-row"><b>VIP, front row and a drink</b><span className="hm-tix-qty">0</span><small><span className="hm-tix-p">$61.20</span> each, 8 left</small></div>
+                <div className="hm-tix-total"><span>Total</span><strong>$51.00</strong></div>
+                <p className="hm-tix-feeline">Includes a $1.00 online booking fee</p>
+                <span className="hm-tix-pay">Pay $51.00</span>
+              </div>
             </div>
           </div>
         </section>

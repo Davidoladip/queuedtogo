@@ -174,15 +174,15 @@ export const TEMPLATES: Template[] = [
     blurb: "Gigs, comedy nights and shows with general and VIP tickets.",
     example: "Friday Night Live",
     build: () => model("Friday Night Live", {
-      intro: "Doors at 7pm, show at 8pm. Your tickets are emailed straight away.",
+      intro: "Doors at 7pm, show at 8pm. Choose your tickets and pay securely online.",
       venue: "The Warehouse",
-      thanks: "You're going! Your tickets are on their way to your inbox.",
+      thanks: "You're going! Your order number is your ticket: give it, or your name, at the door.",
       submit: "Get tickets",
       look: {
         theme: { page: "#2A1238", card: "#FFF6E9", text: "#2A1238", accent: "#F2A93B", accentText: "#2A1238", font: "retro", radius: "rounded" },
         page: { tex: "dots", texColor: "#F2A93B", texOp: 22, texScale: 20 },
       },
-      fields: [tickets("Choose your tickets", [{ name: "General admission", price: 2500 }, { name: "VIP (front row + drink)", price: 6000, qty: 30 }]), name(), email("We'll email your tickets here.")],
+      fields: [tickets("Choose your tickets", [{ name: "General admission", price: 2500 }, { name: "VIP (front row + drink)", price: 6000, qty: 30 }]), name(), email("So we can reach you about your booking.")],
     }),
   },
   {

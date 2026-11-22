@@ -10,7 +10,7 @@ import { homepageStructuredData } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
   title: { absolute: "QueuedToGo: order forms and updates for live events" },
-  description: "Take orders at your event with a QR-code form, work through them on a production board, and text customers when they're ready. RSVP invitations too. Free to start.",
+  description: "Take orders at your event with a QR-code form, sell tickets to paid events, and send RSVP invitations. Work through orders on a production board and text customers when they're ready. Free to start.",
   alternates: { canonical: "/" },
 };
 

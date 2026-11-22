@@ -2,7 +2,7 @@
 
 import { CopyField } from "@/components/ui/CopyField";
 import { FormQr } from "./FormQr";
-import { CHANNELS, COVER_VARS, blankField, coverDefaults, initialsOf, type FormModel } from "@/lib/design/engine";
+import { CHANNELS, COVER_VARS, blankField, coverDefaults, initialsOf, type FormModel, ENVELOPE_STYLES } from "@/lib/design/engine";
 import { artDefaultFor } from "@/lib/design/media";
 import { LOOKS } from "@/lib/design/looks";
 import { ArtQuick, ArtUploader } from "./media-controls";
@@ -174,9 +174,41 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
               hint="Guests first see a sealed envelope. They tap the seal, the flap lifts and your invitation slides out." />
             {form.settings.cover.envelope.on && (
               <div className="b-env form">
+                <div>
+                  <span className="b-label">Envelope styles</span>
+                  <div className="env-styles" role="list">
+                    {ENVELOPE_STYLES.map((st) => (
+                      <button key={st.key} type="button" role="listitem" className="env-style" title={`Apply ${st.name}`}
+                        onClick={() => { update((d) => { Object.assign(d.settings.cover.envelope, st.set); }); onPreviewEnvelope(); }}>
+                        <span className="env-style-sw" aria-hidden="true" style={{ background: st.set.color, ["--l" as string]: st.set.liner, ["--s" as string]: st.set.sealColor || st.set.liner }} />
+                        <span>{st.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="b-note muted">Sets colours, paper, liner, flap and seal in one go. Fine-tune anything below; Undo goes back.</span>
+                </div>
                 <ColorInput label="Envelope colour" allowEmpty value={form.settings.cover.envelope.color} onChange={(v) => update((d) => { d.settings.cover.envelope.color = v; }, { coalesce: "envc" })} />
-                <ColorInput label="Liner and seal colour" allowEmpty value={form.settings.cover.envelope.liner} onChange={(v) => update((d) => { d.settings.cover.envelope.liner = v; }, { coalesce: "envl" })} />
-                <span className="b-note muted">Leave a colour empty to use your form colour (envelope) and button colour (liner and seal).</span>
+                <ColorInput label="Liner colour" allowEmpty value={form.settings.cover.envelope.liner} onChange={(v) => update((d) => { d.settings.cover.envelope.liner = v; }, { coalesce: "envl" })} />
+                <span className="b-note muted">Leave a colour empty to use your form colour (envelope) and button colour (liner).</span>
+                <Seg label="Flap" value={form.settings.cover.envelope.flap} options={[["pointed", "Pointed"], ["rounded", "Rounded"], ["straight", "Straight"]]}
+                  onChange={(v) => update((d) => { d.settings.cover.envelope.flap = v; })} />
+                <div className="row">
+                  <Select label="Paper" value={form.settings.cover.envelope.paper}
+                    options={[["smooth", "Smooth"], ["linen", "Linen"], ["grain", "Recycled grain"], ["dots", "Dotted"], ["stripes", "Pinstripe"]]}
+                    onChange={(v) => update((d) => { d.settings.cover.envelope.paper = v; })} />
+                  <Select label="Liner pattern" value={form.settings.cover.envelope.linerPattern}
+                    options={[["diagonal", "Silk sheen"], ["plain", "Plain"], ["dots", "Dots"], ["checks", "Gingham"], ["waves", "Waves"], ["grid", "Grid"]]}
+                    onChange={(v) => update((d) => { d.settings.cover.envelope.linerPattern = v; })} />
+                </div>
+                <div className="row">
+                  <ColorInput label="Seal colour" allowEmpty value={form.settings.cover.envelope.sealColor} onChange={(v) => update((d) => { d.settings.cover.envelope.sealColor = v; }, { coalesce: "envsc" })} />
+                  <Seg label="Seal shape" value={form.settings.cover.envelope.sealShape} options={[["round", "Round"], ["scalloped", "Scalloped"]]}
+                    onChange={(v) => update((d) => { d.settings.cover.envelope.sealShape = v; })} />
+                </div>
+                <Seg label="Envelope size" value={form.settings.cover.envelope.size} options={[["small", "Small"], ["medium", "Medium"], ["large", "Large"]]}
+                  onChange={(v) => update((d) => { d.settings.cover.envelope.size = v; })} />
+                <Toggle label="Soft glow behind the envelope" checked={form.settings.cover.envelope.glow} onChange={(v) => update((d) => { d.settings.cover.envelope.glow = v; })}
+                  hint="A gentle halo in the liner colour." />
                 <Seg label="On the seal" value={form.settings.cover.envelope.seal}
                   options={[["emblem", form.design.coverArt ? "Your emblem" : "Emblem (add cover artwork)"], ["initials", "Initials"], ["plain", "Plain"]]}
                   onChange={(v) => update((d) => { d.settings.cover.envelope.seal = v; })} />
@@ -186,6 +218,9 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
                 )}
                 <TextInput label="Writing on the envelope" value={form.settings.cover.envelope.front} maxLength={80} placeholder="e.g. For our honoured guest"
                   hint="Optional. Written in the cover heading's font." onChange={(v) => update((d) => { d.settings.cover.envelope.front = v; }, { coalesce: "envf" })} />
+                {form.settings.cover.envelope.front && (
+                  <ColorInput label="Writing colour" allowEmpty value={form.settings.cover.envelope.ink} onChange={(v) => update((d) => { d.settings.cover.envelope.ink = v; }, { coalesce: "envink" })} />
+                )}
                 <TextInput label="Line under the envelope" value={form.settings.cover.envelope.prompt} maxLength={60}
                   onChange={(v) => update((d) => { d.settings.cover.envelope.prompt = v; }, { coalesce: "envp" })} />
                 <button type="button" className="btn small" style={{ alignSelf: "flex-start" }} onClick={onPreviewEnvelope}>Show the envelope in the preview</button>

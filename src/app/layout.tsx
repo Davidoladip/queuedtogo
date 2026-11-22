@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: { default: "QueuedToGo", template: "%s · QueuedToGo" },
   openGraph: { type: "website", siteName: "QueuedToGo", images: [{ url: "/og.png", width: 1200, height: 630, alt: "QueuedToGo: order forms and updates for live events" }] },
   twitter: { card: "summary_large_image" },
-  description: "Order forms for live events that turn every submission into a tracked production job.",
+  description: "Order forms, ticket sales and RSVP invitations for live events, with a production board and automatic customer updates.",
 };
 
 export const viewport: Viewport = {

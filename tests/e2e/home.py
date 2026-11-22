@@ -105,6 +105,16 @@ with sync_playwright() as p:
     hdr = pg.request.get(BASE + "/demonstration-not-a-demo").headers
     check("only the demo paths are framable", hdr.get("x-frame-options") == "DENY", hdr)
 
+    # Hero summary and ticket sales
+    pg.goto(BASE + "/")
+    does = pg.locator(".hm-does li b").all_inner_texts()
+    check("the hero sums up everything QueuedToGo does", does == ["Take orders", "Sell tickets", "Send invitations", "Track every order", "Keep people posted", "Run the day"], does)
+    check("the menu links to tickets", pg.locator('.hm-nav a[href="#tickets"]').count() == 1)
+    tix = pg.locator("#tickets")
+    check("a section explains hosting paid events and selling tickets", tix.get_by_role("heading", name="Host paid events and sell tickets").count() == 1 and "Stripe or Square" in tix.inner_text())
+    check("the ticket section states the booking fee range", "0.5% to 3%" in tix.inner_text(), tix.inner_text()[-200:])
+    check("the FAQ answers whether you can sell tickets", pg.get_by_text("Can I sell tickets to a paid event?").count() == 1)
+
     # Legal pages: Terms of Service with the clauses that matter, linked from the footer and the sitemap
     pg.goto(BASE + "/terms-of-service")
     tos = pg.locator("article").inner_text()

@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "QueuedToGo",
     short_name: "QueuedToGo",
-    description: "Order forms for live events that turn every submission into a tracked production job.",
+    description: "Order forms, ticket sales and RSVP invitations for live events, with a production board and automatic customer updates.",
     start_url: "/",
     display: "standalone",
     background_color: "#FFFFFF",

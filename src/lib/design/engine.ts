@@ -169,8 +169,27 @@ export type EnvelopeSettings = {
   front: string;
   /** The line under the envelope, for example "Tap the seal to open". */
   prompt: string;
+  /** Shape of the flap: a classic point, a soft curve, or a straight wallet flap. */
+  flap: (typeof ENV_FLAPS)[number];
+  /** Texture of the envelope paper. */
+  paper: (typeof ENV_PAPERS)[number];
+  /** Pattern printed on the liner (inside the flap). */
+  linerPattern: (typeof ENV_LINERS)[number];
+  /** Seal colour; empty means the liner colour. */
+  sealColor: string;
+  sealShape: (typeof ENV_SEAL_SHAPES)[number];
+  /** Colour of the writing on the front; empty means a deep shade of the liner. */
+  ink: string;
+  size: (typeof ENV_SIZES)[number];
+  /** A soft glow of the liner colour behind the envelope. */
+  glow: boolean;
 };
 export const SEALS = ["emblem", "initials", "plain"] as const;
+export const ENV_FLAPS = ["pointed", "rounded", "straight"] as const;
+export const ENV_PAPERS = ["smooth", "linen", "grain", "dots", "stripes"] as const;
+export const ENV_LINERS = ["diagonal", "plain", "dots", "checks", "waves", "grid"] as const;
+export const ENV_SEAL_SHAPES = ["round", "scalloped"] as const;
+export const ENV_SIZES = ["small", "medium", "large"] as const;
 /** Initials from a title: "Dr. Funmi's Golden Experience" → "DFG". */
 export const initialsOf = (t: string) => t.split(/\s+/).filter((w) => /^[A-Za-z]/.test(w) && !/^(the|of|and|a|an|for|to|at|in|on)$/i.test(w)).map((w) => w[0].toUpperCase()).join("").slice(0, 3);
 export const COVER_EFFECTS = ["none", "fade", "unveil"] as const;
@@ -719,8 +738,23 @@ function normalizeEnvelope(raw: unknown): EnvelopeSettings {
     initials: typeof e.initials === "string" ? e.initials.replace(/[^\p{L}\p{N}&.]/gu, "").slice(0, 3) : "",
     front: typeof e.front === "string" ? e.front.slice(0, 80) : "",
     prompt: typeof e.prompt === "string" && e.prompt.trim() ? e.prompt.slice(0, 60) : "Tap the seal to open",
+    flap: en(e.flap, ENV_FLAPS, "pointed"), paper: en(e.paper, ENV_PAPERS, "smooth"), linerPattern: en(e.linerPattern, ENV_LINERS, "diagonal"),
+    sealColor: cc(e.sealColor) || "", sealShape: en(e.sealShape, ENV_SEAL_SHAPES, "round"), ink: cc(e.ink) || "",
+    size: en(e.size, ENV_SIZES, "medium"), glow: e.glow === true,
   };
 }
+
+/** Ready-made envelope styles: one click sets colours, paper, liner, flap and seal. */
+export const ENVELOPE_STYLES: { key: string; name: string; set: Partial<EnvelopeSettings> }[] = [
+  { key: "ivory", name: "Ivory and gold", set: { color: "#F1E8D4", liner: "#B8913A", sealColor: "", ink: "", paper: "linen", linerPattern: "diagonal", flap: "pointed", sealShape: "round" } },
+  { key: "kraft", name: "Kraft and wax", set: { color: "#C49A6C", liner: "#5E4128", sealColor: "#8E2A2A", ink: "#3B2A1A", paper: "grain", linerPattern: "checks", flap: "straight", sealShape: "scalloped" } },
+  { key: "midnight", name: "Midnight and silver", set: { color: "#1E2440", liner: "#C3C9D4", sealColor: "", ink: "#DDE2EA", paper: "smooth", linerPattern: "dots", flap: "pointed", sealShape: "round" } },
+  { key: "blush", name: "Blush and rose gold", set: { color: "#F4D9DC", liner: "#B9786A", sealColor: "", ink: "#7A4A40", paper: "dots", linerPattern: "waves", flap: "rounded", sealShape: "scalloped" } },
+  { key: "garden", name: "Garden green", set: { color: "#E3EDDC", liner: "#3F6B45", sealColor: "#C9A227", ink: "#2C4A31", paper: "linen", linerPattern: "grid", flap: "rounded", sealShape: "round" } },
+  { key: "modern", name: "Modern black and white", set: { color: "#FAFAFA", liner: "#111111", sealColor: "", ink: "#111111", paper: "smooth", linerPattern: "plain", flap: "straight", sealShape: "round" } },
+  { key: "party", name: "Party pop", set: { color: "#FFD23F", liner: "#E2367F", sealColor: "#7A2BD9", ink: "#5A1840", paper: "stripes", linerPattern: "dots", flap: "rounded", sealShape: "scalloped" } },
+  { key: "sky", name: "Something blue", set: { color: "#DCE7F5", liner: "#2F4F8F", sealColor: "", ink: "#24406F", paper: "smooth", linerPattern: "waves", flap: "pointed", sealShape: "round" } },
+];
 
 export function blankField(type: FieldType): FormField {
   const f: FormField = { id: newId(), type, label: "", help: "", placeholder: "", required: false, options: [], config: {} };

@@ -31,9 +31,14 @@
 
 /* Hero */
 .hm-hero { background: var(--mist); border-bottom: 1px solid var(--line); }
-.hm-hero-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 56px; align-items: center; padding: 72px 0 80px; }
-.hm-hero h1 { font: 800 clamp(40px, 5.6vw, 72px)/0.98 var(--f-display); letter-spacing: -0.035em; margin: 0 0 22px; max-width: 13ch; text-wrap: balance; }
-.hm-lede { font-size: 19px; line-height: 1.55; color: #333A52; max-width: 34em; margin: 0 0 28px; }
+.hm-hero-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 56px; align-items: center; padding: 56px 0 72px; }
+.hm-hero h1 { font: 800 clamp(38px, 4.9vw, 62px)/0.98 var(--f-display); letter-spacing: -0.035em; margin: 0 0 20px; max-width: 14ch; text-wrap: balance; }
+.hm-lede { font-size: 19px; line-height: 1.55; color: #333A52; max-width: 34em; margin: 0 0 20px; }
+/* Everything QueuedToGo does, at a glance: six short lines under the lede. */
+.hm-does { list-style: none; margin: 0 0 28px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 22px; max-width: 37em; }
+.hm-does li { display: flex; flex-direction: column; gap: 1px; padding-left: 12px; border-left: 3px solid var(--cobalt); line-height: 1.35; }
+.hm-does b { font: 700 15.5px/1.25 var(--f-display); letter-spacing: -.005em; }
+.hm-does span { font-size: 14px; color: var(--soft); }
 .hm-fine { margin: 16px 0 0; font-size: 14px; color: var(--soft); }
 
 /* The board animation: one ticket moves New → Making → Ready, then the customer's text arrives. Plays once. */
@@ -168,6 +173,7 @@
   .hm-top-act .hm-link { display: none; }
   .hm-plans { grid-template-columns: minmax(0, 1fr); }
   .hm-lede { font-size: 17px; }
+  .hm-does { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .hm-cta .hm-btn { flex: 1 1 100%; }
   .hm-col { padding: 7px; min-height: 200px; }
   .hm-col-h { font-size: 12px; }
@@ -190,3 +196,23 @@
 }
 .hm [id] { scroll-margin-top: 80px; }
 .hm-annual { margin: 6px 0 0; font-size: 13.5px; color: var(--soft); }
+
+/* Tickets: a working-looking ticket picker beside the copy (prices shown with the booking fee included). */
+.hm-tix { background: var(--paper); }
+.hm-tix-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .95fr); gap: 56px; align-items: center; }
+.hm-tix-copy p { font-size: 17px; line-height: 1.6; color: #333A52; max-width: 34em; margin: 12px 0 18px; }
+.hm-tix-fine { font-size: 14px !important; color: var(--soft) !important; margin: 14px 0 0 !important; }
+.hm-tix-art { background: #2A1238; border-radius: 18px; padding: clamp(22px, 4vw, 40px); background-image: radial-gradient(rgba(242, 169, 59, .22) 1.6px, transparent 1.7px); background-size: 20px 20px; }
+.hm-tix-card { background: #FFF6E9; color: #2A1238; border-radius: 14px; padding: 22px 22px 20px; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .55); max-width: 420px; margin-inline: auto; }
+.hm-tix-card h3 { font: 800 26px/1.05 var(--f-display); letter-spacing: -.02em; margin: 0 0 2px; }
+.hm-tix-when { font-size: 13.5px; opacity: .75; margin: 0 0 16px; }
+.hm-tix-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; padding: 11px 12px; border: 1.5px solid rgba(42, 18, 56, .16); border-radius: 10px; margin-bottom: 8px; }
+.hm-tix-row b { font-weight: 600; font-size: 15px; }
+.hm-tix-row .hm-tix-p { font-weight: 700; color: #8A4A00; }
+.hm-tix-row small { grid-column: 1; font-size: 12.5px; opacity: .78; }
+.hm-tix-qty { grid-column: 2; grid-row: 1 / span 2; width: 46px; height: 38px; border-radius: 8px; border: 1.5px solid rgba(42, 18, 56, .22); display: grid; place-items: center; font-weight: 600; background: #fff; }
+.hm-tix-total { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 2px 2px; font-weight: 600; }
+.hm-tix-total strong { font: 800 24px var(--f-display); }
+.hm-tix-feeline { font-size: 12.5px; opacity: .75; margin: 0 2px 14px; }
+.hm-tix-pay { display: block; text-align: center; background: #F2A93B; color: #2A1238; font-weight: 700; border-radius: 10px; padding: 13px; }
+@media (max-width: 900px) { .hm-tix-in { grid-template-columns: minmax(0, 1fr); gap: 32px; } }

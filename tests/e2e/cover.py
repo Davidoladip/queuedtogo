@@ -155,6 +155,22 @@ with sync_playwright() as p:
     pg.locator(".b-env").get_by_role("radio", name="Initials", exact=True).click()
     pg.get_by_label("Initials", exact=True).fill("DFG")
     check("the seal can show chosen initials", wait_until(lambda: pg.inner_text(".b-frame .qf-env-wax") == "DFG"))
+    # Envelope design options
+    pg.locator(".env-style", has_text="Kraft and wax").click()
+    check("an envelope style sets the shape, seal and paper in one click", wait_until(lambda: pg.locator(".b-frame .qf-env-scene.env-flap-straight.env-seal-scalloped").count() == 1)
+          and "--paper" in (pg.locator(".b-frame .qf-env-scene").get_attribute("style") or ""))
+    check("…and its colours", "#C49A6C".lower() in (pg.locator(".b-frame .qf-env-scene").get_attribute("style") or "").lower())
+    pg.locator(".b-env").get_by_role("radio", name="Rounded", exact=True).click()
+    check("the flap shape can be changed", wait_until(lambda: pg.locator(".b-frame .qf-env-scene.env-flap-rounded").count() == 1))
+    pg.locator(".b-env").get_by_role("radio", name="Round", exact=True).click()
+    check("the seal shape can be changed", wait_until(lambda: pg.locator(".b-frame .qf-env-scene.env-seal-round").count() == 1))
+    pg.locator(".b-env").get_by_label("Liner pattern").select_option("dots")
+    check("the liner pattern can be changed", wait_until(lambda: "--liner-pat" in (pg.locator(".b-frame .qf-env-scene").get_attribute("style") or "")))
+    pg.locator(".b-env").get_by_role("radio", name="Large", exact=True).click()
+    pg.get_by_label("Soft glow behind the envelope").check()
+    check("size and glow can be set", wait_until(lambda: pg.locator(".b-frame .qf-env-scene.env-size-large.env-glow").count() == 1))
+    pg.locator(".env-style", has_text="Ivory and gold").click()
+    check("another style restyles it again", wait_until(lambda: pg.locator(".b-frame .qf-env-scene.env-flap-pointed").count() == 1))
     pg.get_by_role("button", name="Play the opening").click()
     check("the opening plays in the preview: envelope first", wait_until(lambda: pg.locator(".b-frame .qf-env-scene.opening").count() == 1, 3))
     check("…then the card parts to reveal the form", wait_until(lambda: pg.locator(".b-frame .qf-doors").count() == 1, 7))
@@ -162,7 +178,10 @@ with sync_playwright() as p:
     pg.get_by_role("button", name="Cover", exact=True).click()
     pg.get_by_label("Subtle sparkle").uncheck()
     check("each finish can be switched off", wait_until(lambda: pg.locator(".b-frame .qf-sparkles").count() == 0))
-    for _ in range(5): pg.get_by_role("button", name="Undo").click()
+    for _ in range(25):
+        u = pg.get_by_role("button", name="Undo")
+        if u.is_disabled(): break
+        u.click()
     check("the look can be undone", wait_until(lambda: css(pg, ".b-frame .qf-card", "backgroundColor") != "rgb(251, 247, 238)"))
 
     # ------------------------------------------------------------ stylish fonts

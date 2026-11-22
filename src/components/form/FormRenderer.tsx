@@ -18,11 +18,13 @@ import {
   computed,
   fontStack,
   initialsOf,
+  texUrl,
   type EnvelopeSettings,
   type FormField,
   type FormModel,
 } from "@/lib/design/engine";
 import { googleFontsUrls } from "@/lib/design/fonts";
+import { lum } from "@/lib/design/color";
 import { DEFAULT_THANKS, fillMessage, type ArtSettings, type SwatchSettings } from "@/lib/design/media";
 import { formIsPaid, maxPerOrder, money, optionPrice, quoteForm, refundText, salesEnded, shownPrice, unitFee, type Quote } from "@/lib/pricing";
 import { DEFAULT_RSVP_THANKS, RSVP_KEYS, guestsText, rsvpHeadline, whenText, type RsvpStatus } from "@/lib/rsvp";
@@ -773,6 +775,32 @@ function Sparkles() {
   );
 }
 
+const PAPER_TEX: Record<string, [string, number, number]> = { linen: ["linen", 7, 9], grain: ["grain", 30, 120], dots: ["dots", 14, 16], stripes: ["stripes", 8, 18] };
+const LINER_TEX: Record<string, [string, number]> = { dots: ["dots", 12], checks: ["checks", 16], waves: ["waves", 18], grid: ["grid", 12] };
+
+/** CSS variables for an envelope's paper texture, liner pattern, seal and ink colours. */
+function envLook(env: EnvelopeSettings): Record<string, string> {
+  const out: Record<string, string> = {};
+  const paper = PAPER_TEX[env.paper];
+  if (paper) {
+    const dark = env.color ? lum(env.color) < 0.3 : false;
+    const u = texUrl(paper[0], dark ? "#FFFFFF" : "#000000", paper[1], paper[2]);
+    if (u) { out["--paper"] = u; out["--paper-s"] = `${paper[2]}px`; }
+  }
+  if (env.linerPattern === "plain") out["--liner-pat"] = "linear-gradient(transparent,transparent)";
+  else if (LINER_TEX[env.linerPattern]) {
+    const [id, size] = LINER_TEX[env.linerPattern];
+    const u = texUrl(id, "#FFFFFF", 28, size);
+    if (u) { out["--liner-pat"] = u; out["--liner-pat-s"] = `${size}px ${size}px`; }
+  }
+  if (env.sealColor) out["--seal"] = env.sealColor;
+  // Letters on the seal: pressed in dark on light wax, in light on dark wax.
+  const wax = env.sealColor || env.liner;
+  if (wax && lum(wax) < 0.18) out["--seal-ink"] = "color-mix(in srgb, " + wax + " 25%, #FFFFFF)";
+  if (env.ink) out["--env-ink"] = env.ink;
+  return out;
+}
+
 /**
  * A sealed envelope holding the invitation card. Tapping the seal lifts the flap, the card slides up
  * out of the envelope, and the envelope falls away; then the real cover card takes its place.
@@ -790,18 +818,21 @@ function Envelope({ label, stage, env, seal, sealText, frontFont, editing, onOpe
     const top = slot.getBoundingClientRect().top - sc.getBoundingClientRect().top;
     setVars({ "--qa": `${Math.round(top)}px`, "--qb": `${Math.round(group.offsetHeight + 40)}px`, "--qg": String(Math.max(1, sc.offsetWidth / card.offsetWidth).toFixed(3)) });
   }, [stage]);
-  const style = { ...(env.color ? { "--env": env.color } : {}), ...(env.liner ? { "--liner": env.liner } : {}), ...vars } as React.CSSProperties;
+  const style = { ...(env.color ? { "--env": env.color } : {}), ...(env.liner ? { "--liner": env.liner } : {}), ...envLook(env), ...vars } as React.CSSProperties;
+  const cls = `qf-env-scene ${stage} env-flap-${env.flap} env-seal-${env.sealShape} env-size-${env.size}${env.glow ? " env-glow" : ""}`;
+  const folds = env.flap === "rounded" ? "M0 0 Q50 92 100 0 M0 100 L41 60 M100 100 L59 60" : env.flap === "straight" ? "M0 33 L100 33 M0 100 L41 62 M100 100 L59 62" : "M0 0 L50 54 L100 0 M0 100 L41 60 M100 100 L59 60";
   return (
-    <div ref={scene} className={`qf-env-scene ${stage}`} style={style}>
+    <div ref={scene} className={cls} style={style}>
       <h2 className="qf-vh">{label}</h2>
       <div className="qf-env">
-        <div className="qf-env-back"><div className="qf-env-liner" /></div>
+        <div className="qf-env-back"><i className="qf-env-paper" /><div className="qf-env-liner" /></div>
         <div className="qf-env-slot" aria-hidden="true" inert><div className="qf-env-mover">{children}</div></div>
         <div className="qf-env-front">
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0 L50 54 L100 0 M0 100 L41 60 M100 100 L59 60" /></svg>
+          <i className="qf-env-paper" />
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d={folds} /></svg>
           {env.front && <div className="qf-env-addr" style={{ fontFamily: frontFont }}>{env.front}</div>}
         </div>
-        <div className="qf-env-flap"><div className="qf-env-flap-out"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0 L50 100 L100 0" /></svg></div><div className="qf-env-flap-in" /></div>
+        <div className="qf-env-flap"><div className="qf-env-flap-out"><i className="qf-env-paper" />{env.flap === "pointed" && <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0 L50 100 L100 0" /></svg>}</div><div className="qf-env-flap-in" /></div>
         <button type="button" className="qf-env-seal" onClick={editing ? undefined : onOpen} tabIndex={editing ? -1 : undefined} aria-label={`${sealText ? `${sealText}: ` : ""}${env.prompt || "Open your invitation"}`} disabled={stage !== "sealed"}>
           <span className="qf-env-wax">{seal}</span>
         </button>
