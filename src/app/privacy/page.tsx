@@ -33,7 +33,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           <b>Account holders:</b> the name and email address of each person who signs in (or the name and email Google shares if you sign in
-          with Google), the business&apos;s name and settings, its forms and images, its plan and billing history, and a record of when you
+          with Google), a profile picture if you add one, the business&apos;s name and settings, its forms and images, its plan and billing history, and a record of when you
           accepted our Terms of Service. Card details for plans are handled by Stripe.
         </li>
         <li>
@@ -86,7 +86,8 @@ export default function PrivacyPage() {
       <h2>Files and images</h2>
       <p>
         Files customers upload with an order are stored privately and shared with the business only through short-lived links. Images a
-        business adds to its form (such as a logo or artwork) are public, because they appear on the published form.
+        business adds to its form (such as a logo or artwork) are public, because they appear on the published form. Profile pictures are
+        stored at hard-to-guess public addresses so they can be shown to your team; remove yours at any time in Settings.
       </p>
 
       <h2>How long we keep it</h2>
