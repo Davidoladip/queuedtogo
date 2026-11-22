@@ -2,10 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { env } from "@/lib/env";
+import { assetBaseFor, normalizeDesign, normalizeSettings } from "@/lib/design/engine";
+import { flyerSpec } from "@/lib/design/flyer";
+import { googleFontsUrls } from "@/lib/design/fonts";
+import { TEMPLATES } from "@/lib/templates";
+import { FormsBoard } from "@/components/forms/FormsBoard";
 import { Notice } from "@/components/ui/Notice";
-import { NewFormForm } from "./NewFormForm";
+import "@/components/forms/forms.css";
 
 export const metadata: Metadata = { title: "Event forms" };
+
 
 export default async function FormsPage({ params, searchParams }: {
   params: Promise<{ orgSlug: string }>;
@@ -15,55 +22,45 @@ export default async function FormsPage({ params, searchParams }: {
   const sp = await searchParams;
   const { org } = await requireWorkspace(orgSlug);
   const supabase = await createClient();
-  const { data: forms, error } = await supabase
-    .from("forms")
-    .select("id, title, slug, status, event_date, updated_at, published_version")
-    .eq("org_id", org.id)
-    .order("updated_at", { ascending: false });
+  const [{ data: forms, error }, { data: subs }, { data: openJobs }] = await Promise.all([
+    supabase.from("forms").select("id, title, slug, status, event_date, venue, submit_label, settings, design, updated_at")
+      .eq("org_id", org.id).order("updated_at", { ascending: false }),
+    supabase.from("form_submissions").select("form_id").eq("org_id", org.id).range(0, 9999),
+    supabase.from("jobs").select("form_id").eq("org_id", org.id).is("completed_at", null).range(0, 9999),
+  ]);
   if (error) throw new Error(error.message);
+  const tally = (rows: { form_id: string | null }[] | null) => (rows ?? []).reduce((m, r) => (r.form_id ? m.set(r.form_id, (m.get(r.form_id) ?? 0) + 1) : m), new Map<string, number>());
+  const subCount = tally(subs), openCount = tally(openJobs);
+  const assetBase = assetBaseFor(env.supabaseUrl);
+  const cards = forms.map((f) => {
+    const settings = normalizeSettings(f.settings);
+    return { f, rsvp: settings.mode === "rsvp", spec: flyerSpec(normalizeDesign(f.design), settings, assetBase) };
+  });
+  // When there are no forms yet, three contrasting templates invite a first one.
+  const starters = cards.length ? [] : ["market-stall", "concert-night", "wedding"].map((k) => TEMPLATES.find((t) => t.key === k)!).map((t) => {
+    const m = t.build();
+    return { t, m, spec: flyerSpec(m.design, m.settings, assetBase) };
+  });
+  const fonts = googleFontsUrls([...cards.map((c) => c.spec), ...starters.map((s) => s.spec)].flatMap((s) => [s.titleFontKey, s.bodyFontKey]));
+  const day = (d: string | null) => d ? new Date(d + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : null;
 
   return (
     <>
+      {fonts.map((href) => <link key={href} rel="stylesheet" href={href} />)}
       <div className="view-head">
         <div>
           <h1>Event forms</h1>
-          <p>Each live event gets its own themed order form. Every submission becomes a job on the production board.</p>
+          <p>Each event gets its own themed form. Every order becomes a job on the production board.</p>
         </div>
+        {cards.length > 0 && <Link className="btn primary" href={`/w/${org.slug}/forms/new`}>New event form</Link>}
       </div>
-      <div className="stack">
-        {sp.deleted && <Notice tone="success">Form deleted.</Notice>}
-        {sp.notdeleted && <Notice tone="error">That form wasn&apos;t deleted. Only owners and admins can delete forms.</Notice>}
-        <div className="panel"><NewFormForm orgId={org.id} /></div>
-        {forms.length ? (
-          <div className="tablewrap">
-            <table className="list">
-              <thead><tr><th>Form</th><th>Event date</th><th>Status</th><th>Last edited</th><th><span className="sr-only">Actions</span></th></tr></thead>
-              <tbody>
-                {forms.map((f) => (
-                  <tr key={f.id}>
-                    <td>
-                      <Link href={`/w/${org.slug}/forms/${f.id}`}><b>{f.title}</b></Link>
-                      <div className="muted mono" style={{ fontSize: 12 }}>/f/{org.slug}/{f.slug}</div>
-                    </td>
-                    <td>{f.event_date ? new Date(f.event_date + "T12:00").toLocaleDateString("en-US", { dateStyle: "medium" }) : "—"}</td>
-                    <td><span className={`pill ${f.status === "live" ? "good" : f.status === "closed" ? "bad" : "plain"}`}>{f.status === "live" ? "Live" : f.status === "closed" ? "Closed" : "Draft"}</span></td>
-                    <td className="muted">{new Date(f.updated_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: org.timezone })}</td>
-                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                      {f.status === "live" && <a className="btn small ghost" href={`/f/${org.slug}/${f.slug}`} target="_blank" rel="noopener noreferrer">Open ↗</a>}
-                      <Link className="btn small" href={`/w/${org.slug}/forms/${f.id}`}>Edit</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="panel empty">
-            <b>No event forms yet</b>
-            <span>Create your first form above. It starts with a few common questions you can change.</span>
-          </div>
-        )}
-      </div>
+      {sp.deleted && <div className="fg-notice"><Notice tone="success">Form deleted.</Notice></div>}
+      {sp.notdeleted && <div className="fg-notice"><Notice tone="error">That form wasn&apos;t deleted. Only owners and admins can delete forms.</Notice></div>}
+
+      <FormsBoard orgSlug={org.slug} cards={cards.map(({ f, rsvp, spec }) => ({
+        id: f.id, title: f.title, slug: f.slug, status: f.status, submitLabel: f.submit_label, rsvp, spec,
+        when: [day(f.event_date), f.venue].filter(Boolean).join(", "), count: subCount.get(f.id) ?? 0, open: openCount.get(f.id) ?? 0,
+      }))} starters={starters.map(({ t, m, spec }) => ({ key: t.key, name: t.name, title: m.title, meta: m.venue, button: m.submitLabel, spec }))} />
     </>
   );
 }

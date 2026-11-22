@@ -94,7 +94,7 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--ba
 @media (max-width: 520px) { .row { grid-template-columns: minmax(0, 1fr); } }
 
 .pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; letter-spacing: .02em; white-space: nowrap; display: inline-block; }
-.pill.good { background: var(--good-soft); color: var(--good); }
+.pill.good { background: var(--good-soft); color: color-mix(in srgb, var(--good) 78%, var(--fg)); }
 .pill.warn { background: var(--warn-soft); color: var(--warn); }
 .pill.bad { background: var(--bad-soft); color: var(--bad); }
 .pill.plain { background: var(--surface-2); color: var(--muted); }

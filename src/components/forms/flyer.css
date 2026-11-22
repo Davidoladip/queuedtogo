@@ -1,0 +1,38 @@
+/* Form flyers: a miniature of each form in its own design (see Flyer.tsx). Sizes scale with the flyer's width. */
+.fly { position: relative; container-type: inline-size; aspect-ratio: 4 / 5; border-radius: 10px; overflow: hidden; isolation: isolate;
+  box-shadow: 0 1px 0 rgba(22, 26, 43, .06), 0 10px 24px -14px rgba(22, 26, 43, .45); }
+.fly-page { position: absolute; inset: 0; background-color: var(--fp); background-image: var(--fpt); background-size: var(--fpts) var(--fpts); }
+.fly-art { position: absolute; inset: 0 0 auto 0; width: 100%; height: 40%; object-fit: cover; }
+.fly-card { position: absolute; left: 9%; right: 9%; top: 27%; bottom: 7%; background: var(--fc); color: var(--ft); border-radius: var(--fr);
+  padding: 9cqi 8cqi 7cqi; display: flex; flex-direction: column; gap: 3.2cqi; box-shadow: 0 6px 18px -10px rgba(0, 0, 0, .45); }
+.fly-title { font-family: var(--ftf); color: var(--ftc); font-weight: 700; font-size: 9.6cqi; line-height: 1.04; letter-spacing: -.005em;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; text-wrap: balance; flex-shrink: 0; padding-bottom: .06em; }
+.fly-title.l { font-size: 8.2cqi; }
+.fly-title.xl { font-size: 6.8cqi; -webkit-line-clamp: 4; }
+.fly-title.up { text-transform: uppercase; letter-spacing: .02em; }
+.fly-meta { flex-shrink: 0; font-family: var(--fbf); font-size: 4.4cqi; opacity: .72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fly-q { display: block; flex-shrink: 1; min-height: 3cqi; height: 7.5cqi; border-radius: calc(var(--fr) * .6); background: color-mix(in srgb, var(--ft) 9%, var(--fc)); border: 1px solid color-mix(in srgb, var(--ft) 14%, transparent); }
+.fly-q-first { margin-top: auto; }
+.fly-q.short { width: 64%; }
+.fly-btn { margin-top: 1.5cqi; align-self: stretch; text-align: center; background: var(--fa); color: var(--fat); border-radius: var(--fr); font-family: var(--fbf);
+  font-weight: 700; font-size: 4.6cqi; padding: 2.6cqi 3cqi; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fly-seal { position: absolute; top: -5.5cqi; left: 50%; width: 11cqi; height: 11cqi; margin-left: -5.5cqi; border-radius: 50%;
+  box-shadow: 0 0 0 1.4cqi var(--fc), 0 3px 8px rgba(0, 0, 0, .3); }
+
+/* Full background: the card floats in the middle of the page (or of the artwork). */
+.fly-background .fly-art { height: 100%; }
+.fly-background.fly-has-art .fly-page::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 30%, rgba(0, 0, 0, .35)); }
+.fly-background .fly-card { left: 12%; right: 12%; top: 18%; bottom: 12%; z-index: 1; }
+
+/* Side by side: a column of the page (or artwork) on the left, the form on the right. */
+.fly-side .fly-art { inset: 0 auto 0 0; width: 38%; height: 100%; }
+.fly-side .fly-card { left: 38%; right: 0; top: 0; bottom: 0; border-radius: 0; padding-top: 12cqi; box-shadow: none; }
+.fly-side .fly-title { font-size: 7.6cqi; }
+.fly-side .fly-title.l { font-size: 6.4cqi; }
+.fly-side .fly-title.xl { font-size: 5.4cqi; }
+.fly-side .fly-card { padding-left: 6cqi; padding-right: 6cqi; }
+.fly-side-mark { position: absolute; left: 8%; bottom: 8%; width: 18%; height: 3cqi; background: var(--fa); border-radius: 99px; }
+.fly-side.fly-has-art .fly-side-mark { display: none; }
+
+/* Status and other badges laid over the top-left corner. */
+.fly-badge { position: absolute; top: 4cqi; left: 4cqi; z-index: 2; box-shadow: 0 1px 4px rgba(0, 0, 0, .18); }

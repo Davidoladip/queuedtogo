@@ -11,7 +11,16 @@ import { artDefaultFor, type ArtSettings, type SwatchSettings } from "@/lib/desi
 import { FONT_CATALOG, googleFontsUrls } from "@/lib/design/fonts";
 
 const PRESET_FONT_LINKS = googleFontsUrls(Object.values(FONTS).map((f) => f.head));
+// The looks of the event templates, offered as one-click themes for any form (built once, on first use).
+let templateLooks: { key: string; name: string; title: string; button: string; spec: FlyerSpec }[] | null = null;
+function lookList() {
+  templateLooks ??= TEMPLATES.map((t) => { const m = t.build(); return { key: t.key, name: t.name, title: t.name, button: m.submitLabel, spec: flyerSpec(m.design, m.settings, "") }; });
+  return templateLooks;
+}
 import { ArtUploader } from "../media-controls";
+import { TEMPLATES, applyTemplateLook } from "@/lib/templates";
+import { flyerSpec, type FlyerSpec } from "@/lib/design/flyer";
+import { Flyer } from "@/components/forms/Flyer";
 import { optMeta } from "./paths";
 import { processImage } from "@/lib/design/image";
 import { fieldIdOf } from "../QuestionsPanel";
@@ -73,8 +82,23 @@ export function SecTheme() {
     } catch (ex) { notify((ex as Error).message); } finally { setBusy(false); }
   }
   const pick = useFilePick(onArt);
+  const looks = lookList();
   return (
     <>
+      <div className="c">
+        <span className="cl">Start from a template&apos;s look</span>
+        {googleFontsUrls(looks.flatMap((l) => [l.spec.titleFontKey, l.spec.bodyFontKey])).map((h) => <link key={h} rel="stylesheet" href={h} />)}
+        <div className="looks-row" role="list">
+          {looks.map((l) => (
+            <button key={l.key} type="button" role="listitem" className="look-chip" title={`Apply the ${l.name} look`}
+              onClick={() => { update((d) => { applyTemplateLook(d, l.key); }); notify(`${l.name} look applied. Use Undo to go back.`); }}>
+              <Flyer spec={l.spec} title={l.title} button={l.button} />
+              <span>{l.name}</span>
+            </button>
+          ))}
+        </div>
+        <span className="hint">Changes colours, fonts, texture and layout. Your questions, text and artwork stay as they are.</span>
+      </div>
       <DropArea className="artbox" onFile={(f) => void onArt(f)}>
         <div className="th">{art ? <img src={art} alt="" /> : "None yet"}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>

@@ -1,12 +1,13 @@
 "use server";
 
+import { BLANK_TEMPLATE_KEY, blankTemplate, templateByKey } from "@/lib/templates";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { dbErrorMessage } from "@/lib/errors";
-import { DEFAULT_THEME, normalizeDesign, normalizeSettings, slugify, starterFields } from "@/lib/design/engine";
+import { normalizeDesign, normalizeSettings, slugify } from "@/lib/design/engine";
 import { newFormSchema, parseDraft } from "@/lib/validation/form";
 import { fieldErrors, formValues, type FormState } from "@/lib/validation/form-state";
 import type { Json } from "@/types/database";
@@ -19,12 +20,17 @@ const SLUG_TAKEN = "Another form in this business already uses that address. Cho
 export async function createForm(_prev: FormState, fd: FormData): Promise<FormState> {
   await requireUser();
   const values = formValues(fd, ["title"]);
-  const parsed = newFormSchema.safeParse({ orgId: fd.get("orgId"), title: fd.get("title") });
+  const parsed = newFormSchema.safeParse({ orgId: fd.get("orgId"), title: fd.get("title"), template: fd.get("template") || undefined });
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error), values };
   const supabase = await createClient();
 
   const { data: org } = await supabase.from("organizations").select("slug").eq("id", parsed.data.orgId).maybeSingle();
   if (!org) return { error: "We couldn't find that business.", values };
+
+  // The starting point: a template from the gallery, or the plain starter questions.
+  const tpl = parsed.data.template && parsed.data.template !== BLANK_TEMPLATE_KEY ? templateByKey(parsed.data.template) : null;
+  if (parsed.data.template && parsed.data.template !== BLANK_TEMPLATE_KEY && !tpl) return { error: "That template isn't available. Choose another one.", values };
+  const start = tpl ? tpl.build() : blankTemplate(parsed.data.title);
 
   const base = slugify(parsed.data.title).slice(0, 52).replace(/-$/, "") || "form";
   let formId: string | null = null;
@@ -36,10 +42,12 @@ export async function createForm(_prev: FormState, fd: FormData): Promise<FormSt
         org_id: parsed.data.orgId,
         title: parsed.data.title,
         slug,
-        submit_label: "Place my order",
-        thanks: "Thanks! We've got your order and will send you updates as it moves along.",
-        settings: normalizeSettings({}) as unknown as NonNullable<Json>,
-        design: normalizeDesign({ theme: DEFAULT_THEME }) as unknown as NonNullable<Json>,
+        submit_label: start.submitLabel,
+        thanks: start.thanks || null,
+        intro: start.intro || null,
+        venue: start.venue || null,
+        settings: normalizeSettings(start.settings) as unknown as NonNullable<Json>,
+        design: normalizeDesign(start.design) as unknown as NonNullable<Json>,
       })
       .select("id")
       .single();
@@ -48,7 +56,7 @@ export async function createForm(_prev: FormState, fd: FormData): Promise<FormSt
   }
   if (!formId) return { error: "Choose a more distinctive title. Lots of forms already use this one.", values };
 
-  const fields = starterFields().map((f, position) => ({
+  const fields = start.fields.map((f, position) => ({
     id: f.id, org_id: parsed.data.orgId, form_id: formId, position, type: f.type, label: f.label, help: f.help,
     placeholder: f.placeholder, required: f.required, options: f.options as unknown as NonNullable<Json>, config: f.config as unknown as NonNullable<Json>,
   }));

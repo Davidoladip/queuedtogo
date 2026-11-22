@@ -85,4 +85,5 @@ export function parseDraft(input: unknown) {
 export const newFormSchema = z.object({
   orgId: z.uuid(),
   title: z.string().trim().min(1, "Give the form a title.").max(140, "Titles can be up to 140 characters."),
+  template: z.string().regex(/^[a-z0-9-]{1,40}$/).optional(),
 });
