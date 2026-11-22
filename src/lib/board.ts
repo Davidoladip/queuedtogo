@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 export type BoardStage = { id: string; name: string; color: string; position: number; isFinal: boolean; notify: boolean };
-export type BoardMember = { id: string; name: string };
+export type BoardMember = { id: string; name: string; /** Public URL of their profile picture. */ picture?: string | null };
 export type BoardJob = {
   id: string;
   number: number;

@@ -241,6 +241,20 @@ select tests.login('bob');
 select tests.ok((select count(*) from storage.objects) = 0, 'bob cannot list another business''s files');
 reset role;
 
+-- ---------------------------------------------------------------- profile pictures
+select tests.login('alice');
+select tests.affects(format($$insert into storage.objects (bucket_id, name) values ('avatars', '%s/%s.webp')$$, tests.id('alice'), gen_random_uuid()), 1, 'people can upload a profile picture to their own folder');
+select tests.fails(format($$insert into storage.objects (bucket_id, name) values ('avatars', '%s/%s.webp')$$, tests.id('bob'), gen_random_uuid()), 'people cannot upload into someone else''s picture folder');
+select tests.affects(format($$update public.profiles set avatar_path = '%s/%s.webp' where id = '%s'$$, tests.id('alice'), gen_random_uuid(), tests.id('alice')), 1, 'people can set their own profile picture');
+select tests.fails(format($$update public.profiles set avatar_path = '%s/%s.webp' where id = '%s'$$, tests.id('bob'), gen_random_uuid(), tests.id('alice')), 'a profile picture must be inside the person''s own folder');
+select tests.fails(format($$update public.profiles set avatar_path = '%s/x.svg' where id = '%s'$$, tests.id('alice'), tests.id('alice')), 'profile pictures must be PNG, JPG or WebP');
+select tests.affects(format($$update public.profiles set avatar_path = '%s/%s.png' where id = '%s'$$, tests.id('bob'), gen_random_uuid(), tests.id('bob')), 0, 'people cannot change someone else''s profile picture');
+update public.profiles set avatar_path = null where id = tests.id('alice');
+reset role;
+select tests.login('bob');
+select tests.ok((select count(*) from storage.objects where bucket_id = 'avatars') = 0, 'people cannot list others'' picture files');
+reset role;
+
 -- ---------------------------------------------------------------- saving drafts (form builder)
 insert into tests.ids values ('fld1', gen_random_uuid()), ('fld2', gen_random_uuid()), ('fldSub', gen_random_uuid());
 select tests.login('dan');

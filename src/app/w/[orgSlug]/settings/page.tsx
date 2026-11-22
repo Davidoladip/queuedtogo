@@ -3,6 +3,8 @@ import { canManage, requireWorkspace } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui/Notice";
 import { BusinessForm, DeleteBusiness, InviteForm, MemberRow, ProfileForm } from "./SettingsForms";
+import { AvatarField } from "@/components/account/AvatarField";
+import { avatarUrl } from "@/lib/avatar";
 import { cancelInvitation } from "@/server/actions/organizations";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -18,11 +20,11 @@ export default async function SettingsPage({ params, searchParams }: {
   const supabase = await createClient();
 
   const [{ data: members, error: mErr }, { data: invites }, { data: profile }] = await Promise.all([
-    supabase.from("organization_members").select("user_id, role, created_at, profiles(full_name, email)").eq("org_id", org.id).order("created_at"),
+    supabase.from("organization_members").select("user_id, role, created_at, profiles(full_name, email, avatar_path)").eq("org_id", org.id).order("created_at"),
     manage
       ? supabase.from("organization_invitations").select("id, email, role, expires_at, created_at").eq("org_id", org.id).is("accepted_at", null).order("created_at", { ascending: false })
       : Promise.resolve({ data: [] as { id: string; email: string; role: string; expires_at: string; created_at: string }[] }),
-    supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("full_name, avatar_path").eq("id", user.id).maybeSingle(),
   ]);
   if (mErr) throw new Error(mErr.message);
   const owners = members.filter((m) => m.role === "owner").length;
@@ -46,6 +48,7 @@ export default async function SettingsPage({ params, searchParams }: {
         <section className="panel" id="account" aria-labelledby="acct">
           <h2 id="acct">Your account</h2>
           <p className="muted" style={{ marginBottom: 14, fontSize: 14 }}>Signed in as {user.email}. You are {org.role === "admin" ? "an admin" : `the ${org.role}`} here{org.role === "member" ? "" : ""}.</p>
+          <AvatarField name={profile?.full_name ?? null} email={user.email} path={profile?.avatar_path ?? null} />
           <ProfileForm fullName={profile?.full_name ?? ""} />
         </section>
       </div>
@@ -68,6 +71,7 @@ export default async function SettingsPage({ params, searchParams }: {
                   userId={m.user_id}
                   name={m.profiles?.full_name ?? null}
                   email={m.profiles?.email ?? ""}
+                  picture={avatarUrl(m.profiles?.avatar_path)}
                   role={m.role}
                   isMe={m.user_id === user.id}
                   myRole={org.role}

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { dbErrorMessage } from "@/lib/errors";
 import { siteUrl } from "@/lib/urls";
+import { AVATAR_PATH } from "@/lib/avatar";
 import {
   changeRoleSchema,
   createOrgSchema,
@@ -172,4 +173,47 @@ export async function updateProfile(_prev: FormState, fd: FormData): Promise<For
   if (error) return { error: dbErrorMessage(error, "We couldn't save your name.") };
   revalidatePath("/w", "layout");
   return { message: "Your name is saved." };
+}
+
+// ---------------------------------------------------------------- profile picture
+
+type AvatarResult = { ok: true; path: string | null } | { ok: false; error: string };
+
+/** A one-time upload link for a new profile picture, inside the person's own folder (the browser holds no session). */
+export async function avatarUploadTicket(ext: string): Promise<{ ok: true; path: string; token: string } | { ok: false; error: string }> {
+  const user = await requireUser();
+  if (!["webp", "png", "jpg"].includes(ext)) return { ok: false, error: "Choose a PNG, JPG or WebP image." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.storage.from("avatars").createSignedUploadUrl(`${user.id}/${crypto.randomUUID()}.${ext}`);
+  if (error || !data) return { ok: false, error: "The upload didn't go through. Check your connection and try again." };
+  return { ok: true, path: data.path, token: data.token };
+}
+
+/** Uses an uploaded picture as the profile picture, and deletes the one it replaces. */
+export async function saveAvatar(path: string): Promise<AvatarResult> {
+  const user = await requireUser();
+  const m = AVATAR_PATH.exec(String(path));
+  if (!m || m[1] !== user.id) return { ok: false, error: "That picture isn't valid. Try uploading it again." };
+  const supabase = await createClient();
+  const name = path.slice(user.id.length + 1);
+  const { data: found } = await supabase.storage.from("avatars").list(user.id, { search: name, limit: 1 });
+  if (!found?.some((f) => f.name === name)) return { ok: false, error: "The upload didn't finish. Try again." };
+  const { data: before } = await supabase.from("profiles").select("avatar_path").eq("id", user.id).maybeSingle();
+  const { error } = await supabase.from("profiles").update({ avatar_path: path }).eq("id", user.id);
+  if (error) return { ok: false, error: dbErrorMessage(error, "We couldn't save your picture.") };
+  if (before?.avatar_path && before.avatar_path !== path) await supabase.storage.from("avatars").remove([before.avatar_path]);
+  revalidatePath("/w", "layout");
+  return { ok: true, path };
+}
+
+/** Removes the profile picture; the avatar goes back to initials. */
+export async function removeAvatar(): Promise<AvatarResult> {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const { data: before } = await supabase.from("profiles").select("avatar_path").eq("id", user.id).maybeSingle();
+  const { error } = await supabase.from("profiles").update({ avatar_path: null }).eq("id", user.id);
+  if (error) return { ok: false, error: dbErrorMessage(error, "We couldn't remove your picture.") };
+  if (before?.avatar_path) await supabase.storage.from("avatars").remove([before.avatar_path]);
+  revalidatePath("/w", "layout");
+  return { ok: true, path: null };
 }

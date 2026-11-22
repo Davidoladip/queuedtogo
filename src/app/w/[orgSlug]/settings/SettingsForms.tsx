@@ -16,6 +16,7 @@ import { Field } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { CopyField } from "@/components/ui/CopyField";
+import { Avatar } from "@/components/ui/Avatar";
 
 export function BusinessForm({ org, disabled }: { org: Workspace; disabled: boolean }) {
   const [state, action] = useActionState(updateOrganization, initialState);
@@ -80,20 +81,19 @@ export function InviteForm({ orgId }: { orgId: string }) {
   );
 }
 
-export function MemberRow({ orgId, userId, name, email, role, isMe, myRole, lastOwner }: {
-  orgId: string; userId: string; name: string | null; email: string; role: OrgRole; isMe: boolean; myRole: OrgRole; lastOwner: boolean;
+export function MemberRow({ orgId, userId, name, email, picture, role, isMe, myRole, lastOwner }: {
+  orgId: string; userId: string; name: string | null; email: string; picture?: string | null; role: OrgRole; isMe: boolean; myRole: OrgRole; lastOwner: boolean;
 }) {
   const [roleState, roleAction] = useActionState(changeRole, initialState);
   const [removeState, removeAction] = useActionState(removeMember, initialState);
   const canEdit = (myRole === "owner" || (myRole === "admin" && role !== "owner")) && !lastOwner;
   const canRemove = isMe ? !lastOwner : canEdit;
-  const initials = (name || email).split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join("");
   const err = roleState.error || removeState.error;
   return (
     <tr>
       <td>
         <div className="person">
-          <span className="avatar" aria-hidden="true">{initials}</span>
+          <Avatar name={name} email={email} src={picture ?? null} />
           <span style={{ minWidth: 0 }}>
             <b>{name || email}</b> {isMe && <span className="pill accent">You</span>}
             <br /><small className="muted" style={{ overflowWrap: "anywhere" }}>{email}</small>

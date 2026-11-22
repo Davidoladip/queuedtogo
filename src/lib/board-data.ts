@@ -1,4 +1,5 @@
 import "server-only";
+import { avatarUrl } from "@/lib/avatar";
 import type { createClient } from "@/lib/supabase/server";
 import { DONE_DAYS, type BoardEvent, type BoardJob, type BoardMember, type BoardStage } from "@/lib/board";
 import type { JobCustomer } from "@/components/board/JobPanel";
@@ -27,9 +28,9 @@ export async function loadStages(db: Db, orgId: string): Promise<BoardStage[]> {
 }
 
 export async function loadMembers(db: Db, orgId: string): Promise<BoardMember[]> {
-  const { data, error } = await db.from("organization_members").select("user_id, profiles(full_name, email)").eq("org_id", orgId).order("created_at");
+  const { data, error } = await db.from("organization_members").select("user_id, profiles(full_name, email, avatar_path)").eq("org_id", orgId).order("created_at");
   if (error) throw new Error(error.message);
-  return data.map((m) => ({ id: m.user_id, name: m.profiles?.full_name?.trim() || m.profiles?.email || "Team member" }));
+  return data.map((m) => ({ id: m.user_id, name: m.profiles?.full_name?.trim() || m.profiles?.email || "Team member", picture: avatarUrl(m.profiles?.avatar_path) }));
 }
 
 /** Open jobs, plus jobs finished in the last DONE_DAYS days. */

@@ -60,6 +60,7 @@ export function Board(p: Props) {
   }, [toast]);
 
   const people = useMemo(() => new Map(p.members.map((m) => [m.id, m.name])), [p.members]);
+  const pictures = useMemo(() => new Map(p.members.map((m) => [m.id, m.picture ?? null])), [p.members]);
   const stageById = useMemo(() => new Map(stages.map((s) => [s.id, s])), [stages]);
 
   const term = q.trim().toLowerCase().replace(/^qtg-?/, "");
@@ -155,6 +156,7 @@ export function Board(p: Props) {
                     stage={s}
                     today={p.today}
                     assignee={j.assigneeId ? people.get(j.assigneeId) ?? null : null}
+                    picture={j.assigneeId ? pictures.get(j.assigneeId) ?? null : null}
                     href={p.jobHref + j.id}
                     pending={pending.has(j.id)}
                     dragging={dragging === j.id}
@@ -174,8 +176,8 @@ export function Board(p: Props) {
   );
 }
 
-function Ticket({ job: j, next, stage, today, assignee, href, pending, dragging, onDragStart, onDragEnd, onMove }: {
-  job: BoardJob; next: BoardStage | null; stage: BoardStage; today: string; assignee: string | null; href: string;
+function Ticket({ job: j, next, stage, today, assignee, picture, href, pending, dragging, onDragStart, onDragEnd, onMove }: {
+  job: BoardJob; next: BoardStage | null; stage: BoardStage; today: string; assignee: string | null; picture: string | null; href: string;
   pending: boolean; dragging: boolean;
   onDragStart: (e: React.DragEvent) => void; onDragEnd: () => void; onMove: (to: string) => void;
 }) {
@@ -204,7 +206,10 @@ function Ticket({ job: j, next, stage, today, assignee, href, pending, dragging,
         {j.summary && <div className="t-item">{j.summary}</div>}
         {j.formTitle && <span className="formtag"><span className="dot" /><span>{j.formTitle}</span></span>}
         <div className="t-meta">
-          {assignee ? <span className="avatar sm" title={assignee}>{initials(assignee)}</span> : <span className="avatar sm none" title="Unassigned">?</span>}
+          {assignee ? (picture
+            // eslint-disable-next-line @next/next/no-img-element -- tiny pre-sized image from our own storage
+            ? <span className="avatar sm has-img" title={assignee}><img src={picture} alt="" width={48} height={48} decoding="async" draggable={false} /></span>
+            : <span className="avatar sm" title={assignee}>{initials(assignee)}</span>) : <span className="avatar sm none" title="Unassigned">?</span>}
           <span className="nm">{assignee ?? "Unassigned"}</span>
           {j.dueDate && <span className="due">Due {formatDay(j.dueDate)}</span>}
         </div>
