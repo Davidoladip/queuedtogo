@@ -171,27 +171,26 @@
 
 /* Hero reel: what QueuedToGo does, as illustrated cards drifting past (HeroReel.tsx). */
 .hr { min-width: 0; }
-.hr-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; }
+.hr-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; }
 .hr-title { font: 700 17px/1.3 var(--f-display); letter-spacing: -.01em; margin: 0; color: var(--ink); }
 .hr-toggle { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 14px; border-radius: 99px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); font: 600 13.5px var(--f-body); cursor: pointer; }
 .hr-toggle:hover { border-color: var(--ink); }
 .hr-icon { width: 10px; height: 11px; }
 .hr-icon.pause { border-left: 3px solid currentColor; border-right: 3px solid currentColor; box-sizing: border-box; }
 .hr-icon.play { width: 0; height: 0; border-left: 9px solid currentColor; border-top: 5.5px solid transparent; border-bottom: 5.5px solid transparent; }
-.hr-rows { display: grid; gap: 14px; }
-.hr-window { overflow: hidden; margin: 0 -8px; padding: 6px 8px 10px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
-.hr-track { display: flex; width: max-content; animation: hr-drift 34s linear infinite; }
-.hr-right .hr-track { animation-direction: reverse; animation-duration: 38s; }
+.hr-rows { display: block; }
+.hr-window { overflow: hidden; margin: 0 -8px; padding: 8px 8px 18px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
+.hr-track { display: flex; width: max-content; animation: hr-drift 48s linear infinite; }
 .hr-window:hover .hr-track, .hr-paused .hr-track { animation-play-state: paused; }
-.hr-list { list-style: none; margin: 0; padding: 0 16px 0 0; display: flex; gap: 16px; }
-.hr-card { flex: none; width: 214px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 9px 9px 13px; display: flex; flex-direction: column; gap: 3px;
+.hr-list { list-style: none; margin: 0; padding: 0 20px 0 0; display: flex; gap: 20px; }
+.hr-card { flex: none; width: 300px; background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 12px 12px 20px; display: flex; flex-direction: column; gap: 3px;
   box-shadow: 0 1px 0 rgba(22, 26, 43, .04), 0 8px 20px -14px rgba(22, 26, 43, .35); }
-.hr-art { border-radius: 10px; aspect-ratio: 200 / 112; margin-bottom: 9px; overflow: hidden; }
+.hr-art { border-radius: 12px; aspect-ratio: 200 / 130; margin-bottom: 14px; overflow: hidden; }
 .hr-art svg { display: block; width: 100%; height: 100%; font-family: var(--f-body); }
-.hr-card b { font: 700 16px/1.25 var(--f-display); letter-spacing: -.01em; padding: 0 4px; }
-.hr-card span { font-size: 13px; line-height: 1.4; color: var(--soft); padding: 0 4px; min-height: 2.8em; }
+.hr-card b { font: 700 20px/1.2 var(--f-display); letter-spacing: -.015em; padding: 0 6px; }
+.hr-card span { font-size: 15px; line-height: 1.45; color: var(--soft); padding: 0 6px; min-height: 2.9em; }
 @keyframes hr-drift { to { transform: translateX(-50%); } }
-@media (max-width: 760px) { .hr-card { width: 190px; } .hr-title { font-size: 15px; } }
+@media (max-width: 760px) { .hr-card { width: 250px; } .hr-card b { font-size: 18px; } .hr-card span { font-size: 14px; } .hr-title { font-size: 15px; } }
 /* Reduced motion: the strip stands still and scrolls sideways by hand. */
 @media (prefers-reduced-motion: reduce) {
   .hr-track { animation: none; }

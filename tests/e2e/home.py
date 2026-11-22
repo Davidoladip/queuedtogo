@@ -34,7 +34,9 @@ with sync_playwright() as p:
         check(f"menu link {anchor} has a target", pg.locator(anchor).count() == 1)
     reel = pg.locator(".hm-hero .hm-stage .hr")
     check("the moving cards sit in the hero's picture spot, beside the headline", reel.count() == 1 and abs(reel.bounding_box()["y"] - pg.locator(".hm-hero-copy").bounding_box()["y"]) < 160, reel.bounding_box() if reel.count() else None)
-    check("two rows drift in opposite directions", pg.locator(".hr-window").count() == 2 and pg.evaluate("() => [...document.querySelectorAll('.hr-track')].map(t => getComputedStyle(t).animationDirection).join()") == "normal,reverse")
+    check("the cards drift past in a single row", pg.locator(".hr-window").count() == 1 and len({round(c.bounding_box()["y"]) for c in pg.locator(".hr-list:not(.hr-copy) .hr-card").all()}) == 1)
+    cards_h = pg.locator(".hr-card").first.bounding_box()["height"]
+    check("the cards are sized to fill the picture spot", cards_h >= 280 and pg.locator(".hr-card").first.bounding_box()["width"] >= 290, cards_h)
     check("screen readers get one plain list of all six", pg.locator('.hr ul.sr-only li').count() == 6 and all(w.get_attribute("aria-hidden") == "true" for w in pg.locator(".hr-window").all()))
     check("steps are an ordered list", pg.locator("ol.hm-steps > li").count() == 3)
 
@@ -104,7 +106,7 @@ with sync_playwright() as p:
     does = pg.locator(".hr-list:not(.hr-copy) .hr-card b").all_inner_texts()
     check("the hero cards sum up everything QueuedToGo does", does == ["Take orders", "Sell tickets", "Send invitations", "Track every order", "Keep people posted", "Run the day"], does)
     check("each item has an illustration", pg.locator(".hr-list:not(.hr-copy) .hr-art svg").count() == 6)
-    check("the repeated copies that make the loops seamless sit inside hidden rows", pg.locator(".hr-window[aria-hidden=true] .hr-copy").count() == 2)
+    check("the repeated copy that makes the loop seamless sits inside the hidden row", pg.locator(".hr-window[aria-hidden=true] .hr-copy").count() == 1)
     pos = lambda: pg.evaluate("() => new DOMMatrix(getComputedStyle(document.querySelector('.hr-track')).transform).m41")
     a = pos(); pg.wait_for_timeout(700); b2 = pos()
     check("the reel scrolls by itself", b2 < a - 5, (a, b2))

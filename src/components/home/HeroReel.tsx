@@ -13,10 +13,10 @@ const ITEMS: { title: string; text: string; art: React.ReactNode; tint: string }
 ];
 
 /**
- * What QueuedToGo does, as two rows of illustrated cards drifting in opposite directions (the hero's picture).
+ * What QueuedToGo does, as one row of large illustrated cards drifting past (the hero's picture).
  * Hovering the cards pauses them, and a Pause button stops them (moving content must be stoppable). With reduced
- * motion the rows stand still and scroll by hand. Screen readers get one plain list of all six; the drifting
- * rows, and the repeated copies that make each loop seamless, are hidden from them.
+ * motion the row stands still and scrolls by hand. Screen readers get one plain list of all six; the drifting
+ * row, and the repeated copy that makes the loop seamless, are hidden from them.
  */
 export function HeroReel() {
   const [paused, setPaused] = useState(false);
@@ -47,8 +47,7 @@ export function HeroReel() {
         {ITEMS.map((it) => <li key={it.title}>{it.title}: {it.text}</li>)}
       </ul>
       <div className="hr-rows">
-        {row(ITEMS.slice(0, 3), "left")}
-        {row(ITEMS.slice(3), "right")}
+        {row(ITEMS, "left")}
       </div>
     </div>
   );
