@@ -5,6 +5,7 @@ import { LEGAL } from "@/lib/legal";
 import { PASSES, PASS_ORDER, PLANS, PLAN_ORDER, TRIAL_DAYS } from "@/lib/plans";
 import { SAMPLE_FORMS, type SampleKey } from "@/lib/demo";
 import { FAQ } from "@/lib/faq";
+import { HeroReel } from "./HeroReel";
 import { PLATFORM_FEE_RATE } from "@/lib/payments";
 import "./home.css";
 
@@ -42,14 +43,6 @@ export function Landing() {
               <p className="hm-lede">
                 Give your event its own online form, and QueuedToGo handles everything after someone fills it in.
               </p>
-              <ul className="hm-does" aria-label="What QueuedToGo does">
-                <li><b>Take orders</b><span>A QR-code order form for your stall or table</span></li>
-                <li><b>Sell tickets</b><span>Paid events, with card payments straight to your Stripe or Square</span></li>
-                <li><b>Send invitations</b><span>RSVPs in a sealed envelope guests tap to open</span></li>
-                <li><b>Track every order</b><span>A production board from new to ready</span></li>
-                <li><b>Keep people posted</b><span>Automatic texts and emails when it&apos;s ready</span></li>
-                <li><b>Run the day</b><span>Pickup search, door check-in and end-of-day totals</span></li>
-              </ul>
               <div className="hm-cta">
                 <Link href="/signup" className="hm-btn">Start free</Link>
                 <a href="#examples" className="hm-btn hm-btn-ghost">See real event forms</a>
@@ -77,6 +70,7 @@ export function Landing() {
               </div>
             </div>
           </div>
+          <div className="hm-in"><HeroReel /></div>
         </section>
 
         <section id="how" className="hm-sec" aria-labelledby="hm-how">
