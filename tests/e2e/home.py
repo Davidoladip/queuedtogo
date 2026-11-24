@@ -23,7 +23,10 @@ with sync_playwright() as p:
     pg.goto(BASE + "/")
 
     check("page title", pg.title() == "QueuedToGo: order forms and updates for live events", pg.title())
-    check("one main heading", pg.locator("h1").count() == 1 and "Take orders at your event" in pg.inner_text("h1"))
+    check("one main heading that says what QueuedToGo is", pg.locator("h1").count() == 1 and pg.inner_text("h1") == "Orders, tickets and RSVPs for your event, in one place.", pg.inner_text("h1"))
+    check("the lede sums up what it does", all(x in pg.inner_text(".hm-lede") for x in ["Take orders, sell tickets or collect RSVPs", "production board", "text customers"]))
+    lg = pg.locator(".hm-top .brand")
+    check("the logo arrow comes after the name", lg.locator(".brand-mark").bounding_box()["x"] > lg.locator(".brand-name").bounding_box()["x"] + lg.locator(".brand-name").bounding_box()["width"] - 1)
     desc = pg.locator('meta[name="description"]').get_attribute("content") or ""
     check("search description", "QR-code form" in desc, desc)
     check("share image", (pg.locator('meta[property="og:image"]').get_attribute("content") or "").endswith("/og.png"))

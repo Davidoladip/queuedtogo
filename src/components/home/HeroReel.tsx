@@ -38,7 +38,7 @@ export function HeroReel() {
   return (
     <div className={`hr${paused ? " hr-paused" : ""}`}>
       <div className="hr-head">
-        <h2 id="hr-h" className="hr-title">Everything your event needs, in one place</h2>
+        <h2 id="hr-h" className="hr-title">What you can do with QueuedToGo</h2>
         <button type="button" className="hr-toggle" aria-pressed={paused} onClick={() => setPaused((p) => !p)}>
           <span className={`hr-icon ${paused ? "play" : "pause"}`} aria-hidden="true" />{paused ? "Play" : "Pause"}<span className="sr-only"> the moving cards</span>
         </button>

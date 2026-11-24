@@ -39,9 +39,10 @@ export function Landing() {
         <section className="hm-hero" aria-labelledby="hm-title">
           <div className="hm-in hm-hero-in">
             <div className="hm-hero-copy">
-              <h1 id="hm-title">Take orders at your event. Text customers when they&apos;re ready.</h1>
+              <h1 id="hm-title">Orders, tickets and RSVPs for your event, in one place.</h1>
               <p className="hm-lede">
-                Give your event its own online form, and QueuedToGo handles everything after someone fills it in.
+                Give your event its own form, opened from a QR code or a link. Take orders, sell tickets or collect RSVPs, work
+                through every order on a production board, and text customers the moment it&apos;s ready.
               </p>
               <div className="hm-cta">
                 <Link href="/signup" className="hm-btn">Start free</Link>
