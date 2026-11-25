@@ -44,7 +44,7 @@
 .hm-h2 { font: 700 clamp(28px, 3.4vw, 40px)/1.08 var(--f-display); letter-spacing: -0.025em; margin: 0 0 16px; text-wrap: balance; }
 .hm-sub { color: var(--soft); font-size: 17px; margin: -4px 0 32px; max-width: 40em; }
 
-.hm-steps { list-style: none; margin: 32px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; counter-reset: s; }
+.hm-steps { list-style: none; margin: 28px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; counter-reset: s; }
 .hm-steps li { border-top: 3px solid var(--ink); padding-top: 20px; }
 .hm-step-n { display: block; font: 800 48px/1 var(--f-display); color: var(--cobalt); margin-bottom: 14px; }
 .hm-steps h3 { font: 700 21px/1.2 var(--f-display); margin: 0 0 8px; letter-spacing: -0.01em; }
@@ -202,3 +202,24 @@
 @media (max-width: 760px) { .hr-card { width: 270px; } .hr-card b { font-size: 19px; } .hr-card span { font-size: 14.5px; } .hr-title { font-size: 15px; } .hr-arrow { width: 36px; height: 36px; } }
 /* Reduced motion: the strip never moves by itself (see HeroReel.tsx), so there is nothing to pause. */
 @media (prefers-reduced-motion: reduce) { .hr-toggle { display: none; } }
+
+/* How it works: summary, the three experiences as tabs, and what's included (HowItWorks.tsx). */
+.hw-sum { max-width: 46em; }
+.hw-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 28px 0 0; padding: 5px; background: var(--mist); border-radius: 14px; width: fit-content; max-width: 100%; }
+.hw-tab { appearance: none; border: 0; background: transparent; color: var(--soft); font: 600 15.5px/1 var(--f-body); padding: 13px 18px; border-radius: 10px; cursor: pointer; }
+.hw-tab:hover { color: var(--ink); }
+.hw-tab[aria-selected="true"] { background: var(--paper); color: var(--ink); box-shadow: 0 1px 2px rgba(22, 26, 43, .12), 0 4px 12px -6px rgba(22, 26, 43, .25); }
+.hw-tab:focus-visible, .hw-panel:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 3px; }
+.hw-panel { padding-top: 26px; border-radius: 6px; }
+.hw-lede { font-size: 17.5px; line-height: 1.55; color: var(--ink); max-width: 44em; margin: 0; }
+.hw-inc { margin-top: 56px; padding: 28px; border-radius: 18px; background: var(--mist); }
+.hw-inc-h { font: 700 19px/1.25 var(--f-display); margin: 0 0 18px; letter-spacing: -.01em; }
+.hw-inc-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px 24px; }
+.hw-inc-list li { display: flex; flex-direction: column; gap: 4px; padding-left: 14px; border-left: 3px solid var(--cobalt); }
+.hw-inc-list b { font: 700 16px/1.3 var(--f-display); }
+.hw-inc-list span { font-size: 14.5px; line-height: 1.5; color: #3D4460; }
+@media (max-width: 560px) {
+  .hw-tabs { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .hw-tab { padding: 11px 6px; font-size: 14px; line-height: 1.2; text-align: center; }
+  .hw-inc { padding: 22px 18px; }
+}

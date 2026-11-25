@@ -44,7 +44,7 @@ with sync_playwright() as p:
     cards_h = pg.locator(".hr-card").first.bounding_box()["height"]
     check("the cards are sized to fill the picture spot", cards_h >= 280 and pg.locator(".hr-card").first.bounding_box()["width"] >= 290, cards_h)
     check("screen readers get the six cards once (the looping copy is hidden)", pg.locator(".hr-window .hr-list:not([aria-hidden])").count() == 1 and pg.locator(".hr-list[aria-hidden=true] .hr-card").count() == 6)
-    check("steps are an ordered list", pg.locator("ol.hm-steps > li").count() == 3)
+    check("steps are an ordered list (three per experience)", pg.locator("ol.hm-steps").count() == 3 and pg.locator("ol.hm-steps > li").count() == 9)
 
     imgs = pg.locator("main img")
     for i in range(imgs.count()):
@@ -107,6 +107,23 @@ with sync_playwright() as p:
     check("pages carry a script policy with a per-request nonce", "'nonce-" in pol and "object-src 'none'" in pol, pol[:200])
     hdr = pg.request.get(BASE + "/demonstration-not-a-demo").headers
     check("only the demo paths are framable", hdr.get("x-frame-options") == "DENY", hdr)
+
+    # How it works: summary, three experiences as tabs, and what's included
+    pg.goto(BASE + "/")
+    how = pg.locator("#how")
+    check("How it works opens with a summary of the whole platform", all(x in how.locator(".hw-sum").inner_text() for x in ["order form", "ticketed event", "digital invitation", "text updates"]))
+    tabs = how.get_by_role("tab")
+    check("three experiences, as tabs", tabs.all_inner_texts() == ["Live event forms", "Ticketed events", "Digital invitations"], tabs.all_inner_texts())
+    check("the first is shown first, with three steps", tabs.nth(0).get_attribute("aria-selected") == "true" and how.locator(".hw-panel:not([hidden]) .hm-steps li").count() == 3 and "Build your order form" in how.locator(".hw-panel:not([hidden])").inner_text())
+    tabs.nth(1).click()
+    check("choosing Ticketed events shows its steps", "Set up your tickets" in how.locator(".hw-panel:not([hidden])").inner_text() and tabs.nth(1).get_attribute("aria-selected") == "true" and how.locator(".hw-panel:not([hidden])").count() == 1)
+    tabs.nth(1).focus(); pg.keyboard.press("ArrowRight")
+    check("arrow keys move between tabs", tabs.nth(2).get_attribute("aria-selected") == "true" and "Design your invitation" in how.locator(".hw-panel:not([hidden])").inner_text() and pg.evaluate("() => document.activeElement.id") == "hw-tab-invites")
+    pg.keyboard.press("Home")
+    check("Home goes back to the first", tabs.nth(0).get_attribute("aria-selected") == "true")
+    check("every step's text is in the page for search engines, even on hidden tabs", how.locator(".hw-panel .hm-steps li").count() == 9)
+    inc = how.locator(".hw-inc-list li b").all_inner_texts()
+    check("what every experience includes is listed", len(inc) == 5 and "Event-day tools" in inc, inc)
 
     # Hero summary and ticket sales
     pg.goto(BASE + "/")

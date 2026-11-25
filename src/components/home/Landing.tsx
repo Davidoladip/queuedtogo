@@ -6,6 +6,7 @@ import { PASSES, PASS_ORDER, PLANS, PLAN_ORDER, TRIAL_DAYS } from "@/lib/plans";
 import { SAMPLE_FORMS, type SampleKey } from "@/lib/demo";
 import { FAQ } from "@/lib/faq";
 import { HeroReel } from "./HeroReel";
+import { HowItWorks } from "./HowItWorks";
 import { PLATFORM_FEE_RATE } from "@/lib/payments";
 import "./home.css";
 
@@ -61,23 +62,7 @@ export function Landing() {
         <section id="how" className="hm-sec" aria-labelledby="hm-how">
           <div className="hm-in">
             <h2 id="hm-how" className="hm-h2">How it works</h2>
-            <ol className="hm-steps">
-              <li>
-                <span className="hm-step-n" aria-hidden="true">1</span>
-                <h3>Customers order from their phone</h3>
-                <p>Print the QR code for your table or share the link. They pick the item, size, colour and name, and they&apos;re done in a minute.</p>
-              </li>
-              <li>
-                <span className="hm-step-n" aria-hidden="true">2</span>
-                <h3>Every order lands on your board</h3>
-                <p>Each one gets a number and a card. Move it from new to making to ready, assign it to a teammate, and see what&apos;s due first.</p>
-              </li>
-              <li>
-                <span className="hm-step-n" aria-hidden="true">3</span>
-                <h3>They hear from you automatically</h3>
-                <p>When an order reaches the stages you choose, the customer gets a text or email with a link to track it. No calling out names.</p>
-              </li>
-            </ol>
+            <HowItWorks />
           </div>
         </section>
 
