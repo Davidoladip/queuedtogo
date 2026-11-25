@@ -39,14 +39,16 @@ export function Landing() {
         <section className="hm-hero" aria-labelledby="hm-title">
           <div className="hm-in hm-hero-in">
             <div className="hm-hero-copy">
-              <h1 id="hm-title">Orders, tickets and RSVPs for your event, in one place.</h1>
+              <h1 id="hm-title">Live event forms, Ticketed event management, Personalized Digital Invitation and Live Guest experience Platform</h1>
               <p className="hm-lede">
-                Give your event its own form, opened from a QR code or a link. Take orders, sell tickets or collect RSVPs, work
-                through every order on a production board, and text customers the moment it&apos;s ready.
+                Create a custom experience tailored to your event. Build a live activation form to collect guest orders, set up a
+                ticketed event to manage ticket sales, or design a personalized digital invitation with RSVP tracking. Each
+                experience is accessible via a QR code or direct link and includes real-time text notifications to keep guests
+                informed.
               </p>
               <div className="hm-cta">
-                <Link href="/signup" className="hm-btn">Start free</Link>
-                <a href="#examples" className="hm-btn hm-btn-ghost">See real event forms</a>
+                <a href="#how" className="hm-btn">How it works</a>
+                <a href="#pricing" className="hm-btn hm-btn-ghost">Free trial</a>
               </div>
               <p className="hm-fine">Free plan, no card needed. Paid plans from ${PLANS.starter.price} a month.</p>
             </div>

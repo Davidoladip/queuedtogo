@@ -32,7 +32,7 @@
 /* Hero */
 .hm-hero { background: var(--mist); border-bottom: 1px solid var(--line); }
 .hm-hero-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 48px; align-items: center; padding: 56px 0 64px; }
-.hm-hero h1 { font: 800 clamp(36px, 4.5vw, 58px)/1 var(--f-display); letter-spacing: -0.035em; margin: 0 0 20px; max-width: 15ch; text-wrap: balance; }
+.hm-hero h1 { font: 800 clamp(30px, 3.5vw, 46px)/1.06 var(--f-display); letter-spacing: -0.03em; margin: 0 0 20px; max-width: 22ch; text-wrap: balance; }
 .hm-lede { font-size: 19px; line-height: 1.55; color: #333A52; max-width: 34em; margin: 0 0 20px; }
 .hm-fine { margin: 16px 0 0; font-size: 14px; color: var(--soft); }
 

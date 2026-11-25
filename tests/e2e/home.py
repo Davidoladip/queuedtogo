@@ -23,15 +23,17 @@ with sync_playwright() as p:
     pg.goto(BASE + "/")
 
     check("page title", pg.title() == "QueuedToGo: order forms and updates for live events", pg.title())
-    check("one main heading that says what QueuedToGo is", pg.locator("h1").count() == 1 and pg.inner_text("h1") == "Orders, tickets and RSVPs for your event, in one place.", pg.inner_text("h1"))
-    check("the lede sums up what it does", all(x in pg.inner_text(".hm-lede") for x in ["Take orders, sell tickets or collect RSVPs", "production board", "text customers"]))
+    check("one main heading that says what QueuedToGo is", pg.locator("h1").count() == 1 and pg.inner_text("h1") == "Live event forms, Ticketed event management, Personalized Digital Invitation and Live Guest experience Platform", pg.inner_text("h1"))
+    cta = pg.locator(".hm-hero .hm-cta a")
+    check("the hero buttons are How it works and Free trial", cta.all_inner_texts() == ["How it works", "Free trial"], cta.all_inner_texts())
+    check("How it works jumps to the how-it-works section, Free trial to pricing", cta.nth(0).get_attribute("href") == "#how" and cta.nth(1).get_attribute("href") == "#pricing")
+    check("the lede sums up what it does", all(x in pg.inner_text(".hm-lede") for x in ["live activation form", "ticketed event", "personalized digital invitation", "real-time text notifications"]))
     lg = pg.locator(".hm-top .brand")
     check("the logo arrow comes after the name", lg.locator(".brand-mark").bounding_box()["x"] > lg.locator(".brand-name").bounding_box()["x"] + lg.locator(".brand-name").bounding_box()["width"] - 1)
     desc = pg.locator('meta[name="description"]').get_attribute("content") or ""
     check("search description", "QR-code form" in desc, desc)
     check("share image", (pg.locator('meta[property="og:image"]').get_attribute("content") or "").endswith("/og.png"))
-    check("Start free goes to sign-up", pg.get_by_role("link", name="Start free").first.get_attribute("href") == "/signup")
-    check("second button jumps to the real event forms", pg.get_by_role("link", name="See real event forms").get_attribute("href") == "#examples")
+    check("the header's Start free still goes to sign-up", pg.locator(".hm-top").get_by_role("link", name="Start free").get_attribute("href") == "/signup")
     check("sign in link", pg.get_by_role("link", name="Sign in").first.get_attribute("href") == "/login")
     for anchor in ("#how", "#examples", "#invitations", "#pricing"):
         check(f"menu link {anchor} has a target", pg.locator(anchor).count() == 1)
