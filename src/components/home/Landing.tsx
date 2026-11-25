@@ -39,7 +39,7 @@ export function Landing() {
         <section className="hm-hero" aria-labelledby="hm-title">
           <div className="hm-in hm-hero-in">
             <div className="hm-hero-copy">
-              <h1 id="hm-title">Live event forms, Ticketed event management, Personalized Digital Invitation and Live Guest experience Platform</h1>
+              <h1 id="hm-title">Live Event Forms, Ticketed Event Management, Personalized Digital Invitation And Live Guest Experience Platform</h1>
               <p className="hm-lede">
                 Create a custom experience tailored to your event. Build a live activation form to collect guest orders, set up a
                 ticketed event to manage ticket sales, or design a personalized digital invitation with RSVP tracking. Each
@@ -50,7 +50,6 @@ export function Landing() {
                 <a href="#how" className="hm-btn">How it works</a>
                 <a href="#pricing" className="hm-btn hm-btn-ghost">Free trial</a>
               </div>
-              <p className="hm-fine">Free plan, no card needed. Paid plans from ${PLANS.starter.price} a month.</p>
             </div>
 
             <div className="hm-stage">

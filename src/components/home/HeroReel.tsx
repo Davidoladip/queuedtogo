@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** What QueuedToGo does, as illustrated cards: shared by the strip and its screen-reader text. */
 const ITEMS: { title: string; text: string; art: React.ReactNode; tint: string }[] = [
@@ -12,14 +12,106 @@ const ITEMS: { title: string; text: string; art: React.ReactNode; tint: string }
   { title: "Run the day", text: "Pickup search, door check-in and end-of-day totals", tint: "#FFF4C9", art: <ArtDay /> },
 ];
 
+/** Auto-scroll speed, in pixels per second. */
+const SPEED = 32;
+/** After someone scrolls, swipes or drags the cards themselves, the auto-scroll waits this long before carrying on. */
+const RESUME_MS = 3500;
+
 /**
- * What QueuedToGo does, as one row of large illustrated cards drifting past (the hero's picture).
- * Hovering the cards pauses them, and a Pause button stops them (moving content must be stoppable). With reduced
- * motion the row stands still and scrolls by hand. Screen readers get one plain list of all six; the drifting
- * row, and the repeated copy that makes the loop seamless, are hidden from them.
+ * What QueuedToGo does, as one row of large illustrated cards that scrolls by itself (the hero's picture).
+ * It is a real scrolling strip, so people can also swipe it, scroll it with a trackpad or wheel, drag it with a
+ * mouse, use the arrow buttons, or focus it and use the arrow keys; the auto-scroll steps aside while they do.
+ * It pauses on hover and with the Pause button (moving content must be stoppable), and never moves by itself
+ * with reduced motion. The second copy of the cards, which makes the loop seamless, is hidden from screen readers.
  */
 export function HeroReel() {
   const [paused, setPaused] = useState(false);
+  const win = useRef<HTMLDivElement>(null);
+  const first = useRef<HTMLUListElement>(null);
+  const st = useRef({ pos: 0, hover: false, focus: false, touchedAt: -Infinity, ownScroll: false, tween: 0 });
+  const pausedRef = useRef(paused);
+  useEffect(() => { pausedRef.current = paused; }, [paused]);
+
+  useEffect(() => {
+    const w = win.current, list = first.current;
+    if (!w || !list) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const loop = () => list.offsetWidth + parseFloat(getComputedStyle(list).marginRight || "0");
+    // Keep the position inside the first copy, so the strip loops forever in both directions.
+    const wrap = (x: number) => { const L = loop(); return L > 0 ? ((x % L) + L) % L : x; };
+    const set = (x: number) => { const s = st.current; s.pos = wrap(x); s.ownScroll = true; w.scrollLeft = s.pos; };
+    const onScroll = () => {
+      const s = st.current;
+      if (s.ownScroll) { s.ownScroll = false; return; }
+      // Someone moved it by hand: follow them, and wrap at the loop's seam.
+      s.pos = w.scrollLeft;
+      const L = loop();
+      if (L > 0 && (s.pos >= L || s.pos <= 0.5)) set(s.pos <= 0.5 ? s.pos + L : s.pos - L);
+    };
+    const touched = () => { st.current.touchedAt = performance.now(); };
+    // Mouse drag to scroll (touch and trackpads scroll natively).
+    let drag: { x: number; pos: number; id: number } | null = null;
+    const down = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse" || e.button !== 0) return;
+      drag = { x: e.clientX, pos: st.current.pos, id: e.pointerId };
+      w.setPointerCapture(e.pointerId); w.classList.add("hr-grabbing"); touched();
+    };
+    const move = (e: PointerEvent) => { if (drag && e.pointerId === drag.id) { set(drag.pos - (e.clientX - drag.x)); touched(); } };
+    const up = (e: PointerEvent) => { if (drag && e.pointerId === drag.id) { drag = null; w.classList.remove("hr-grabbing"); touched(); } };
+    const enter = (e: PointerEvent) => { if (e.pointerType === "mouse") st.current.hover = true; };
+    const leave = () => { st.current.hover = false; };
+    const fin = () => { st.current.focus = true; };
+    const fout = () => { st.current.focus = false; };
+    w.addEventListener("scroll", onScroll, { passive: true });
+    for (const ev of ["wheel", "touchstart", "touchmove", "keydown"] as const) w.addEventListener(ev, touched, { passive: true });
+    w.addEventListener("pointerdown", down); w.addEventListener("pointermove", move);
+    w.addEventListener("pointerup", up); w.addEventListener("pointercancel", up);
+    w.addEventListener("pointerenter", enter); w.addEventListener("pointerleave", leave);
+    w.addEventListener("focusin", fin); w.addEventListener("focusout", fout);
+
+    let raf = 0, last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(64, now - last); last = now;
+      const s = st.current;
+      const still = pausedRef.current || reduce.matches || s.hover || s.focus || drag || s.tween || document.hidden || now - s.touchedAt < RESUME_MS;
+      if (!still) set(s.pos + (SPEED * dt) / 1000);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      w.removeEventListener("scroll", onScroll);
+      for (const ev of ["wheel", "touchstart", "touchmove", "keydown"] as const) w.removeEventListener(ev, touched);
+      w.removeEventListener("pointerdown", down); w.removeEventListener("pointermove", move);
+      w.removeEventListener("pointerup", up); w.removeEventListener("pointercancel", up);
+      w.removeEventListener("pointerenter", enter); w.removeEventListener("pointerleave", leave);
+      w.removeEventListener("focusin", fin); w.removeEventListener("focusout", fout);
+    };
+  }, []);
+
+  /** The arrow buttons: glide one card along (instantly with reduced motion). */
+  const step = (dir: 1 | -1) => {
+    const w = win.current, list = first.current;
+    if (!w || !list) return;
+    const s = st.current;
+    const cardW = (list.firstElementChild as HTMLElement | null)?.offsetWidth ?? 300;
+    const gap = parseFloat(getComputedStyle(list).columnGap || "20") || 20;
+    const from = s.pos, dist = dir * (cardW + gap);
+    const L = list.offsetWidth + parseFloat(getComputedStyle(list).marginRight || "0");
+    const go = (x: number) => { s.pos = L > 0 ? ((x % L) + L) % L : x; s.ownScroll = true; w.scrollLeft = s.pos; };
+    s.touchedAt = performance.now();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { go(from + dist); return; }
+    const t0 = performance.now(), dur = 420;
+    cancelAnimationFrame(s.tween);
+    const anim = (now: number) => {
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      go(from + dist * e);
+      s.tween = k < 1 ? requestAnimationFrame(anim) : 0;
+      if (k >= 1) s.touchedAt = performance.now();
+    };
+    s.tween = requestAnimationFrame(anim);
+  };
+
   const card = (it: (typeof ITEMS)[number], k: number) => (
     <li key={k} className="hr-card">
       <div className="hr-art" style={{ background: it.tint }}>{it.art}</div>
@@ -27,27 +119,23 @@ export function HeroReel() {
       <span>{it.text}</span>
     </li>
   );
-  const row = (items: typeof ITEMS, dir: "left" | "right") => (
-    <div className={`hr-window hr-${dir}`} aria-hidden="true">
-      <div className="hr-track">
-        <ul className="hr-list">{items.map(card)}</ul>
-        <ul className="hr-list hr-copy">{items.map(card)}</ul>
-      </div>
-    </div>
-  );
   return (
     <div className={`hr${paused ? " hr-paused" : ""}`}>
       <div className="hr-head">
         <h2 id="hr-h" className="hr-title">What you can do with QueuedToGo</h2>
-        <button type="button" className="hr-toggle" aria-pressed={paused} onClick={() => setPaused((p) => !p)}>
-          <span className={`hr-icon ${paused ? "play" : "pause"}`} aria-hidden="true" />{paused ? "Play" : "Pause"}<span className="sr-only"> the moving cards</span>
-        </button>
+        <div className="hr-ctrls">
+          <button type="button" className="hr-arrow" onClick={() => step(-1)} aria-label="Previous card"><span aria-hidden="true" className="hr-chev l" /></button>
+          <button type="button" className="hr-arrow" onClick={() => step(1)} aria-label="Next card"><span aria-hidden="true" className="hr-chev r" /></button>
+          <button type="button" className="hr-toggle" aria-pressed={paused} onClick={() => setPaused((p) => !p)}>
+            <span className={`hr-icon ${paused ? "play" : "pause"}`} aria-hidden="true" />{paused ? "Play" : "Pause"}<span className="sr-only"> the moving cards</span>
+          </button>
+        </div>
       </div>
-      <ul className="sr-only" aria-labelledby="hr-h">
-        {ITEMS.map((it) => <li key={it.title}>{it.title}: {it.text}</li>)}
-      </ul>
-      <div className="hr-rows">
-        {row(ITEMS, "left")}
+      <div className="hr-window" ref={win} tabIndex={0} role="region" aria-labelledby="hr-h">
+        <div className="hr-track">
+          <ul className="hr-list" ref={first}>{ITEMS.map(card)}</ul>
+          <ul className="hr-list hr-copy" aria-hidden="true">{ITEMS.map(card)}</ul>
+        </div>
       </div>
     </div>
   );

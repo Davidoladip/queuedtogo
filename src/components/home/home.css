@@ -178,23 +178,27 @@
 .hr-icon { width: 10px; height: 11px; }
 .hr-icon.pause { border-left: 3px solid currentColor; border-right: 3px solid currentColor; box-sizing: border-box; }
 .hr-icon.play { width: 0; height: 0; border-left: 9px solid currentColor; border-top: 5.5px solid transparent; border-bottom: 5.5px solid transparent; }
-.hr-rows { display: block; }
-.hr-window { overflow: hidden; margin: 0 -8px; padding: 8px 8px 18px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
-.hr-track { display: flex; width: max-content; animation: hr-drift 48s linear infinite; }
-.hr-window:hover .hr-track, .hr-paused .hr-track { animation-play-state: paused; }
-.hr-list { list-style: none; margin: 0; padding: 0 20px 0 0; display: flex; gap: 20px; }
-.hr-card { flex: none; width: 300px; background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 12px 12px 20px; display: flex; flex-direction: column; gap: 3px;
-  box-shadow: 0 1px 0 rgba(22, 26, 43, .04), 0 8px 20px -14px rgba(22, 26, 43, .35); }
-.hr-art { border-radius: 12px; aspect-ratio: 200 / 130; margin-bottom: 14px; overflow: hidden; }
-.hr-art svg { display: block; width: 100%; height: 100%; font-family: var(--f-body); }
-.hr-card b { font: 700 20px/1.2 var(--f-display); letter-spacing: -.015em; padding: 0 6px; }
-.hr-card span { font-size: 15px; line-height: 1.45; color: var(--soft); padding: 0 6px; min-height: 2.9em; }
-@keyframes hr-drift { to { transform: translateX(-50%); } }
-@media (max-width: 760px) { .hr-card { width: 250px; } .hr-card b { font-size: 18px; } .hr-card span { font-size: 14px; } .hr-title { font-size: 15px; } }
-/* Reduced motion: the strip stands still and scrolls sideways by hand. */
-@media (prefers-reduced-motion: reduce) {
-  .hr-track { animation: none; }
-  .hr-copy, .hr-toggle { display: none; }
-  .hr-window { overflow-x: auto; scroll-snap-type: x mandatory; -webkit-mask-image: none; mask-image: none; }
-  .hr-card { scroll-snap-align: start; }
-}
+.hr-ctrls { display: flex; align-items: center; gap: 8px; }
+.hr-arrow { width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.hr-arrow:hover { border-color: var(--ink); }
+.hr-arrow:focus-visible, .hr-toggle:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; }
+.hr-chev { width: 9px; height: 9px; border-top: 2.2px solid currentColor; border-right: 2.2px solid currentColor; }
+.hr-chev.l { transform: translateX(2px) rotate(-135deg); }
+.hr-chev.r { transform: translateX(-2px) rotate(45deg); }
+/* A real scrolling strip (scrollbar hidden): it scrolls itself, and by swipe, wheel, drag, arrow buttons and keys. */
+.hr-window { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain; margin: 0 -8px; padding: 8px 8px 20px; cursor: grab; outline: none; border-radius: 20px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+.hr-window::-webkit-scrollbar { display: none; }
+.hr-window:focus-visible { box-shadow: inset 0 0 0 2px var(--cobalt); }
+.hr-window.hr-grabbing { cursor: grabbing; user-select: none; }
+.hr-track { display: flex; width: max-content; }
+.hr-list { list-style: none; margin: 0; padding: 0 22px 0 0; display: flex; gap: 22px; }
+.hr-card { flex: none; width: clamp(300px, 27vw, 370px); background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: 14px 14px 26px; display: flex; flex-direction: column; gap: 4px;
+  box-shadow: 0 1px 0 rgba(22, 26, 43, .04), 0 10px 24px -16px rgba(22, 26, 43, .4); }
+.hr-art { border-radius: 14px; aspect-ratio: 200 / 178; margin-bottom: 18px; overflow: hidden; }
+.hr-art svg { display: block; width: 100%; height: 100%; font-family: var(--f-body); pointer-events: none; }
+.hr-card b { font: 700 22px/1.2 var(--f-display); letter-spacing: -.015em; padding: 0 6px; }
+.hr-card span { font-size: 15.5px; line-height: 1.45; color: var(--soft); padding: 0 6px; min-height: 2.9em; }
+@media (max-width: 760px) { .hr-card { width: 270px; } .hr-card b { font-size: 19px; } .hr-card span { font-size: 14.5px; } .hr-title { font-size: 15px; } .hr-arrow { width: 36px; height: 36px; } }
+/* Reduced motion: the strip never moves by itself (see HeroReel.tsx), so there is nothing to pause. */
+@media (prefers-reduced-motion: reduce) { .hr-toggle { display: none; } }
