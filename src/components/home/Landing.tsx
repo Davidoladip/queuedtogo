@@ -40,7 +40,7 @@ export function Landing() {
         <section className="hm-hero" aria-labelledby="hm-title">
           <div className="hm-in hm-hero-in">
             <div className="hm-hero-copy">
-              <h1 id="hm-title">Live Event Forms, Ticketed Event Management, Personalized Digital Invitation And Live Guest Experience Platform</h1>
+              <h1 id="hm-title">Personalized Digital Invitation And Live Guest Experience Platform</h1>
               <p className="hm-lede">
                 Create a custom experience tailored to your event. Build a live activation form to collect guest orders, set up a
                 ticketed event to manage ticket sales, or design a personalized digital invitation with RSVP tracking. Each

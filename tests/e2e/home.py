@@ -23,7 +23,7 @@ with sync_playwright() as p:
     pg.goto(BASE + "/")
 
     check("page title", pg.title() == "QueuedToGo: order forms and updates for live events", pg.title())
-    check("one main heading that says what QueuedToGo is", pg.locator("h1").count() == 1 and pg.inner_text("h1") == "Live Event Forms, Ticketed Event Management, Personalized Digital Invitation And Live Guest Experience Platform", pg.inner_text("h1"))
+    check("one main heading that says what QueuedToGo is", pg.locator("h1").count() == 1 and pg.inner_text("h1") == "Personalized Digital Invitation And Live Guest Experience Platform", pg.inner_text("h1"))
     check("no fine print under the hero buttons", pg.locator(".hm-hero .hm-fine").count() == 0)
     cta = pg.locator(".hm-hero .hm-cta a")
     check("the hero buttons are How it works and Free trial", cta.all_inner_texts() == ["How it works", "Free trial"], cta.all_inner_texts())
