@@ -3,9 +3,9 @@ import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 import { LEGAL } from "@/lib/legal";
 import { PASSES, PASS_ORDER, PLANS, PLAN_ORDER, TRIAL_DAYS } from "@/lib/plans";
-import { SAMPLE_FORMS, type SampleKey } from "@/lib/demo";
 import { FAQ } from "@/lib/faq";
 import { HeroReel } from "./HeroReel";
+import { ExampleForms } from "./ExampleForms";
 import { HowItWorks } from "./HowItWorks";
 import { PLATFORM_FEE_RATE } from "@/lib/payments";
 import "./home.css";
@@ -68,21 +68,9 @@ export function Landing() {
 
         <section id="examples" className="hm-sec hm-ex" aria-labelledby="hm-ex">
           <div className="hm-in">
-            <h2 id="hm-ex" className="hm-h2">Forms from real events</h2>
-            <p className="hm-sub">Two order forms ThreadToGo used at live events. They&apos;re working copies: scroll them, fill them in, and see what your customers would see. Nothing you type is saved.</p>
-            <div className="hm-ex-row">
-              {(Object.keys(SAMPLE_FORMS) as SampleKey[]).map((k) => (
-                <figure key={k} className="hm-ex-item">
-                  <div className="hm-device">
-                    <iframe src={`/demo${k === "style-and-sip" ? "" : "/" + k}?frame=1`} title={`${SAMPLE_FORMS[k].caption} (working demo)`} loading="lazy" />
-                  </div>
-                  <figcaption>
-                    <span>{SAMPLE_FORMS[k].caption}</span>
-                    <Link href={k === "style-and-sip" ? "/demo" : `/demo/${k}`}>Open full screen</Link>
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
+            <h2 id="hm-ex" className="hm-h2">Sample forms for every kind of event</h2>
+            <p className="hm-sub">One sample from each template: order forms, ticketed events and invitations. They&apos;re working copies, so scroll them, fill them in and see what your guests would see. Nothing you type is saved. Every colour, font and question can be changed when you use one.</p>
+            <ExampleForms />
           </div>
         </section>
 

@@ -87,16 +87,29 @@ with sync_playwright() as p:
     check("on a phone the moving cards come after the headline and buttons", hb["y"] >= cb["y"] + cb["height"] - 1, (hb, cb))
     ph.screenshot(path=f"{SHOTS}/home-phone.png", full_page=True)
 
-    # The real event forms, shown live in phone frames
+    # One working sample form per template, shown live in phone frames
+    check("sample forms heading", pg.inner_text("#hm-ex") == "Sample forms for every kind of event")
     frames = pg.locator(".hm-device iframe")
-    check("two real forms in phone frames", frames.count() == 2)
+    check("one sample form for each of the 10 templates", frames.count() == 10, frames.count())
+    srcs = [frames.nth(i).get_attribute("src") for i in range(frames.count())]
+    check("each frame shows a different template", len(set(srcs)) == 10 and all(x.startswith("/demo/template/") for x in srcs), srcs)
+    kinds = pg.locator(".hm-ex-item figcaption small").all_inner_texts()
+    check("orders, tickets and RSVPs are all represented", {"Take orders", "Sell tickets", "Collect RSVPs"} <= set(kinds), kinds)
     frames.first.scroll_into_view_if_needed()
     f1 = pg.frame_locator(".hm-device iframe").first
-    check("Style and Sip loads inside its frame", f1.locator(".qf-title").inner_text(timeout=10000) == "Style and Sip")
+    check("the first sample loads inside its frame", len(f1.locator(".qf-title").inner_text(timeout=10000)) > 0)
     check("no demo strip inside the frame", f1.locator(".demo-bar").count() == 0)
-    f2 = pg.frame_locator(".hm-device iframe").nth(1)
-    check("the live-embroidery form loads inside its frame", f2.locator(".qf-title").inner_text(timeout=10000) == "LIVE EMBROIDERY FORM")
-    check("frames have titles for screen readers", all("working demo" in (frames.nth(i).get_attribute("title") or "") for i in range(2)))
+    check("frames have titles for screen readers", all("working demo" in (frames.nth(i).get_attribute("title") or "") for i in range(10)))
+    rowl = pg.locator(".hm-ex-row")
+    x0 = rowl.evaluate("e => e.scrollLeft")
+    pg.click("button[aria-label='Next sample form']"); pg.wait_for_timeout(900)
+    x1 = rowl.evaluate("e => e.scrollLeft")
+    check("the Next arrow scrolls to more samples", x1 > x0, (x0, x1))
+    pg.click("button[aria-label='Previous sample form']"); pg.wait_for_timeout(900)
+    check("the Previous arrow scrolls back", rowl.evaluate("e => e.scrollLeft") < x1)
+    rowl.evaluate("e => e.scrollLeft = e.scrollWidth"); pg.wait_for_timeout(1000)
+    fl = pg.frame_locator(".hm-device iframe").last
+    check("the last sample loads when scrolled to", len(fl.locator(".qf-title").first.inner_text(timeout=15000)) > 0)
     hdr = pg.request.get(BASE + "/demo?frame=1").headers
     # The page policy goes out enforced or report-only (CSP_ENFORCE); X-Frame-Options blocks framing either way.
     csp = hdr.get("content-security-policy", "") or hdr.get("content-security-policy-report-only", "")
@@ -236,6 +249,24 @@ with sync_playwright() as p:
     check("demo invitation takes an RSVP", "Ava" in pg.inner_text(".qf-card"))
     check("demo invitation sends nothing to the server", not posts, posts)
     check("demo pages aren't indexed", "noindex" in (pg.locator('meta[name="robots"]').get_attribute("content") or ""))
+
+    # Every template's sample form works full screen
+    keys = ["market-stall","live-personalisation","food-truck","merch-table","concert-night","workshop","wedding","birthday","baby-shower","community"]
+    ok = []
+    for k in keys:
+        r = pg.request.get(BASE + f"/demo/template/{k}")
+        ok.append(r.status == 200 and "noindex" in r.text())
+    check("all 10 template demo pages load and are not indexed", all(ok), ok)
+    check("an unknown template is a 404", pg.request.get(BASE + "/demo/template/nope").status == 404)
+    pg.goto(BASE + "/demo/template/food-truck")
+    check("template demo says it's a sample and nothing is saved", "Food truck template" in pg.inner_text(".demo-bar") and "nothing you type is saved" in pg.inner_text(".demo-bar"))
+    check("template demo links back to more samples", pg.locator(".demo-bar a[href='/#examples']").count() == 1)
+    posts2 = []
+    pg.on("request", lambda r: posts2.append(r.url) if r.method == "POST" else None)
+    pg.locator(".qf-card button[type=submit]").last.click()
+    pg.wait_for_timeout(800)
+    check("template demo checks answers like a real form", pg.locator(".qf-ferr:not(:empty)").count() >= 1)
+    check("template demo sends nothing to the server", not posts2, posts2)
 
     check("no page errors", not errors, errors)
     b.close()
