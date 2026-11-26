@@ -18,13 +18,13 @@ type Admin = NonNullable<ReturnType<typeof adminClient>>;
 type Row = {
   id: string; org_id: string; job_id: string | null; kind: string; channel: string; to_address: string | null; template: string | null;
   body: string | null; subject: string | null; attempts: number; created_at: string; customer_id: string | null;
-  jobs: { id: string; number: number; tracking_token: string; summary: string | null; title: string; forms: { title: string } | null } | null;
+  jobs: { id: string; number: number; tracking_token: string; summary: string | null; title: string; form_id?: string | null; forms: { title: string } | null } | null;
   customers: { name: string | null } | null;
   organizations: { name: string; slug: string; reply_to_email: string | null; timezone?: string } | null;
   workflow_stages: { name: string } | null;
   rsvps?: { id: string; token: string; name: string | null; status: RsvpStatus; party_size: number; waitlisted: boolean; form_id: string; sms_consent?: boolean } | null;
 };
-type Deps = { admin?: Admin | null; cfg?: TwilioConfig | null; email?: EmailConfig | null; fetchImpl?: typeof fetch; rsvpTexts?: boolean; now?: Date; /** Texts left on the plan this month (null = no limit). */ textsLeft?: number | null };
+type Deps = { admin?: Admin | null; cfg?: TwilioConfig | null; email?: EmailConfig | null; fetchImpl?: typeof fetch; rsvpTexts?: boolean; now?: Date; /** Texts left (null = no limit), used for every message instead of looking up the plan or pass. */ textsLeft?: number | null };
 const RSVP_KINDS = new Set(["rsvp_confirmation", "rsvp_reminder", "rsvp_promoted"]);
 type Outcome =
   | { kind: "sent"; providerId: string; body: string; subject?: string }
@@ -35,7 +35,7 @@ export function siteBase(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
 }
 
-const SELECT = "id, org_id, job_id, kind, channel, to_address, template, body, subject, attempts, created_at, customer_id, jobs(id, number, tracking_token, summary, title, forms(title)), customers(name), organizations(name, slug, reply_to_email, timezone), workflow_stages(name), rsvps(id, token, name, status, party_size, waitlisted, form_id, sms_consent)";
+const SELECT = "id, org_id, job_id, kind, channel, to_address, template, body, subject, attempts, created_at, customer_id, jobs(id, number, tracking_token, summary, title, form_id, forms(title)), customers(name), organizations(name, slug, reply_to_email, timezone), workflow_stages(name), rsvps(id, token, name, status, party_size, waitlisted, form_id, sms_consent)";
 
 /** Sends this business's queued messages (optionally just one job's, or just some messages). Never throws. */
 export async function dispatchQueued(opts: { orgId: string; jobId?: string; ids?: string[]; limit?: number }, deps?: Deps) {
@@ -51,9 +51,19 @@ export async function dispatchQueued(opts: { orgId: string; jobId?: string; ids?
   if (error || !data) return tally;
 
   const rsvpTexts = deps && "rsvpTexts" in deps ? !!deps.rsvpTexts : rsvpTextsApproved();
-  // The plan's monthly text allowance (only counted once plan limits are switched on).
-  let textsLeft: number | null = deps && "textsLeft" in deps ? deps.textsLeft ?? null
-    : data.some((m) => (m as unknown as Row).channel === "sms") ? await admin.rpc("texts_left", { p_org: opts.orgId }).then((r) => (r.error ? null : r.data ?? null)) : null;
+  // Text allowances (only counted once plan limits are switched on): a form with an event pass uses the pass's
+  // texts, every other form the plan's monthly texts. Looked up once per form in this batch.
+  const fixed = !!deps && "textsLeft" in deps;
+  const left = new Map<string, number | null>();
+  const keyOf = (m: Row) => (fixed ? "*" : m.jobs?.form_id ?? m.rsvps?.form_id ?? "");
+  async function textsLeftFor(m: Row): Promise<number | null> {
+    const k = keyOf(m);
+    if (!left.has(k)) {
+      left.set(k, fixed ? deps!.textsLeft ?? null
+        : await admin!.rpc("texts_left_for", { p_org: opts.orgId, p_form: k || null }).then((r) => (r.error ? null : r.data ?? null)));
+    }
+    return left.get(k) ?? null;
+  }
   for (const m of data as unknown as Row[]) {
     // Reminder and waitlist texts wait for daytime (8 AM to 9 PM, business time); the daily job sends them later.
     if (m.channel === "sms" && (m.kind === "rsvp_reminder" || m.kind === "rsvp_promoted") && quietHours(m.organizations?.timezone || "America/New_York", deps?.now)) continue;
@@ -62,12 +72,13 @@ export async function dispatchQueued(opts: { orgId: string; jobId?: string; ids?
       .eq("id", m.id).eq("status", "queued").select("id");
     if (!claimed?.length) continue;
 
+    const textsLeft = m.channel === "sms" ? await textsLeftFor(m) : null;
     const out: Outcome = Date.now() - Date.parse(m.created_at) > MAX_AGE_MS
       ? { kind: "skip", reason: "It was more than a day old, so it wasn't sent." }
       : !m.to_address
         ? { kind: "skip", reason: m.channel === "email" ? "There's no email address." : "The customer has no mobile number." }
         : m.channel === "sms" && textsLeft !== null && textsLeft <= 0
-          ? { kind: "skip", reason: "This month's texts on your plan are used up. Upgrade on the Billing page to send more." }
+          ? { kind: "skip", reason: "The texts included with your plan or event pass are used up. See the Billing page to send more." }
         : m.channel === "email" ? await deliverEmail(m, mail, deps?.fetchImpl, admin)
           : RSVP_KINDS.has(m.kind) ? await deliverRsvpSms(m, sms, deps?.fetchImpl, admin, rsvpTexts)
             : await deliverSms(m, sms, deps?.fetchImpl);
@@ -79,7 +90,7 @@ export async function dispatchQueued(opts: { orgId: string; jobId?: string; ids?
     }
     if (out.kind === "sent") {
       tally.sent++;
-      if (m.channel === "sms" && textsLeft !== null) textsLeft--;
+      if (m.channel === "sms" && textsLeft !== null) left.set(keyOf(m), textsLeft - 1);
       await admin.from("messages").update({ status: "sent", provider_sid: out.providerId, body: out.body, subject: out.subject ?? null, sent_at: new Date().toISOString(), error_code: null, error_message: null }).eq("id", m.id);
       if (m.job_id && m.kind !== "team_alert") {
         await admin.from("job_events").insert({ org_id: m.org_id, job_id: m.job_id, type: "notification", body: (out.subject ?? out.body).slice(0, 2000), data: { message_id: m.id, channel: m.channel }, idempotency_key: `message:${m.id}` });

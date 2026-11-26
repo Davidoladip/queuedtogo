@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Notice } from "@/components/ui/Notice";
-import { PASSES, PASS_ORDER, PLANS, PLAN_ORDER, TRIAL_DAYS, annualSaving, planPrice, usage, type Interval, type PaidPlan, type PassTier } from "@/lib/plans";
+import { PASSES, PASS_INCLUDES, PASS_ORDER, PLANS, PLAN_ORDER, annualSaving, planPrice, usage, type Interval, type PaidPlan, type PassTier } from "@/lib/plans";
 import type { BillingView } from "@/lib/billing-data";
 import { buyEventPass, choosePlan, openBillingPortal, resumePlan, type BillingResult } from "@/server/actions/billing";
 
@@ -13,6 +13,8 @@ type Props = {
   manage: boolean;
   connected: boolean;
   checkout: "plan" | "pass" | "pending" | "ignored" | "cancelled" | null;
+  /** The form to buy an event pass for (from the builder's Publish button). */
+  passForm?: string | null;
   /** Development harness only: replaces the server actions. */
   demoAction?: (key: string) => Promise<BillingResult>;
 };
@@ -41,11 +43,11 @@ function Meter({ label, used, max, unit }: { label: string; used: number; max: n
   );
 }
 
-export function BillingPanel({ orgSlug, orgName, view, manage, connected, checkout, demoAction }: Props) {
+export function BillingPanel({ orgSlug, orgName, view, manage, connected, checkout, passForm, demoAction }: Props) {
   const [pending, start] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [formId, setFormId] = useState(view.rsvpForms[0]?.id ?? "");
+  const [formId, setFormId] = useState(view.forms.find((f) => f.id === passForm)?.id ?? view.forms[0]?.id ?? "");
   const subscribed = view.status === "trialing" || view.status === "active" || view.status === "past_due";
   const canPay = manage && connected && !view.comped;
   const [period, setPeriod] = useState<Interval>(subscribed ? view.interval : "month");
@@ -71,7 +73,7 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
     const label = subscribed
       ? view.chosen === key && view.interval !== period ? `Switch to ${periodName(period)}`
         : view.chosen === key ? `Keep ${PLANS[key].name} ${periodName(period)}` : `Switch to ${PLANS[key].name}${view.interval !== period ? ` ${periodName(period)}` : ""}`
-      : view.hadTrial ? `Choose ${PLANS[key].name}` : `Start ${TRIAL_DAYS}-day free trial`;
+      : `Choose ${PLANS[key].name}`;
     return (
       <button type="button" className={`btn block${key === "pro" ? " primary" : ""}`} disabled={!canPay || pending}
         onClick={() => run(`plan-${key}-${period}`, () => choosePlan(orgSlug, key, period))}>
@@ -110,9 +112,10 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
           <p className="muted">
             {view.comped ? `${orgName} has the ${PLANS[view.plan].name} plan included at no charge.`
               : view.status === "trialing" ? `Free trial until ${day(view.trialEnd)}. Your card is charged after that unless you cancel.`
-                : view.cancelAtPeriodEnd && subscribed ? `Cancelled. You keep ${PLANS[view.plan].name} until ${day(view.periodEnd)}, then move to Free.`
+                : view.cancelAtPeriodEnd && subscribed ? `Cancelled. You keep ${PLANS[view.plan].name} until ${day(view.periodEnd)}${view.legacyFree ? ", then move to Free." : ". After that, forms without an event pass stop taking new replies until you choose a plan again."}`
                   : subscribed ? `Renews on ${day(view.periodEnd)}${view.interval === "year" ? " (billed yearly)" : ""}.`
-                    : "You're on the Free plan."}
+                    : view.plan === "free" ? "You're on the Free plan, which your business keeps from before plans changed. You can move to a paid plan at any time."
+                      : "You don't have a plan yet. You can build and preview as many forms as you like; to publish one, choose a plan below or buy an event pass for it."}
           </p>
           {view.pending && subscribed && !view.comped && (
             <p className="bl-note">Moves to {PLANS[view.pending.plan].name} {periodName(view.pending.interval)} on {day(view.pending.at)}.</p>
@@ -133,7 +136,7 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
         )}
       </section>
 
-      <section className="panel" aria-labelledby="bl-use">
+      {view.plan !== "none" && <section className="panel" aria-labelledby="bl-use">
         <h2 id="bl-use">This month</h2>
         <div className="bl-meters">
           <Meter label="Live forms" used={view.usage.liveForms} max={view.limits.live_forms} unit="live forms" />
@@ -141,8 +144,8 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
           <Meter label="Replies" used={view.usage.replies} max={view.limits.monthly_replies} unit="orders and RSVPs" />
           <Meter label="Texts" used={view.usage.texts} max={view.limits.monthly_texts} unit="texts sent" />
         </div>
-        <p className="muted bl-small">Forms with an event pass don&apos;t count toward live forms or replies. Emails are always unlimited.</p>
-      </section>
+        <p className="muted bl-small">Forms with an event pass don&apos;t count toward live forms, replies or texts. Emails are always unlimited.</p>
+      </section>}
 
       <section aria-labelledby="bl-plans">
         <div className="bl-plans-head">
@@ -165,14 +168,14 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
               <article key={k} className={`bl-plan${current ? " current" : ""}${k === "pro" ? " pop" : ""}`} aria-label={`${p.name} plan`}>
                 {k === "pro" && <span className="bl-flag">Most popular</span>}
                 <h3>{p.name}</h3>
-                <p className="bl-price"><b>${planPrice(k, period).toLocaleString("en-US")}</b><span>{k === "free" ? " forever" : `/${per(period)}`}</span></p>
-                {period === "year" && k !== "free" && (
+                <p className="bl-price"><b>${planPrice(k, period).toLocaleString("en-US")}</b><span>/{per(period)}</span></p>
+                {period === "year" && (
                   <p className="bl-yearly">${(p.annual / 12).toFixed(2)} a month · save ${annualSaving(k)} a year</p>
                 )}
                 <p className="muted bl-small">{p.blurb}</p>
                 <ul>{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
                 <div className="bl-plan-act">
-                  {k === "free" ? (current ? <span className="pill plain">Your plan</span> : <span className="muted bl-small">Cancel in Manage billing to go back to Free.</span>) : planButton(k)}
+                  {planButton(k)}
                 </div>
               </article>
             );
@@ -181,9 +184,7 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
         {!view.comped && !subscribed && (
           <p className="bl-small bl-renew">
             <b>Plans renew automatically.</b>{" "}
-            {view.hadTrial
-              ? <>You&apos;re charged the price shown for the period you choose ({periodName(period)}) when you subscribe, and again every {period === "year" ? "year" : "month"} until you cancel.</>
-              : <>The {TRIAL_DAYS}-day free trial needs a card. Unless you cancel before it ends, you&apos;re charged the price shown for the period you choose ({periodName(period)}) when it ends, and again every {period === "year" ? "year" : "month"} until you cancel.</>}{" "}
+            You&apos;re charged the price shown for the period you choose ({periodName(period)}) when you subscribe, and again every {period === "year" ? "year" : "month"} until you cancel. There&apos;s no free trial.{" "}
             Cancel any time here in Billing (Manage billing); you keep the plan until the end of the period you paid for. Prices exclude any sales tax.
             By starting a plan you agree to the <a href="/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>.
           </p>
@@ -192,19 +193,20 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
       </section>
 
       <section className="panel" aria-labelledby="bl-pass">
-        <h2 id="bl-pass">Event invitation pass</h2>
+        <h2 id="bl-pass">Event pass</h2>
         <p className="muted">
-          Hosting one event? Pay once for a single RSVP invitation instead of a monthly plan. It works on any plan, doesn&apos;t use your
-          live-form or reply allowance, and lasts until 30 days after the event (or 120 days if the form has no date).
+          Just one event? Pay once for one form instead of a monthly plan. A pass doesn&apos;t renew, works with or without a plan, and
+          doesn&apos;t use your plan&apos;s live forms, replies or texts.
         </p>
-        {view.rsvpForms.length === 0 ? (
-          <p className="bl-note">You don&apos;t have an RSVP form yet. Create a form and set its type to RSVP in its settings, then come back here.</p>
+        <ul className="bl-pass-inc">{PASS_INCLUDES.map((x) => <li key={x}>{x}</li>)}</ul>
+        {view.forms.length === 0 ? (
+          <p className="bl-note">You don&apos;t have a form yet. Create one on the Forms page, then come back here to buy its pass.</p>
         ) : (
           <>
             <label className="bl-select">
-              <span>Invitation</span>
-              <select aria-label="Invitation" value={formId} onChange={(e) => setFormId(e.target.value)}>
-                {view.rsvpForms.map((f) => <option key={f.id} value={f.id}>{f.title}{f.eventDate ? ` (${f.eventDate})` : ""}</option>)}
+              <span>Form</span>
+              <select aria-label="Form" value={formId} onChange={(e) => setFormId(e.target.value)}>
+                {view.forms.map((f) => <option key={f.id} value={f.id}>{f.title}{f.eventDate ? ` (${f.eventDate})` : ""}</option>)}
               </select>
             </label>
             <div className="bl-passes">
@@ -215,6 +217,7 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
                   <article key={t} className="bl-passcard" aria-label={`${p.name} pass`}>
                     <h3>{p.name}</h3>
                     <p className="bl-price"><b>${p.price}</b><span> one time</span></p>
+                    <p className="muted bl-small">{p.texts.toLocaleString("en-US")} texts included</p>
                     {owned ? <span className="pill good">Included</span> : (
                       <button type="button" className="btn block" disabled={!manage || !connected || pending || !formId}
                         onClick={() => run(`pass-${t}`, () => buyEventPass(orgSlug, formId, t))}>
@@ -233,7 +236,8 @@ export function BillingPanel({ orgSlug, orgName, view, manage, connected, checko
             <ul>
               {view.passes.map((p) => (
                 <li key={`${p.formId}-${p.tier}`}>
-                  <b>{p.title}</b> · {PASSES[p.tier].name} · {p.guestLimit === null ? `${p.used} replies` : `${p.used} of ${p.guestLimit} replies`} · until {day(p.expiresAt)}
+                  <b>{p.title}</b> · {PASSES[p.tier].name} · {p.guestLimit === null ? `${p.used} replies` : `${p.used} of ${p.guestLimit} replies`}
+                  {p.textLimit !== null && <> · {p.textsUsed} of {p.textLimit.toLocaleString("en-US")} texts</>} · until {day(p.expiresAt)}
                 </li>
               ))}
             </ul>

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { LEGAL, legalReady } from "@/lib/legal";
 import { LegalPage } from "@/components/legal/LegalPage";
 import { PLATFORM_FEE_RATE } from "@/lib/payments";
-import { PLANS, PLAN_ORDER, TRIAL_DAYS } from "@/lib/plans";
+import { PASSES, PASS_ORDER, PLANS, PLAN_ORDER } from "@/lib/plans";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -49,7 +49,7 @@ export default function TermsOfServicePage() {
         give us is accurate.
       </p>
 
-      <h2>3. Plans, free trials and automatic renewal</h2>
+      <h2>3. Plans, event passes and automatic renewal</h2>
       <ul>
         <li>
           <b>Plans.</b> The plans, their prices and what each includes are shown on our <Link href="/#pricing">pricing</Link> and Billing pages.
@@ -57,8 +57,9 @@ export default function TermsOfServicePage() {
           Prices exclude any sales tax, which is added where it applies.
         </li>
         <li>
-          <b>Free trial.</b> A paid plan can start with a {TRIAL_DAYS}-day free trial, once per business. A card is needed to start it. <b>Unless
-          you cancel before the trial ends, your plan starts automatically and your card is charged the plan price on the day the trial ends.</b>
+          <b>Building is free; publishing needs a plan or a pass.</b> You can create an account, build forms and test them without paying.
+          To publish a form so guests can use it, your business needs a paid plan or an event pass for that form. There is no free trial:
+          a paid plan is charged when you start it. Businesses created before November 26, 2026 keep the Free plan they had.
         </li>
         <li>
           <b>Automatic renewal.</b> <b>Paid plans renew automatically at the end of each billing period (monthly or yearly, as you chose) and
@@ -66,8 +67,9 @@ export default function TermsOfServicePage() {
         </li>
         <li>
           <b>Cancelling.</b> You can cancel online at any time from Billing &rsaquo; Manage billing, or by emailing {mail}. Cancelling stops
-          future charges; you keep the plan until the end of the period you have paid for, then move to the Free plan. Your forms and orders are
-          kept. Cancelling during a free trial means you are never charged.
+          future charges; you keep the plan until the end of the period you have paid for. After that, a business that had the Free plan
+          returns to it; any other business keeps its forms and orders, but forms without an event pass stop taking new replies until a plan
+          is chosen again.
         </li>
         <li>
           <b>Refunds.</b> Except where the law requires otherwise, payments for a billing period that has started are not refunded, including for
@@ -78,12 +80,14 @@ export default function TermsOfServicePage() {
           renewal after that, and you can cancel before then.
         </li>
         <li>
-          <b>Event passes</b> are one-time payments for one RSVP invitation. They do not renew and are not charged again. If you bought a pass by
-          mistake and your invitation has not received any replies, email us within 14 days for a refund.
+          <b>Event passes</b> are one-time payments for one form of any kind (orders, tickets or RSVPs). Today they are{" "}
+          {PASS_ORDER.map((t) => `$${PASSES[t].price} for ${PASSES[t].name.toLowerCase()} (with ${PASSES[t].texts.toLocaleString("en-US")} text messages)`).join(", ")}.
+          A pass lasts until 30 days after the event date (or 120 days after purchase if the form has no date). Passes do not renew and are
+          not charged again. If you bought a pass by mistake and the form has not received any replies, email us within 14 days for a refund.
         </li>
         <li>
-          <b>Failed payments.</b> If a renewal payment fails, the payment will be tried again. If it keeps failing, your business may move to
-          the Free plan.
+          <b>Failed payments.</b> If a renewal payment fails, the payment will be tried again. If it keeps failing, the plan ends as if
+          you had cancelled.
         </li>
       </ul>
 

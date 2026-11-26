@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Logo } from "@/components/ui/Logo";
 import { LEGAL } from "@/lib/legal";
-import { PLANS, TRIAL_DAYS } from "@/lib/plans";
+import { PASSES, PLANS } from "@/lib/plans";
 import "./auth.css";
 
 export type PanelKind = "signin" | "signup" | "reset" | "invite" | "setup";
@@ -62,7 +62,7 @@ function AuthPanel({ kind }: { kind: PanelKind }) {
             <li><b>Print the QR code.</b> Customers order from their phone at your table.</li>
             <li><b>Work from your board.</b> Customers hear from you when their order is ready.</li>
           </ol>
-          <p className="au-note">Free plan, no card needed. Paid plans from ${PLANS.starter.price} a month include a {TRIAL_DAYS}-day free trial.</p>
+          <p className="au-note">Building and testing your forms is free, no card needed. To publish, plans start at ${PLANS.starter.price} a month, or pay once from ${PASSES["100"].price} with an event pass.</p>
         </>
       )}
       {kind === "reset" && (

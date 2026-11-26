@@ -273,6 +273,33 @@ with sync_playwright() as p:
     sign.close()
     pg.screenshot(path=f"{SHOTS}/builder.png", full_page=True)
 
+    # ------------------------------------------------------------ no plan yet: test mode and publishing
+    pg.goto(BASE + "/dev/builder?noplan=1")
+    pg.wait_for_selector(".b-shell")
+    pg.get_by_role("button", name="Test it").click()
+    dlg = pg.locator("dialog.b-test")
+    dlg.wait_for(state="visible")
+    check("Test it opens the form as guests see it", dlg.locator(".qf-title").count() >= 1 and "Nothing is saved or sent" in dlg.inner_text())
+    posts = []
+    pg.on("request", lambda r: posts.append(r.url) if r.method == "POST" else None)
+    dlg.get_by_role("button", name="Next").click()
+    pg.wait_for_timeout(600)
+    check("test mode checks answers like the real form", dlg.locator(".qf-ferr:not(:empty)").count() >= 1)
+    check("test mode sends nothing to the server", not posts, posts)
+    pg.keyboard.press("Escape")
+    pg.wait_for_timeout(300)
+    check("Escape closes test mode", not dlg.is_visible() if dlg.count() else True)
+    pg.get_by_role("button", name="Publish changes").or_(pg.get_by_role("button", name="Publish form")).first.click()
+    pg.wait_for_selector(".b-banner.error")
+    ban = pg.locator(".b-banner.error")
+    check("publishing without a plan explains what's needed", "Choose a plan or buy an event pass" in ban.inner_text(), ban.inner_text())
+    link = ban.get_by_role("link", name="Choose a plan or event pass")
+    check("... with a link to Billing for this form", link.count() == 1 and "/w/demo/billing?form=" in (link.get_attribute("href") or ""), link.get_attribute("href") if link.count() else None)
+    pg.locator("button", has_text="Settings").first.click()
+    cov = pg.get_by_label("Show a cover page first")
+    if not cov.is_checked(): cov.check()
+    check("the envelope switch says which plans include it", pg.get_by_text("Included with Pro, Events and event passes").count() >= 1)
+
     check("no browser errors", not errors, errors[:5])
     b.close()
 

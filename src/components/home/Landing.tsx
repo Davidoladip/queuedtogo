@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 import { LEGAL } from "@/lib/legal";
-import { PASSES, PASS_ORDER, PLANS, PLAN_ORDER, TRIAL_DAYS } from "@/lib/plans";
+import { PASSES, PASS_ORDER, PLANS, PLAN_ORDER } from "@/lib/plans";
 import { FAQ } from "@/lib/faq";
 import { HeroReel } from "./HeroReel";
 import { ExampleForms } from "./ExampleForms";
@@ -30,7 +30,7 @@ export function Landing() {
           </nav>
           <div className="hm-top-act">
             <Link href="/login" className="hm-link">Sign in</Link>
-            <Link href="/signup" className="hm-btn hm-btn-sm">Start free</Link>
+            <Link href="/signup" className="hm-btn hm-btn-sm">Start building</Link>
           </div>
         </div>
       </header>
@@ -49,7 +49,7 @@ export function Landing() {
               </p>
               <div className="hm-cta">
                 <a href="#how" className="hm-btn">How it works</a>
-                <a href="#pricing" className="hm-btn hm-btn-ghost">Free trial</a>
+                <Link href="/signup" className="hm-btn hm-btn-ghost">Try the builder</Link>
               </div>
             </div>
 
@@ -168,7 +168,7 @@ export function Landing() {
                 <Link href="/demo/invitation" className="hm-btn hm-btn-gold">Open the demo invitation</Link>
               </div>
               <p className="hm-inv-pass">
-                Just one event? Buy an event pass instead of a plan: {PASS_ORDER.map((t) => `$${PASSES[t].price} for ${PASSES[t].guestLimit === null ? "unlimited guests" : `up to ${PASSES[t].guestLimit} guests`}`).join(", ")}.
+                Just one event? Buy an event pass instead of a plan: {PASS_ORDER.map((t) => `$${PASSES[t].price} for ${PASSES[t].guestLimit === null ? "unlimited guests" : `up to ${PASSES[t].guestLimit} guests`}`).join(", ")}. The envelope opening is included.
               </p>
             </div>
             <div className="hm-inv-art">
@@ -181,7 +181,7 @@ export function Landing() {
         <section id="pricing" className="hm-sec" aria-labelledby="hm-price">
           <div className="hm-in">
             <h2 id="hm-price" className="hm-h2">Pricing</h2>
-            <p className="hm-sub">Start free. Paid plans include a {TRIAL_DAYS}-day free trial, come monthly or yearly with 2 months free, and you can change or cancel any time.</p>
+            <p className="hm-sub">Build and test your forms for free. When you&apos;re ready to go live, choose a plan (monthly, or yearly with 2 months free) or pay once with an event pass. Change or cancel any time.</p>
             <div className="hm-plans">
               {PLAN_ORDER.map((k) => {
                 const p = PLANS[k];
@@ -189,19 +189,31 @@ export function Landing() {
                   <article key={k} className={`hm-plan${k === "pro" ? " hm-plan-pick" : ""}`} aria-labelledby={`hm-p-${k}`}>
                     <h3 id={`hm-p-${k}`}>{p.name}</h3>
                     <p className="hm-price"><b>${p.price}</b> a month</p>
-                    <p className="hm-annual">{p.annual ? `or $${p.annual.toLocaleString("en-US")} a year (2 months free)` : "No card needed"}</p>
+                    <p className="hm-annual">or ${p.annual.toLocaleString("en-US")} a year (2 months free)</p>
                     <p className="hm-plan-blurb">{p.blurb}</p>
                     <ul className="hm-ticks">{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
                     <Link href="/signup" className={`hm-btn hm-btn-block${k === "pro" ? "" : " hm-btn-ghost"}`}>
-                      {k === "free" ? "Start free" : `Try ${p.name} free for ${TRIAL_DAYS} days`}
+                      Choose {p.name}
                     </Link>
                   </article>
                 );
               })}
             </div>
-            <p className="hm-sub hm-pass-line">
-              Hosting a single event? An event invitation pass is a one-time payment: {PASS_ORDER.map((t) => `$${PASSES[t].price} for ${PASSES[t].name.toLowerCase()}`).join(", ")}.
-            </p>
+            <div className="hm-passes" aria-labelledby="hm-pass-h">
+              <div className="hm-passes-copy">
+                <h3 id="hm-pass-h">Just one event? Get an event pass</h3>
+                <p>Pay once for one form: orders, tickets or RSVPs. It doesn&apos;t renew, includes the sealed envelope opening and every design, and lasts until 30 days after your event.</p>
+              </div>
+              <ul className="hm-pass-list">
+                {PASS_ORDER.map((t) => (
+                  <li key={t}>
+                    <b>${PASSES[t].price}</b>
+                    <span>{PASSES[t].name}</span>
+                    <small>{PASSES[t].texts.toLocaleString("en-US")} texts included</small>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </section>
 
@@ -223,10 +235,10 @@ export function Landing() {
           <div className="hm-in hm-end-in">
             <div>
               <h2 id="hm-end">Set up your next event tonight.</h2>
-              <p>Make your form, print the QR code, and take your first order. It&apos;s free to start.</p>
+              <p>Build your form and test it for free. When it&apos;s ready, publish it with a plan or an event pass and take your first order.</p>
             </div>
             <div className="hm-cta">
-              <Link href="/signup" className="hm-btn hm-btn-yellow">Start free</Link>
+              <Link href="/signup" className="hm-btn hm-btn-yellow">Start building</Link>
               <Link href="/demo" className="hm-btn hm-btn-line">Try the demo</Link>
             </div>
           </div>

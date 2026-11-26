@@ -34,6 +34,6 @@ export function dbErrorMessage(err: MaybeError, fallback = "Something went wrong
   if (!err) return fallback;
   if (/fetch failed|network/i.test(err.message ?? "")) return "We couldn't reach the database. Check your connection and try again.";
   if (err.code === "23505") return "That is already taken.";
-  if (err.code === "42501" || err.code === "P0001" || err.code === "P0002") return err.message || fallback;
+  if (err.code === "42501" || err.code === "P0001" || err.code === "P0002" || err.code === "QTGP1" || err.code === "QTGP2") return err.message || fallback;
   return fallback;
 }

@@ -48,17 +48,19 @@ const sub = (o: Partial<Stripe.Subscription> & { lookup?: string; end?: number }
 
 describe("plans", () => {
   it("match the limits in the database", () => {
-    const file = readdirSync("supabase/migrations").find((f) => f.endsWith("_billing.sql"))!;
+    // The latest definition of plan_limits.
+    const file = readdirSync("supabase/migrations").sort().filter((f) => readFileSync(`supabase/migrations/${f}`, "utf8").includes("function public.plan_limits")).pop()!;
     const sql = readFileSync(`supabase/migrations/${file}`, "utf8");
-    for (const key of PLAN_ORDER) {
+    for (const key of ["none", "free", ...PLAN_ORDER] as const) {
       const m = key === "free" ? /else\s+'(\{[^']+\})'::jsonb/.exec(sql) : new RegExp(`when '${key}'\\s+then '(\\{[^']+\\})'::jsonb`).exec(sql);
       expect(m, key).not.toBeNull();
       expect(JSON.parse(m![1])).toEqual(PLANS[key].limits);
     }
   });
-  it("are priced $29 / $69 / $139 with passes at $29 / $49 / $69", () => {
+  it("are priced $29 / $69 / $139 with passes at $59 / $99 / $149", () => {
     expect([PLANS.starter.price, PLANS.pro.price, PLANS.events.price]).toEqual([29, 69, 139]);
-    expect([PASSES["100"].price, PASSES["300"].price, PASSES.unlimited.price]).toEqual([29, 49, 69]);
+    expect([PASSES["100"].price, PASSES["300"].price, PASSES.unlimited.price]).toEqual([59, 99, 149]);
+    expect([PASSES["100"].texts, PASSES["300"].texts, PASSES.unlimited.texts]).toEqual([300, 900, 2000]);
     expect(PASSES.unlimited.guestLimit).toBeNull();
   });
   it("passes last until 30 days after the event, or 120 days without a date", () => {
@@ -147,7 +149,7 @@ describe("Stripe prices", () => {
   it("create the product and price the first time", async () => {
     const { stripe, created } = fake(null);
     expect(await ensurePrice(stripe, { pass: "300" })).toBe("price_NEW");
-    expect(created[0]).toMatchObject({ product: "prod_NEW", unit_amount: 4900, lookup_key: "qtg_pass_300" });
+    expect(created[0]).toMatchObject({ product: "prod_NEW", unit_amount: 9900, lookup_key: "qtg_pass_300" });
     expect(created[0].recurring).toBeUndefined();
   });
 });
@@ -285,7 +287,9 @@ describe("billing emails", () => {
     expect(e.text).toContain("Your card was declined.");
     expect(e.text).toContain("https://queuedtogo.com/w/bee/billing");
     expect(billingEmail({ kind: "cancel_confirmed", business: "Bee", plan: "Pro", billingUrl: "u", endsOn: "December 13, 2026" }).text).toContain("until December 13, 2026");
-    expect(billingEmail({ kind: "plan_ended", business: "Bee", plan: "Pro", billingUrl: "u" }).subject).toBe("Bee is now on the Free plan");
+    expect(billingEmail({ kind: "plan_ended", business: "Bee", plan: "Pro", billingUrl: "u", legacyFree: true }).subject).toBe("Bee is now on the Free plan");
+    expect(billingEmail({ kind: "plan_ended", business: "Bee", plan: "Pro", billingUrl: "u" }).subject).toBe("Bee's Pro plan has ended");
+    expect(billingEmail({ kind: "cancel_confirmed", business: "Bee", plan: "Pro", billingUrl: "u" }).text).toContain("stop taking new replies");
   });
 });
 

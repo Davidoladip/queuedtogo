@@ -23,10 +23,10 @@ export default async function BillingPage({ params, searchParams }: {
       <div className="view-head">
         <div>
           <h1>Billing</h1>
-          <p>Your plan, what you&apos;ve used this month, and event invitation passes.</p>
+          <p>Your plan, what you&apos;ve used this month, and event passes.</p>
         </div>
       </div>
-      <BillingPanel orgSlug={org.slug} orgName={org.name} view={view} manage={canManage(org.role)} connected={billingConnected()} checkout={checkout} />
+      <BillingPanel orgSlug={org.slug} orgName={org.name} view={view} manage={canManage(org.role)} connected={billingConnected()} checkout={checkout} passForm={sp.form ?? null} />
     </>
   );
 }

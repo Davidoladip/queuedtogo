@@ -655,11 +655,14 @@ reset role;
 
 -- ---------------------------------------------------------------- plans and event passes (Stage 9)
 select tests.ok((select count(*) from public.org_billing where org_id in (tests.id('orgA'), tests.id('orgB'))) = 2, 'every business gets a plan row automatically');
-select tests.ok(public.effective_plan(tests.id('orgB')) = 'free' and not public.billing_enforced(), 'new businesses start on Free, and limits start switched off');
+select tests.ok(public.effective_plan(tests.id('orgB')) = 'none' and not public.billing_enforced(), 'new businesses start with no plan, and limits start switched off');
+update public.org_billing set free_plan = true where org_id = tests.id('orgB');
+select tests.ok(public.effective_plan(tests.id('orgB')) = 'free', 'businesses from before the change keep the Free plan');
 select tests.login('bob');
 select tests.ok((select plan from public.org_billing where org_id = tests.id('orgB')) = 'free', 'an owner can see their plan');
 select tests.ok((select count(*) from public.org_billing where org_id = tests.id('orgA')) = 0, 'nobody can see another business''s plan');
 select tests.fails($$update public.org_billing set plan = 'events', status = 'active' where org_id = tests.id('orgB')$$, 'owners cannot give themselves a plan');
+select tests.fails($$update public.org_billing set free_plan = true where org_id = tests.id('orgB')$$, 'owners cannot give themselves the Free plan');
 select tests.fails($$update public.org_billing set billing_interval = 'year', last_payment_error = null where org_id = tests.id('orgB')$$, 'owners cannot change their billing period or clear a failed payment');
 select tests.ok((select billing_interval from public.org_billing where org_id = tests.id('orgB')) = 'month', 'plans start on monthly billing');
 select tests.fails($$insert into public.event_passes (org_id, form_id, tier, status, amount_cents) values (tests.id('orgB'), tests.id('formB'), 'unlimited', 'paid', 0)$$, 'owners cannot create a paid event pass');
@@ -736,8 +739,54 @@ select tests.fails($$select public.texts_left(tests.id('orgB'))$$, 'the text all
 reset role;
 update public.org_billing set comped = true, plan = 'events', status = 'none' where org_id = tests.id('orgB');
 select tests.ok(public.effective_plan(tests.id('orgB')) = 'events', 'a comped business keeps its plan without paying');
-update public.billing_config set enforce = false;
 update public.org_billing set comped = false, plan = 'free' where org_id = tests.id('orgB');
+
+-- no plan (businesses created after the change): build free, pay to go live
+select tests.ok(public.effective_plan(tests.id('orgA')) = 'none', 'a new business has no plan');
+select tests.ok(public.plan_limits('none') = '{"live_forms":0,"members":1,"monthly_replies":0,"monthly_texts":0}'::jsonb, 'no plan: nothing can go live, no team, no replies, no texts');
+update public.forms set status = 'closed' where org_id = tests.id('orgA') and status = 'live';
+with x as (insert into public.forms (org_id, title, slug, published_config) values (tests.id('orgA'), 'Alice draft', 'alice-draft', '{}') returning id) insert into tests.ids select 'formA9', id from x;
+with x as (insert into public.forms (org_id, title, slug, published_config) values (tests.id('orgA'), 'Alice wedding', 'alice-wedding', '{"settings":{"cover":{"on":true,"envelope":{"on":true}}}}') returning id) insert into tests.ids select 'formA10', id from x;
+select tests.login('alice');
+select tests.affects($$update public.forms set title = 'Alice draft (edited)' where id = tests.id('formA9')$$, 1, 'no plan: forms can still be built and edited');
+select tests.fails($$update public.forms set status = 'live' where id = tests.id('formA9')$$, 'no plan: a form cannot go live');
+reset role;
+insert into public.event_passes (org_id, form_id, tier, guest_limit, text_limit, status, amount_cents, paid_at, expires_at)
+  values (tests.id('orgA'), tests.id('formA9'), '100', 100, 2, 'paid', 5900, now() - interval '1 minute', now() + interval '30 days');
+select tests.login('alice');
+select tests.affects($$update public.forms set status = 'live' where id = tests.id('formA9')$$, 1, 'no plan: a form with an event pass can go live (any kind of form)');
+reset role;
+update public.forms set settings = '{"cover":{"on":true,"envelope":{"on":true}}}' where id = tests.id('formA9');
+select tests.login('alice');
+select tests.ok(public.publish_form(tests.id('formA9')) > 0, 'an event pass includes the envelope opening');
+select tests.ok((select published_config #>> '{settings,cover,envelope,on}' from public.forms where id = tests.id('formA9')) = 'true', '... and the live form has it');
+select tests.fails($$update public.forms set status = 'live' where id = tests.id('formA10')$$, 'no plan: a second form without a pass cannot go live');
+reset role;
+update public.org_billing set plan = 'starter', status = 'active' where org_id = tests.id('orgA');
+select tests.login('alice');
+select tests.fails($$update public.forms set status = 'live' where id = tests.id('formA10')$$, 'Starter: the envelope opening needs Pro, Events or a pass');
+reset role;
+update public.org_billing set plan = 'pro' where org_id = tests.id('orgA');
+select tests.login('alice');
+select tests.affects($$update public.forms set status = 'live' where id = tests.id('formA10')$$, 1, 'Pro includes the envelope opening');
+reset role;
+-- texts for a form with a pass come from the pass
+select tests.ok(public.texts_left_for(tests.id('orgA'), tests.id('formA9')) = 2, 'a pass has its own text allowance');
+select tests.ok(public.texts_left_for(tests.id('orgA'), tests.id('formA10')) = 1000, 'other forms use the plan''s texts');
+with x as (insert into public.jobs (org_id, stage_id, form_id, title) values (tests.id('orgA'), tests.id('stage0'), tests.id('formA9'), 'Pass order') returning id) insert into tests.ids select 'jobA9', id from x;
+insert into public.messages (org_id, job_id, channel, to_address, kind, status) values (tests.id('orgA'), tests.id('jobA9'), 'sms', '+12025550142', 'stage_update', 'sent');
+select tests.ok(public.texts_left_for(tests.id('orgA'), tests.id('formA9')) = 1, 'a text for the event uses the pass''s allowance');
+select tests.ok(public.texts_left_for(tests.id('orgA'), tests.id('formA10')) = 1000, '... and not the plan''s');
+select tests.login('alice');
+select tests.ok((public.billing_overview(tests.id('orgA')) -> 'passes' -> 0 ->> 'texts_used')::int = 1, 'the Billing page shows the pass''s texts');
+select tests.fails($$select public.texts_left_for(tests.id('orgA'), tests.id('formA9'))$$, 'the pass text check is server only');
+reset role;
+delete from public.messages where job_id = tests.id('jobA9');
+delete from public.jobs where id = tests.id('jobA9');
+update public.forms set status = 'closed' where id in (tests.id('formA9'), tests.id('formA10'));
+delete from public.event_passes where form_id = tests.id('formA9');
+update public.org_billing set plan = 'free', status = 'none', free_plan = true where org_id = tests.id('orgA');
+update public.billing_config set enforce = false;
 
 -- ---------------------------------------------------------------- security hardening (Nov 2026)
 select tests.ok(not has_table_privilege('authenticated', 'public.jobs', 'TRUNCATE') and not has_table_privilege('anon', 'public.customers', 'TRUNCATE')
@@ -765,7 +814,7 @@ delete from public.messages where to_address in ('+447700900123', 'victim@exampl
 select tests.login('bob');
 insert into tests.ids select 'free2', (public.create_organization('Second', 'second-free')).id;
 insert into tests.ids select 'free3', (public.create_organization('Third', 'third-free')).id;
-select tests.fails($$select public.create_organization('Fourth', 'fourth-free')$$, 'an account can have at most 3 businesses on the Free plan');
+select tests.fails($$select public.create_organization('Fourth', 'fourth-free')$$, 'an account can have at most 3 businesses without a paid plan');
 reset role;
 delete from public.organizations where id in (tests.id('free2'), tests.id('free3'));
 

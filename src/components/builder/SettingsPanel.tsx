@@ -171,7 +171,7 @@ export function SettingsPanel({ form, update, orgSlug, siteUrl, status, version,
               hint="A soft metallic shine on the heading, made from your button colour (Design → Global theme → Buttons)." />
             <Toggle label="Start in a sealed envelope" checked={form.settings.cover.envelope.on}
               onChange={(v) => { update((d) => { d.settings.cover.envelope.on = v; }); if (v) onPreviewEnvelope(); }}
-              hint="Guests first see a sealed envelope. They tap the seal, the flap lifts and your invitation slides out." />
+              hint="Guests first see a sealed envelope. They tap the seal, the flap lifts and your invitation slides out. Included with Pro, Events and event passes." />
             {form.settings.cover.envelope.on && (
               <div className="b-env form">
                 <div>

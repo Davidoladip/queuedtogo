@@ -6,9 +6,9 @@ import { checkSubmission } from "@/lib/submission";
 import { DEMO_BUSINESS } from "@/lib/demo";
 
 /** A demo form: checks answers exactly like a real form, then shows the real thank-you screen. Nothing is saved or sent. */
-export function DemoForm({ form, assetBase }: { form: FormModel; assetBase: string }) {
+export function DemoForm({ form, assetBase, businessName = DEMO_BUSINESS }: { form: FormModel; assetBase: string; businessName?: string }) {
   return (
-    <FormRenderer form={form} assetBase={assetBase} mode="live" businessName={DEMO_BUSINESS} version={1}
+    <FormRenderer form={form} assetBase={assetBase} mode="live" businessName={businessName} version={1}
       onSubmitOrder={async (fd) => {
         await new Promise((r) => setTimeout(r, 300));
         const c = checkSubmission(form, fd);

@@ -26,15 +26,24 @@ with sync_playwright() as p:
         pg.goto(f"{BASE}/dev/billing{q}")
         pg.wait_for_selector(".bl")
 
-    # Free plan
+    # No plan yet (a business created after plans changed)
+    go("?state=none")
+    t = pg.locator(".bl-current").inner_text()
+    check("a new business is told it has no plan yet and how to publish", "No plan" in pg.locator("#bl-now").inner_text() and "build and preview as many forms" in t and "event pass" in t, t)
+    check("no usage meters without a plan", pg.locator(".bl-meter").count() == 0)
+    check("no free trial is offered", pg.get_by_text("free trial", exact=False).count() == 1 and pg.get_by_role("button", name="Choose Pro").count() == 1)
+    check("renewal terms say there's no trial and you're charged when you subscribe", "charged the price shown" in pg.locator(".bl-renew").inner_text() and "no free trial" in pg.locator(".bl-renew").inner_text())
+    pg.screenshot(path=f"{SHOTS}/billing-none.png", full_page=True)
+
+    # Free plan (kept by businesses from before)
     go("?state=free")
     check("shows the current plan", pg.locator("#bl-now").inner_text().startswith("Free"))
+    check("explains the Free plan is kept from before", "keeps from before plans changed" in pg.locator(".bl-current").inner_text())
     cards = pg.locator(".bl-plan")
-    check("four plans", cards.count() == 4, cards.count())
-    prices = [cards.nth(i).locator(".bl-price b").inner_text() for i in range(4)]
-    check("priced $0 / $29 / $69 / $139", prices == ["$0", "$29", "$69", "$139"], prices)
-    check("first-timers are offered the free trial", pg.get_by_role("button", name="Start 14-day free trial").count() == 3)
-    check("trial needs a card note", "needs a card" in pg.locator("section[aria-labelledby=bl-plans]").inner_text())
+    check("three paid plans on sale (no Free card)", cards.count() == 3, cards.count())
+    prices = [cards.nth(i).locator(".bl-price b").inner_text() for i in range(3)]
+    check("priced $29 / $69 / $139", prices == ["$29", "$69", "$139"], prices)
+    check("plans are chosen, not trialled", pg.get_by_role("button", name="Choose Starter").count() == 1 and pg.get_by_role("button", name="Start 14-day free trial").count() == 0)
     m = pg.get_by_role("meter", name="Replies")
     check("reply usage meter", m.get_attribute("aria-valuenow") == "47" and m.get_attribute("aria-valuemax") == "50")
     check("nearly-full meter is highlighted", "near" in (pg.locator(".bl-meter").nth(2).get_attribute("class") or ""))
@@ -46,20 +55,24 @@ with sync_playwright() as p:
 
     # Event passes
     sel = pg.locator(".bl-select select")
-    check("pass form picker lists RSVP forms", sel.locator("option").count() == 2)
-    check("three pass sizes priced $29 / $49 / $69", [pg.locator(".bl-passcard .bl-price b").nth(i).inner_text() for i in range(3)] == ["$29", "$49", "$69"])
+    check("pass form picker lists the forms", sel.locator("option").count() == 2)
+    check("three pass sizes priced $59 / $99 / $149", [pg.locator(".bl-passcard .bl-price b").nth(i).inner_text() for i in range(3)] == ["$59", "$99", "$149"])
+    check("each pass shows its texts", [pg.locator(".bl-passcard .bl-small").nth(i).inner_text() for i in range(3)] == ["300 texts included", "900 texts included", "2,000 texts included"])
+    check("passes are for any kind of form, with the envelope", "orders, tickets or RSVPs" in pg.locator(".bl-pass-inc").inner_text() and "envelope" in pg.locator(".bl-pass-inc").inner_text())
     pg.get_by_role("article", name="Up to 100 guests pass").get_by_role("button").click()
     pg.wait_for_function("document.querySelector('.notice.success')?.textContent.includes('pass-100')")
     check("buying a pass calls the pass action", True)
     sel.select_option(label="Dr. Funmi's Golden Experience (2026-12-12)")
     check("a form's current pass (and smaller ones) show as included",
-          pg.get_by_role("article", name="Up to 300 guests pass").get_by_text("Included").count() == 1
-          and pg.get_by_role("article", name="Up to 100 guests pass").get_by_text("Included").count() == 1
+          pg.get_by_role("article", name="Up to 300 guests pass").get_by_text("Included", exact=True).count() == 1
+          and pg.get_by_role("article", name="Up to 100 guests pass").get_by_text("Included", exact=True).count() == 1
           and pg.get_by_role("article", name="Unlimited guests pass").get_by_role("button").count() == 1)
     pg.get_by_role("article", name="Unlimited guests pass").get_by_role("button").click()
     pg.wait_for_selector(".notice.error")
     check("a failed purchase shows a clear error", "payment service" in pg.locator(".notice.error").inner_text())
-    check("active passes list usage", "41 of 300 replies" in pg.locator(".bl-active").inner_text())
+    check("active passes list usage", "41 of 300 replies" in pg.locator(".bl-active").inner_text() and "37 of 900 texts" in pg.locator(".bl-active").inner_text())
+    go("?state=none&form=f2")
+    check("the builder's link opens with that form picked", pg.locator(".bl-select select").input_value() == "f2")
 
     # Trial
     go("?state=trial")
@@ -70,7 +83,7 @@ with sync_playwright() as p:
     check("unlimited replies show no limit", "no limit" in pg.locator(".bl-meter").nth(2).inner_text())
 
     go("?state=cancelling")
-    check("cancelled plan says when it ends", "then move to Free" in pg.locator(".bl-current").inner_text())
+    check("cancelled plan says when it ends and what happens", "stop taking new replies" in pg.locator(".bl-current").inner_text())
     pg.get_by_role("button", name="Resume plan").click()
     pg.wait_for_selector(".notice.success")
     check("a cancelled plan can be resumed", "demo:resume" in pg.locator(".notice.success").inner_text())
@@ -80,8 +93,8 @@ with sync_playwright() as p:
     tg = pg.get_by_role("radiogroup", name="Billing period")
     check("monthly is picked first", tg.get_by_role("radio", name="Monthly").get_attribute("aria-checked") == "true")
     tg.get_by_role("radio", name="Annual 2 months free").click()
-    yearly = [cards.nth(i).locator(".bl-price b").inner_text() for i in range(4)]
-    check("annual prices are $290 / $690 / $1,390", yearly == ["$0", "$290", "$690", "$1,390"], yearly)
+    yearly = [cards.nth(i).locator(".bl-price b").inner_text() for i in range(3)]
+    check("annual prices are $290 / $690 / $1,390", yearly == ["$290", "$690", "$1,390"], yearly)
     check("annual shows the monthly cost and saving", "$57.50 a month · save $138 a year" in pg.get_by_role("article", name="Pro plan").inner_text())
     pg.get_by_role("article", name="Pro plan").get_by_role("button").click()
     pg.wait_for_selector(".notice.success")
@@ -119,7 +132,7 @@ with sync_playwright() as p:
     check("members see billing but can't change it", pg.get_by_text("Only owners and admins can change billing.").count() == 1 and pg.locator(".bl-plan button").first.is_disabled()
           and pg.get_by_role("button", name="Manage billing").count() == 0)
     go("?state=free&norsvp=1")
-    check("explains how to get an RSVP form for a pass", pg.get_by_text("You don't have an RSVP form yet").count() == 1)
+    check("explains how to get a form for a pass", pg.get_by_text("You don't have a form yet").count() == 1)
 
     # Return from checkout
     go("?state=trial&checkout=plan")

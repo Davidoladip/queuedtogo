@@ -39,7 +39,7 @@ function fakeAdmin(tables: Record<string, R[]>) {
 
 describe("platform fee", () => {
   it("is lower on higher plans and rounds to the cent", () => {
-    expect(PLATFORM_FEE_RATE).toEqual({ free: 0.03, starter: 0.02, pro: 0.01, events: 0.005 });
+    expect(PLATFORM_FEE_RATE).toEqual({ none: 0.03, free: 0.03, starter: 0.02, pro: 0.01, events: 0.005 });
     expect(platformFeeCents(4000, "free")).toBe(120);
     expect(platformFeeCents(4000, "pro")).toBe(40);
     expect(platformFeeCents(4000, "events")).toBe(20);

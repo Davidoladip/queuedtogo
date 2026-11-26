@@ -12,7 +12,7 @@ import { newFormSchema, parseDraft } from "@/lib/validation/form";
 import { fieldErrors, formValues, type FormState } from "@/lib/validation/form-state";
 import type { Json } from "@/types/database";
 
-export type ActionResult = { ok: true; at?: string; version?: number } | { ok: false; error: string };
+export type ActionResult = { ok: true; at?: string; version?: number } | { ok: false; error: string; /** Publishing needs a plan or an event pass (or a bigger plan). */ billing?: boolean };
 
 const SLUG_TAKEN = "Another form in this business already uses that address. Choose a different one.";
 
@@ -94,10 +94,16 @@ export async function publishForm(formId: string, orgSlug: string): Promise<Acti
   await requireUser();
   if (!idSchema.safeParse(formId).success) return { ok: false, error: "That form id isn't valid." };
   const supabase = await createClient();
+  const needsPlan = (code?: string) => code === "QTGP1" || code === "QTGP2";
   const { data: version, error } = await supabase.rpc("publish_form", { p_form: formId });
-  if (error) return { ok: false, error: dbErrorMessage(error, "We couldn't publish the form. Try again.") };
+  if (error) return { ok: false, error: dbErrorMessage(error, "We couldn't publish the form. Try again."), billing: needsPlan(error.code) };
   const { error: sErr } = await supabase.from("forms").update({ status: "live" }).eq("id", formId);
-  if (sErr) return { ok: false, error: dbErrorMessage(sErr, "The form was published but couldn't be set to live. Try again.") };
+  if (sErr) {
+    // Not allowed live yet (no plan or pass): the snapshot is kept, ready for when they choose one.
+    if (needsPlan(sErr.code)) return { ok: false, error: dbErrorMessage(sErr, "Choose a plan or an event pass to publish this form."), billing: true };
+    if (sErr.code === "P0001") return { ok: false, error: dbErrorMessage(sErr, "We couldn't publish the form."), billing: /plan allows/.test(sErr.message ?? "") };
+    return { ok: false, error: dbErrorMessage(sErr, "The form was published but couldn't be set to live. Try again.") };
+  }
   revalidatePath(`/w/${orgSlug}/forms`);
   return { ok: true, version };
 }

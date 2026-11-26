@@ -7,7 +7,7 @@ export type PaymentProvider = "stripe" | "square";
 export const PROVIDER_NAMES: Record<PaymentProvider, string> = { stripe: "Stripe", square: "Square" };
 
 /** QueuedToGo's platform fee, by the business's plan. Lower on higher plans. */
-export const PLATFORM_FEE_RATE: Record<PlanKey, number> = { free: 0.03, starter: 0.02, pro: 0.01, events: 0.005 };
+export const PLATFORM_FEE_RATE: Record<PlanKey, number> = { none: 0.03, free: 0.03, starter: 0.02, pro: 0.01, events: 0.005 };
 
 /** How long tickets are held while a buyer pays (Stripe's checkout pages can't expire sooner than 30 minutes). */
 export const HOLD_MINUTES = 30;

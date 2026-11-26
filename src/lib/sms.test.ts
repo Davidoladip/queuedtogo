@@ -142,7 +142,7 @@ function fakeAdmin(tables: Record<string, R[]>, textsLeft: number | null = null)
     };
     return b;
   };
-  const rpc = async (name: string) => ({ data: name === "texts_left" ? textsLeft : null, error: null });
+  const rpc = async (name: string) => ({ data: name === "texts_left_for" ? textsLeft : null, error: null });
   return { from, rpc } as never;
 }
 const queued = (id: string, extra: R = {}): R => ({ id, org_id: "o1", job_id: "j1", kind: "stage_update", channel: "sms", to_address: "+15551234567", template: "Hi {name}, {order} is ready: {link}", body: null, attempts: 0, status: "queued", created_at: new Date().toISOString(), customer_id: "c1", ...extra });
@@ -155,7 +155,7 @@ describe("sending queued texts", () => {
     expect(r).toMatchObject({ sent: 1, skipped: 1 });
     expect(f).toHaveBeenCalledTimes(1);
     expect(tables.messages[1]).toMatchObject({ status: "skipped" });
-    expect(String(tables.messages[1].skip_reason)).toMatch(/texts on your plan are used up/);
+    expect(String(tables.messages[1].skip_reason)).toMatch(/texts included with your plan or event pass are used up/);
   });
   it("sends nothing on a plan without texts, and doesn't count when limits are off", async () => {
     const t0 = { messages: [queued("m1")], job_events: [] as R[] };

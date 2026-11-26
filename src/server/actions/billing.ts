@@ -5,7 +5,7 @@ import { z } from "zod";
 import { canManage, requireWorkspace } from "@/lib/auth";
 import { adminClient } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/urls";
-import { KEEPS_PLAN, PASSES, PASS_ORDER, PLANS, TRIAL_DAYS, renewalDisclosure, type Interval, type PaidPlan, type PassTier } from "@/lib/plans";
+import { KEEPS_PLAN, PASSES, PASS_ORDER, PLANS, renewalDisclosure, type Interval, type PaidPlan, type PassTier } from "@/lib/plans";
 import { checkoutTaxOptions, ensurePrice, markPassPaid, stripeClient, syncSubscription } from "@/server/billing";
 
 export type BillingResult = { ok: true; url?: string; message?: string } | { ok: false; error: string };
@@ -48,7 +48,7 @@ const fail = (e: unknown, what: string): BillingResult => {
 };
 
 /**
- * Start a plan (Stripe Checkout with a free trial the first time) or change an existing subscription.
+ * Start a plan (Stripe Checkout, charged today: there is no free trial) or change an existing subscription.
  * Monthly -> annual and plan changes apply now (charged or credited for the difference). Annual -> monthly is
  * booked for the renewal date so nobody loses months they've paid for.
  */
@@ -74,13 +74,10 @@ export async function choosePlan(orgSlug: string, plan: PaidPlan, interval: Inte
       line_items: [{ price, quantity: 1 }],
       allow_promotion_codes: true,
       metadata: meta,
-      subscription_data: {
-        metadata: meta,
-        ...(s.billing.had_trial ? {} : { trial_period_days: TRIAL_DAYS }),
-      },
+      subscription_data: { metadata: meta },
       ...checkoutTaxOptions(),
       // The renewal terms, right above Stripe's Subscribe button.
-      custom_text: { submit: { message: renewalDisclosure(p.data, iv.data, !s.billing.had_trial, new Date(Date.now() + TRIAL_DAYS * 86_400_000)) } },
+      custom_text: { submit: { message: renewalDisclosure(p.data, iv.data) } },
       success_url: `${base}?checkout={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}?checkout=cancelled`,
     });
@@ -169,16 +166,15 @@ export async function openBillingPortal(orgSlug: string): Promise<BillingResult>
   }
 }
 
-/** Buy an event invitation pass for one RSVP form (a one-off payment). */
+/** Buy an event pass for one form of any kind (a one-off payment). */
 export async function buyEventPass(orgSlug: string, formId: string, tier: PassTier): Promise<BillingResult> {
   const t = tierSchema.safeParse(tier);
   if (!t.success || !z.uuid().safeParse(formId).success) return { ok: false, error: "Choose a form and a pass." };
   const s = await setup(orgSlug);
   if ("error" in s) return { ok: false, error: s.error! };
-  // The form must belong to this business and be an RSVP form.
-  const { data: form } = await s.admin.from("forms").select("id, title, settings").eq("id", formId).eq("org_id", s.org.id).maybeSingle();
+  // The form must belong to this business.
+  const { data: form } = await s.admin.from("forms").select("id, title").eq("id", formId).eq("org_id", s.org.id).maybeSingle();
   if (!form) return { ok: false, error: "We couldn't find that form." };
-  if ((form.settings as { mode?: string } | null)?.mode !== "rsvp") return { ok: false, error: "Event passes are for RSVP forms. Switch the form to RSVP in its settings first." };
   const { data: current } = await s.admin.from("event_passes").select("tier").eq("form_id", form.id).eq("status", "paid")
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
   if ((current ?? []).some((c) => PASS_ORDER.indexOf(c.tier as PassTier) >= PASS_ORDER.indexOf(t.data))) {
@@ -189,7 +185,7 @@ export async function buyEventPass(orgSlug: string, formId: string, tier: PassTi
     const price = await ensurePrice(s.stripe, { pass: t.data });
     const customer = await customerFor(s);
     const { data: row, error } = await s.admin.from("event_passes").insert({
-      org_id: s.org.id, form_id: form.id, tier: t.data, guest_limit: pass.guestLimit, amount_cents: pass.price * 100, created_by: s.user.id,
+      org_id: s.org.id, form_id: form.id, tier: t.data, guest_limit: pass.guestLimit, text_limit: pass.texts, amount_cents: pass.price * 100, created_by: s.user.id,
     }).select("id").single();
     if (error || !row) return { ok: false, error: "We couldn't start the purchase. Try again." };
     const base = `${await siteUrl()}/w/${s.org.slug}/billing`;
@@ -202,7 +198,7 @@ export async function buyEventPass(orgSlug: string, formId: string, tier: PassTi
       metadata: meta,
       ...checkoutTaxOptions(),
       payment_intent_data: { metadata: meta, description: `Event pass (${pass.name}) for "${form.title}"`.slice(0, 200) },
-      custom_text: { submit: { message: "A one-time payment for this invitation. It does not renew. By paying you agree to the QueuedToGo Terms of Service (queuedtogo.com/terms-of-service)." } },
+      custom_text: { submit: { message: "A one-time payment for this event. It does not renew. By paying you agree to the QueuedToGo Terms of Service (queuedtogo.com/terms-of-service)." } },
       success_url: `${base}?checkout={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}?checkout=cancelled`,
     });

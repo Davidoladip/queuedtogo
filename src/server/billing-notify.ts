@@ -17,12 +17,12 @@ export async function notifyOwners(admin: Admin, n: BillingNotice): Promise<void
     if (!cfg) return;
     const [{ data: org }, { data: bill }, { data: people }] = await Promise.all([
       admin.from("organizations").select("name, slug").eq("id", n.orgId).single(),
-      admin.from("org_billing").select("plan").eq("org_id", n.orgId).single(),
+      admin.from("org_billing").select("plan, free_plan").eq("org_id", n.orgId).single(),
       admin.from("organization_members").select("role, profiles(email)").eq("org_id", n.orgId).in("role", ["owner", "admin"]),
     ]);
     if (!org) return;
     const plan = PLANS[(bill?.plan as PlanKey) ?? "free"]?.name ?? "paid";
-    const msg = billingEmail({ kind: n.kind, business: org.name, plan, billingUrl: `${siteBase()}/w/${org.slug}/billing`, reason: n.reason, endsOn: day(n.endsAt) });
+    const msg = billingEmail({ kind: n.kind, business: org.name, plan, billingUrl: `${siteBase()}/w/${org.slug}/billing`, reason: n.reason, endsOn: day(n.endsAt), legacyFree: !!bill?.free_plan });
     const to = [...new Set((people ?? []).map((p) => (p.profiles as { email?: string | null } | null)?.email ?? "").filter(isEmail))].slice(0, 10);
     for (const address of to) {
       const r = await sendEmail(cfg, { to: address, ...msg, tags: { kind: `billing_${n.kind}` } });

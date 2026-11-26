@@ -4,6 +4,7 @@ import "./builder.css";
 import Link from "next/link";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { FormRenderer } from "@/components/form/FormRenderer";
+import { TestDrive } from "./TestDrive";
 import { IMG_DEFAULT, blankField, newId, normalizeDesign, type FormModel } from "@/lib/design/engine";
 import { processImage, type ProcessedImage } from "@/lib/design/image";
 import { createClient } from "@/lib/supabase/client";
@@ -40,6 +41,8 @@ export type BuilderProps = {
   otherForms: { id: string; title: string }[];
   /** Development harness only: saves stay in memory and nothing is sent to the server. */
   demo?: boolean;
+  /** Development harness only: publishing fails as it does for a business without a plan. */
+  demoNoPlan?: boolean;
   /** RSVP texts are available on QueuedToGo. */
   rsvpTextsApproved?: boolean;
   /** Whether this business may sell, whether it can right now, and its platform fee rate. */
@@ -60,7 +63,8 @@ export function Builder(props: BuilderProps) {
   const [status, setStatus] = useState<Status>(props.status);
   const [version, setVersion] = useState(props.publishedVersion);
   const [unpublished, setUnpublished] = useState(props.changedSincePublish || props.publishedVersion === 0);
-  const [banner, setBanner] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [banner, setBanner] = useState<{ kind: "success" | "error"; text: string; billing?: boolean } | null>(null);
+  const [testing, setTesting] = useState(false);
   const [pending, startTransition] = useTransition();
   const [ps, setPs] = useState<PreviewState>({ ctx: "", state: "default" });
   const [brand, setBrandState] = useState<string[]>(props.brand);
@@ -170,8 +174,10 @@ export function Builder(props: BuilderProps) {
     setBanner(null);
     startTransition(async () => {
       if (!(await doSave())) { setBanner({ kind: "error", text: "Fix the problem shown at the top before publishing." }); return; }
-      const res = props.demo ? { ok: true as const, version: version + 1 } : await publishForm(form.id, orgSlug);
-      if (!res.ok) { setBanner({ kind: "error", text: res.error }); return; }
+      const res = props.demo
+        ? (props.demoNoPlan ? { ok: false as const, error: "Choose a plan or buy an event pass to publish this form. You can keep building and testing it until then.", billing: true } : { ok: true as const, version: version + 1 })
+        : await publishForm(form.id, orgSlug);
+      if (!res.ok) { setBanner({ kind: "error", text: res.error, billing: "billing" in res && !!res.billing }); return; }
       setVersion(res.version ?? version + 1);
       setStatus("live");
       setUnpublished(false);
@@ -228,13 +234,20 @@ export function Builder(props: BuilderProps) {
           <button type="button" onClick={undo} disabled={!hist.undo} title="Undo (Ctrl+Z)">↶ Undo</button>
           <button type="button" onClick={redo} disabled={!hist.redo} title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
         </div>
+        <button type="button" className="btn small" onClick={() => setTesting(true)}>Test it</button>
         {status === "live" && <a className="btn small" href={publicUrl} target="_blank" rel="noopener noreferrer">Open live form ↗</a>}
         <button type="button" className="btn small primary" onClick={onPublish} disabled={pending || save === "error"}>
           {pending ? "Working…" : version === 0 ? "Publish form" : unpublished ? "Publish changes" : "Published"}
         </button>
       </div>
       {saveError && <div className="notice error b-banner" role="alert">{saveError}</div>}
-      {banner && <div className={`notice ${banner.kind} b-banner`} role={banner.kind === "error" ? "alert" : "status"}>{banner.text}</div>}
+      {banner && (
+        <div className={`notice ${banner.kind} b-banner`} role={banner.kind === "error" ? "alert" : "status"}>
+          {banner.text}
+          {banner.billing && <> <Link className="b-banner-act" href={`/w/${orgSlug}/billing?form=${formId}`}>Choose a plan or event pass</Link></>}
+        </div>
+      )}
+      {testing && <TestDrive form={form} assetBase={assetBase} businessName={orgName} onClose={() => setTesting(false)} />}
 
       {toast && <div className="b-toast" role="status" key={toast.n}>{toast.text}</div>}
       <div className="b-grid">

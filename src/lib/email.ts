@@ -254,6 +254,8 @@ export type BillingEmailInput = {
   reason?: string | null;
   /** When a cancelled plan ends, already formatted ("December 13, 2026"). */
   endsOn?: string | null;
+  /** The business keeps the old Free plan when a paid plan ends (businesses from before Nov 26 2026). */
+  legacyFree?: boolean;
 };
 
 export function billingEmail(v: BillingEmailInput) {
@@ -269,7 +271,8 @@ export function billingEmail(v: BillingEmailInput) {
     };
   }
   if (v.kind === "cancel_confirmed") {
-    const p1 = `${v.business}'s ${v.plan} plan is cancelled. You keep everything in ${v.plan}${v.endsOn ? ` until ${v.endsOn}` : " until the end of the paid period"}, then the business moves to the Free plan.`;
+    const after = v.legacyFree ? "then the business moves to the Free plan." : "then forms without an event pass stop taking new replies until you choose a plan again.";
+    const p1 = `${v.business}'s ${v.plan} plan is cancelled. You keep everything in ${v.plan}${v.endsOn ? ` until ${v.endsOn}` : " until the end of the paid period"}, ${after}`;
     const p2 = "Nothing is deleted. Changed your mind? Resume the plan from the Billing page before then.";
     return {
       subject: `${v.business}'s ${v.plan} plan is cancelled`,
@@ -277,10 +280,11 @@ export function billingEmail(v: BillingEmailInput) {
       html: layout({ preheader: v.endsOn ? `Your plan ends on ${v.endsOn}.` : "Your plan ends at the end of the period.", heading: "Your plan is cancelled", paragraphs: [p1, p2], button: { url: v.billingUrl, label: "Resume plan" }, footer }),
     };
   }
-  const p1 = `${v.business}'s ${v.plan} plan has ended, so the business is now on the Free plan.`;
+  const p1 = v.legacyFree ? `${v.business}'s ${v.plan} plan has ended, so the business is now on the Free plan.`
+    : `${v.business}'s ${v.plan} plan has ended. Forms without an event pass no longer take new replies.`;
   const p2 = "Your forms, orders and customers are all still there. Choose a plan any time to pick up where you left off.";
   return {
-    subject: `${v.business} is now on the Free plan`,
+    subject: v.legacyFree ? `${v.business} is now on the Free plan` : `${v.business}'s ${v.plan} plan has ended`,
     text: `${p1}\n\n${p2}\n\nChoose a plan: ${v.billingUrl}`,
     html: layout({ preheader: "Your forms and orders are still there.", heading: "Your plan has ended", paragraphs: [p1, p2], button: { url: v.billingUrl, label: "Choose a plan" }, footer }),
   };

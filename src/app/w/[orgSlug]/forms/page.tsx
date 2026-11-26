@@ -22,12 +22,15 @@ export default async function FormsPage({ params, searchParams }: {
   const sp = await searchParams;
   const { org } = await requireWorkspace(orgSlug);
   const supabase = await createClient();
-  const [{ data: forms, error }, { data: subs }, { data: openJobs }] = await Promise.all([
+  const [{ data: forms, error }, { data: subs }, { data: openJobs }, { data: bill }] = await Promise.all([
     supabase.from("forms").select("id, title, slug, status, event_date, venue, submit_label, settings, design, updated_at")
       .eq("org_id", org.id).order("updated_at", { ascending: false }),
     supabase.from("form_submissions").select("form_id").eq("org_id", org.id).range(0, 9999),
     supabase.from("jobs").select("form_id").eq("org_id", org.id).is("completed_at", null).range(0, 9999),
+    supabase.from("org_billing").select("status, comped, free_plan").eq("org_id", org.id).maybeSingle(),
   ]);
+  // No plan yet (businesses created after plans changed): building and testing are free, publishing needs a plan or pass.
+  const noPlan = !!bill && !bill.comped && !bill.free_plan && !["trialing", "active", "past_due"].includes(bill.status);
   if (error) throw new Error(error.message);
   const tally = (rows: { form_id: string | null }[] | null) => (rows ?? []).reduce((m, r) => (r.form_id ? m.set(r.form_id, (m.get(r.form_id) ?? 0) + 1) : m), new Map<string, number>());
   const subCount = tally(subs), openCount = tally(openJobs);
@@ -54,6 +57,13 @@ export default async function FormsPage({ params, searchParams }: {
         </div>
         {cards.length > 0 && <Link className="btn primary" href={`/w/${org.slug}/forms/new`}>New event form</Link>}
       </div>
+      {noPlan && (
+        <div className="fg-notice">
+          <Notice>
+            Build and test as many forms as you like. To publish one, <Link href={`/w/${org.slug}/billing`}>choose a plan or buy an event pass</Link> for it.
+          </Notice>
+        </div>
+      )}
       {sp.deleted && <div className="fg-notice"><Notice tone="success">Form deleted.</Notice></div>}
       {sp.notdeleted && <div className="fg-notice"><Notice tone="error">That form wasn&apos;t deleted. Only owners and admins can delete forms.</Notice></div>}
 

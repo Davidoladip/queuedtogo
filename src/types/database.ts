@@ -81,6 +81,7 @@ export type Database = {
           expires_at: string | null
           form_id: string
           guest_limit: number | null
+          text_limit: number | null
           id: string
           org_id: string
           paid_at: string | null
@@ -96,6 +97,7 @@ export type Database = {
           expires_at?: string | null
           form_id: string
           guest_limit?: number | null
+          text_limit?: number | null
           id?: string
           org_id: string
           paid_at?: string | null
@@ -111,6 +113,7 @@ export type Database = {
           expires_at?: string | null
           form_id?: string
           guest_limit?: number | null
+          text_limit?: number | null
           id?: string
           org_id?: string
           paid_at?: string | null
@@ -615,6 +618,7 @@ export type Database = {
           pending_plan: string | null
           cancel_at_period_end: boolean
           comped: boolean
+          free_plan: boolean
           current_period_end: string | null
           had_trial: boolean
           org_id: string
@@ -635,6 +639,7 @@ export type Database = {
           pending_plan?: string | null
           cancel_at_period_end?: boolean
           comped?: boolean
+          free_plan?: boolean
           current_period_end?: string | null
           had_trial?: boolean
           org_id: string
@@ -655,6 +660,7 @@ export type Database = {
           pending_plan?: string | null
           cancel_at_period_end?: boolean
           comped?: boolean
+          free_plan?: boolean
           current_period_end?: string | null
           had_trial?: boolean
           org_id?: string
@@ -1230,6 +1236,7 @@ export type Database = {
         Returns: Json;
       };
       texts_left: { Args: { p_org: string }; Returns: number }
+      texts_left_for: { Args: { p_org: string; p_form: string | null }; Returns: number | null }
       update_rsvp: { Args: { p_token: string; p_status: string; p_party: number }; Returns: Json };
       queue_rsvp_reminders: { Args: Record<PropertyKey, never>; Returns: string[] };
       reorder_stages: { Args: { p_org: string; p_order: string[] }; Returns: undefined };
